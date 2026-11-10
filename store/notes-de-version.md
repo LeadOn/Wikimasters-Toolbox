@@ -7,6 +7,44 @@ Une section par version, la plus récente en premier. Pour chaque version :
   champ : anglais par défaut, puis français).
 - Le Chrome Web Store n'a pas de champ de notes de version : rien à saisir.
 
+## 2.2.2
+
+### Note complète
+
+```
+v2.2.2 : récapitulatif après la roulette, arrêt de la roulette n'importe où sur le dos
+
+Paquets
+- Le récapitulatif du paquet s'affichait dès le passage du bouton du site à « Continuer », donc pendant
+  la roulette ou le suspense de la dernière carte, qu'il dévoilait. Il attend maintenant la fin de sa
+  révélation (ensureRevealExtras rend l'état de la carte cachée à ensurePullsWidgets).
+- Roulette : le repère s'arrête n'importe où sur le dos de la carte (±46 % de sa largeur, plus souvent
+  loin du centre, parfois à un cheveu du dos d'avant ou d'après) au lieu de ±40 %, et la bande reste
+  immobile 0,42 s à l'endroit de l'arrêt (phase « stop ») avant de se recentrer. Environ 7 s en tout.
+
+Tests (169), guide, cahier des charges (K1, K7) et notes de version mis à jour.
+```
+
+### Firefox Add-ons : notes de version (anglais)
+
+```
+Changed in 2.2.2
+
+Packs
+- The pack summary now appears only once the last card has been revealed, after the roulette or the suspense.
+- The roulette can stop anywhere on the card back, often close to an edge, and pauses there for a moment before centering.
+```
+
+### Firefox Add-ons : notes de version (français)
+
+```
+Modifié dans la 2.2.2
+
+Paquets
+- Le récapitulatif du paquet n'apparaît qu'une fois la dernière carte révélée, après la roulette ou le suspense.
+- La roulette peut s'arrêter n'importe où sur le dos de la carte, souvent près d'un bord, et y reste un instant avant de se recentrer.
+```
+
 ## 2.2.1
 
 ### Note complète

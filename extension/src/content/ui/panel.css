@@ -789,7 +789,7 @@ button.chip:disabled { opacity: 0.5; cursor: progress; }
 .sx-stars i:nth-child(3n + 2) { background: #9ff3ff; }
 
 /* --- Roulette de la dernière carte (ui/islands/Roulette.jsx) : bande de dos de cartes sous un
-   repère (.spin), recentrage (.settle), le dos de la carte grandit à sa place (.grow), puis se
+   repère (.spin), arrêt sur place (.stop), recentrage (.settle), le dos de la carte grandit à sa place (.grow), puis se
    révèle (.release) pendant que la carte du site entre (wmt-enter-* de site.css). Taille de la
    carte : --cw, --ch (site-dom.js) ; dos de la bande : --k fois la carte. Durées : --grow, --out,
    --face (features/roulette.js, features/suspense.js).

@@ -570,13 +570,14 @@ function ensurePullsWidgets() {
   const reveal = onPulls ? findButton((t) => SEL.revealButtonText.test(t)) : null;
   const home = onPulls && !reveal ? homeAnchor() : null;
   const r = recapState.get();
-  ensureRevealExtras(reveal, r);
+  const revealing = ensureRevealExtras(reveal, r);
 
-  // Récapitulatif
+  // Récapitulatif : après la révélation de la dernière carte (suspense ou roulette compris, il la
+  // dévoilerait)
   let recapAnchor = null;
   if (onPulls && isOn("packRecap") && r.cards.length && !r.dismissed) {
     if (reveal) {
-      if (r.source === "reveal" && reveal.textContent.trim() === "Continuer") {
+      if (r.source === "reveal" && reveal.textContent.trim() === "Continuer" && !revealing) {
         markRevealed();
         recapAnchor = revealBlock(reveal);
       }
@@ -630,6 +631,7 @@ let updateSide = null;
 let sideKey = "";
 let shownCard = null; // {at, index, starButton} : carte affichée, pour l'étoile du récapitulatif
 
+// Rend true tant que la carte affichée est cachée par le suspense ou la roulette (révélation comprise)
 function ensureRevealExtras(reveal, r) {
   const parts = reveal && r.source === "reveal" ? revealParts(reveal) : null;
   const card = parts && !parts.loading && parts.total === r.cards.length ? r.cards[parts.index] : null;
@@ -690,6 +692,7 @@ function ensureRevealExtras(reveal, r) {
     }
     if (shownCard.starButton) noteStarred(card.user_card_id, SEL.starredLabel.test(shownCard.starButton.getAttribute("aria-label") || ""));
   } else sideHost?.remove();
+  return hidden;
 }
 
 // Son de la Légendaire du site : retenu par le script de la page (hook/main-world.js) tant qu'il

@@ -19,9 +19,21 @@ test("la bande s'arrête sur la rareté de la carte", () => {
     assert.equal(strip.items.length, STRIP_LENGTH);
     assert.equal(strip.win, WIN_INDEX);
     assert.equal(strip.items[WIN_INDEX], r);
-    assert.ok(Math.abs(strip.offset) <= 0.4, "arrêt sur le dos, pas sur le suivant");
+    assert.ok(Math.abs(strip.offset) <= 0.46, "arrêt sur le dos, pas sur le suivant");
   }
   assert.equal(buildStrip("?", {}, seeded()).items[WIN_INDEX], "C", "rareté inconnue : Commune");
+});
+
+test("arrêt n'importe où sur le dos, des deux côtés, souvent loin du centre", () => {
+  const {buildStrip, MAX_OFFSET} = load();
+  const rand = seeded(11);
+  const offsets = Array.from({length: 400}, () => buildStrip("R", {C: 1}, rand).offset);
+  assert.ok(offsets.every((o) => Math.abs(o) <= MAX_OFFSET));
+  const before = offsets.filter((o) => o < 0).length;
+  assert.ok(before > 140 && before < 260, `des deux côtés (${before} / 400 avant le centre)`);
+  const far = offsets.filter((o) => Math.abs(o) > MAX_OFFSET / 2).length;
+  assert.ok(far > 260, `plus souvent loin du centre (${far} / 400)`);
+  assert.ok(offsets.some((o) => Math.abs(o) > 0.42), "parfois à un cheveu du bord");
 });
 
 test("les autres dos suivent les taux de drop", () => {
@@ -66,7 +78,7 @@ test("déroulé : défilement, arrêt, puis révélation selon la rareté", () =
   const c = rouletteTimeline("C");
   const l = rouletteTimeline("L");
   assert.equal(c.total, l.total, "même attente quelle que soit la rareté");
-  assert.equal(c.total, ROULETTE.spinMs + ROULETTE.settleMs + ROULETTE.growMs + ROULETTE.holdMs);
+  assert.equal(c.total, ROULETTE.spinMs + ROULETTE.stopMs + ROULETTE.settleMs + ROULETTE.growMs + ROULETTE.holdMs);
   assert.ok(c.total <= 7000, "pas plus de 7 s");
   assert.ok(l.releaseMs > c.releaseMs);
   assert.equal(rouletteTimeline("?").releaseMs, c.releaseMs);

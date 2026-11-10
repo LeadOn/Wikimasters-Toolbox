@@ -1,6 +1,6 @@
 // Roulette de la dernière carte (features/roulette.js) : une bande de dos de cartes défile sous un
-// repère (un cliquetis à chaque dos qui passe : features/roulette-sound.js), ralentit et s'arrête un peu à côté du centre d'un
-// dos, se recentre ; les autres dos s'effacent et celui de la carte grandit à sa place, puis se
+// repère (un cliquetis à chaque dos qui passe : features/roulette-sound.js), ralentit et s'arrête
+// n'importe où sur un dos (souvent près d'un bord), y reste un instant, se recentre ; les autres dos s'effacent et celui de la carte grandit à sa place, puis se
 // révèle comme au suspense : il se retourne et la carte du site enchaîne (jusqu'à Super Rare), ou il
 // se dissout dans un flash d'où sort la carte (Ultra Rare, Légendaire).
 // Taille de la carte (--cw, --ch) et demi-largeur de la bande (--half) : posées par site-dom.js.
@@ -23,7 +23,7 @@ export function Roulette({id, rarity, shiny, onRelease, onDone}) {
   const r = RANKS[rank];
   const plan = rouletteTimeline(r);
   const strip = useMemo(() => buildStrip(r, dropCounts()), [id]);
-  const [phase, setPhase] = useState("spin"); // spin → settle → grow → release
+  const [phase, setPhase] = useState("spin"); // spin → stop → settle → grow → release
   const stripRef = useRef(null);
   const run = useRef({raf: 0, timers: [], geo: null});
 
@@ -51,11 +51,16 @@ export function Roulette({id, rarity, shiny, onRelease, onDone}) {
     setPhase("grow");
     later(plan.growMs + ROULETTE.holdMs, release);
   };
-  const land = () => {
+  const settle = () => {
     clear();
     place(center(), ROULETTE.settleMs);
     setPhase("settle");
     later(ROULETTE.settleMs, grow);
+  };
+  // Arrêt sur place, là où la bande s'est arrêtée, avant le recentrage
+  const land = () => {
+    setPhase("stop");
+    later(ROULETTE.stopMs, settle);
   };
 
   useEffect(() => {
