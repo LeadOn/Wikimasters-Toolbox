@@ -934,6 +934,178 @@ button.chip:disabled { opacity: 0.5; cursor: progress; }
 @keyframes sx-glare { 0% { opacity: 1; transform: skewX(-14deg) translateX(0); } 100% { opacity: 1; transform: skewX(-14deg) translateX(420%); } }
 @keyframes sx-twinkle { 0%, 100% { scale: 0; rotate: 0deg; } 50% { scale: 1; rotate: 45deg; } }
 
+/* --- Scène de « Tout ouvrir » (ui/OpenAllStage.jsx) : chaque paquet est distribué face cachée
+   (oa-deal, décalé par --deal), puis chaque carte se retourne (oa-flip à --flip-at). À partir de
+   Super Rare (.r-3 à .r-5 : rang de la rareté), le dos se charge avant (--charge-at, --charge :
+   aura, texture de la rareté, tremblement) ; la carte arrive avec éclair, ondes et reflet, et à
+   partir d'Ultra Rare se soulève dans un halo (rayons pour une Légendaire). Délais calculés par
+   packTimeline ; .skip les ramène à zéro (clic sur la table), .still retire tout mouvement.
+   Exception à la charte, comme la révélation d'un paquet : lueurs et dégradés aux couleurs des raretés. */
+.oa-wrap { position: fixed; inset: 0; z-index: 2147483050; background: rgba(6, 6, 5, 0.8); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade 0.15s ease-out; }
+.oa {
+  width: min(1000px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 18px;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  outline: none;
+  animation: pop 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* La scène défile d'un bloc : aucun bloc n'est écrasé (la table centrée couperait le haut des cartes) */
+.oa > * { flex-shrink: 0; }
+.oa-head { display: flex; align-items: center; gap: 10px; }
+.oa-heading { flex: 1; min-width: 0; }
+.oa-title { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; line-height: 1.3; }
+.oa-sub { color: var(--faint); font: 500 11px/1.4 var(--mono); }
+.oa-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.oa-count { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 2px; border: 1px solid var(--line); border-radius: 5px; transition: border-color 0.3s, opacity 0.3s; }
+.oa-count:not(.zero) { border-color: color-mix(in srgb, var(--rc) 40%, var(--line)); }
+.oa-count.zero { opacity: 0.45; }
+.oa-count .n { display: inline-block; min-width: 2ch; font: 600 12px var(--mono); font-variant-numeric: tabular-nums; animation: oa-bump 0.35s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.oa-count.zero .n { animation: none; }
+
+/* Table : le paquet en cours (ou les meilleures cartes à la fin) */
+.oa-table {
+  --cw: clamp(84px, 15vw, 148px);
+  position: relative;
+  min-height: calc(var(--cw) * 1.4 + 64px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px 10px 26px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: radial-gradient(110% 85% at 50% 45%, var(--surface-2), var(--bg) 78%);
+  overflow: hidden;
+}
+.oa-table.revealing { cursor: pointer; }
+.oa-table-label { position: relative; z-index: 1; margin-bottom: 4px; }
+.oa-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; perspective: 1100px; }
+.oa-next { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--faint); font: 500 11px var(--mono); }
+
+.oa-card { --rest: 0; position: relative; width: var(--cw); aspect-ratio: 5 / 7; flex: none; animation: oa-deal 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) var(--deal) both; }
+.oa-card.r-2 { --gb: 14px; --gs: 0px; --rest: 0.35; --peak: 0.45; }
+.oa-card.r-3 { --gb: 22px; --gs: 2px; --rest: 0.55; --peak: 0.7; --amp: 1.2px; }
+.oa-card.r-4 { --gb: 32px; --gs: 5px; --rest: 0.75; --peak: 0.9; --amp: 2px; }
+.oa-card.r-5 { --gb: 46px; --gs: 9px; --rest: 0.9; --peak: 1; --amp: 3px; }
+.oa-lift, .oa-shake, .oa-inner { position: absolute; inset: 0; }
+.oa-inner { transform-style: preserve-3d; animation: oa-flip 0.46s cubic-bezier(0.3, 0.7, 0.25, 1) var(--flip-at) both; }
+.oa-card.shown .oa-inner { animation: none; transform: rotateY(180deg); }
+.oa-back, .oa-face { position: absolute; inset: 0; border-radius: 9px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+
+/* Dos : texture Commune du site, puis celle de la rareté pendant la charge */
+.oa-back { display: grid; place-items: center; background: #1b1b19; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.oa-back::after { content: ""; position: absolute; inset: 5%; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 6px; pointer-events: none; }
+.oa-tex { position: absolute; inset: 0; background: center / 200% 168% no-repeat; }
+.oa-tex.hot { opacity: 0; animation: oa-fade-in var(--charge) ease-in var(--charge-at) forwards; }
+.oa-back img { position: relative; width: 44%; height: auto; opacity: 0.85; user-select: none; }
+.oa-card.r-3 .oa-shake, .oa-card.r-4 .oa-shake, .oa-card.r-5 .oa-shake { animation: oa-tremble var(--charge) linear var(--charge-at); }
+
+/* Face */
+.oa-face { transform: rotateY(180deg); background: var(--surface-2); box-shadow: 0 0 0 2px var(--rc), 0 10px 26px rgba(0, 0, 0, 0.5); }
+.oa-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.oa-art.wide { object-fit: contain; background: var(--surface-3); }
+.oa-badges { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.oa-badge { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border-radius: 3px; background: rgba(18, 18, 17, 0.84); color: var(--fg); font: 600 10px/1 var(--mono); letter-spacing: 0.02em; }
+.oa-badge.shiny { color: var(--warn); }
+.oa-badge.new { margin-left: auto; color: var(--ok); }
+.oa-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px 7px 6px;
+  background: linear-gradient(transparent, rgba(10, 10, 9, 0.9) 45%);
+  color: #fff;
+  font: 600 clamp(10px, calc(var(--cw) * 0.085), 12.5px)/1.25 var(--sans);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.oa-holo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 12%, #ff5ea8 28%, #ffe35e 40%, #5effc4 52%, #5eb0ff 64%, #c45eff 76%, transparent 90%) 0 0 / 300% 100%;
+  mix-blend-mode: overlay;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: sx-holo 1.6s linear infinite;
+}
+.oa-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.oa-sheen { position: absolute; inset: -20%; background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.55) 50%, transparent 62%); opacity: 0; pointer-events: none; }
+.oa-card:is(.r-2, .r-3, .r-4, .r-5) .oa-flash { animation: oa-flash 0.55s ease-out calc(var(--flip-at) + 200ms) both; }
+.oa-card:is(.r-2, .r-3, .r-4, .r-5) .oa-sheen { animation: oa-sheen 0.7s ease-out calc(var(--flip-at) + 320ms) forwards; }
+
+/* Aura (chargée avant le retournement à partir de Super Rare), ondes, halo, rayons */
+.oa-glow { position: absolute; inset: 0; border-radius: 9px; opacity: 0; pointer-events: none; box-shadow: 0 0 var(--gb, 12px) var(--gs, 0px) var(--rc); }
+.oa-card.r-2 .oa-glow { animation: oa-glow-pop 0.8s ease-out calc(var(--flip-at) + 180ms) forwards; }
+.oa-card:is(.r-3, .r-4, .r-5) .oa-glow { animation: oa-fade-in var(--charge) ease-in var(--charge-at) forwards, oa-glow-rest 0.8s ease-out calc(var(--flip-at) + 220ms) forwards; }
+.oa-ring { position: absolute; inset: 0; border-radius: 9px; border: 2px solid var(--rc); opacity: 0; pointer-events: none; animation: oa-ring 0.6s cubic-bezier(0.15, 0.7, 0.3, 1) calc(var(--flip-at) + 220ms) forwards; }
+.oa-ring.late { animation-delay: calc(var(--flip-at) + 340ms); }
+.oa-card.r-3 .oa-ring.late { display: none; }
+.oa-card.r-5 .oa-ring { border-width: 3px; }
+.oa-card:is(.r-4, .r-5) .oa-lift { animation: oa-lift 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) calc(var(--flip-at) + 200ms) forwards; }
+.oa-halo { position: absolute; inset: -40%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--rc) 55%, transparent), transparent); opacity: 0; pointer-events: none; animation: oa-halo 1s ease-out calc(var(--flip-at) + 200ms) forwards; }
+.oa-rays { position: absolute; inset: -65%; opacity: 0; pointer-events: none; mask: radial-gradient(closest-side, #000 35%, transparent 100%); animation: oa-fade-in 0.6s ease-out calc(var(--flip-at) + 250ms) forwards; }
+.oa-rays i { position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(color-mix(in srgb, var(--rc) 70%, transparent) 0deg 4deg, transparent 4deg 16deg); animation: sx-spin 14s linear infinite; }
+
+/* Paquet scellé, avant la première réponse du site */
+.oa-sealed { position: relative; width: var(--cw); aspect-ratio: 5 / 7; animation: oa-breathe 1.2s ease-in-out infinite alternate; }
+.oa-sealed .oa-back { transform: translate(calc(var(--i) * 5px), calc(var(--i) * -5px)) rotate(calc(var(--i) * 2deg)); }
+
+/* Clic sur la table : tout le paquet se retourne ; moins d'animations demandées : rien ne bouge */
+.oa-table.skip .oa-card { --deal: 0ms !important; --charge-at: 0ms !important; --charge: 1ms !important; --flip-at: 0ms !important; }
+.oa-table.still :is(.oa-card, .oa-card *) { animation: none !important; }
+.oa-table.still .oa-inner { transform: rotateY(180deg); }
+.oa-table.still .oa-glow { opacity: var(--rest); }
+
+/* Pile : cartes des paquets précédents, la plus récente en premier */
+.oa-pile { display: flex; flex-direction: column; gap: 8px; }
+.oa-mosaic { list-style: none; margin: 0; padding: 2px; display: flex; flex-wrap: wrap; gap: 5px; max-height: 136px; overflow-y: auto; }
+.oa-mini { position: relative; flex: none; width: 30px; height: 42px; margin: 2px; border-radius: 3px; overflow: hidden; background: var(--surface-3); outline: 1.5px solid var(--rc); outline-offset: 1px; animation: oa-pop 0.3s cubic-bezier(0.2, 0.8, 0.3, 1) calc(var(--i) * 45ms) both; }
+.oa-mini-art { display: block; width: 100%; height: 100%; object-fit: cover; }
+.oa-mini-dot { position: absolute; top: 2px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+.oa-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .oa-wrap { padding: 8px; }
+  .oa { padding: 12px; }
+  .oa-table { --cw: clamp(76px, 25vw, 120px); padding-inline: 6px; }
+  .oa-row { gap: 10px; }
+}
+
+@keyframes oa-deal { from { opacity: 0; transform: translateY(-36px) rotate(-5deg) scale(0.86); } }
+@keyframes oa-flip { 0% { transform: rotateY(0); } 50% { transform: rotateY(90deg) scale(1.07); } 100% { transform: rotateY(180deg); } }
+@keyframes oa-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes oa-glow-rest { from { opacity: 1; } to { opacity: var(--rest); } }
+@keyframes oa-glow-pop { 0% { opacity: 0; } 30% { opacity: 0.9; } 100% { opacity: var(--rest); } }
+@keyframes oa-tremble {
+  0%, 100% { translate: 0 0; }
+  12% { translate: var(--amp) 0; }
+  25% { translate: calc(var(--amp) * -1) calc(var(--amp) * 0.6); }
+  37% { translate: calc(var(--amp) * 0.8) calc(var(--amp) * -0.6); }
+  50% { translate: calc(var(--amp) * -0.9) 0; }
+  62% { translate: var(--amp) calc(var(--amp) * 0.5); }
+  75% { translate: calc(var(--amp) * -1) calc(var(--amp) * -0.5); }
+  87% { translate: calc(var(--amp) * 0.7) 0; }
+}
+@keyframes oa-lift { to { transform: translateY(-6px) scale(1.06); } }
+@keyframes oa-flash { from { opacity: var(--peak); } to { opacity: 0; } }
+@keyframes oa-sheen { from { opacity: 1; transform: translateX(-80%); } to { opacity: 1; transform: translateX(80%); } }
+@keyframes oa-ring { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+@keyframes oa-halo { 0% { opacity: 0; transform: scale(0.6); } 30% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.55; transform: scale(1); } }
+@keyframes oa-bump { from { transform: scale(1.6); color: var(--rc); } }
+@keyframes oa-breathe { to { transform: translateY(-5px); } }
+@keyframes oa-pop { from { opacity: 0; transform: scale(0.6); } }
+
 /* --- Taux de drop (écran « Ouvrir un paquet ») */
 .rates {
   display: flex;

@@ -190,6 +190,35 @@ test("tout ouvrir : une de ses réponses vue après coup par le hook ne remplace
   assert.deepEqual(m.packs.recapState.get().cards.map((c) => c.wikipedia_title), ["B"]);
 });
 
+test("tout ouvrir : cartes de chaque paquet transmises à la scène, nouvelles signalées, arrêt demandé par le joueur", async () => {
+  const {m} = setup([{id: "owned"}]);
+  m.collection.owned.set({loadedAt: 1});
+  const packsOf = [
+    [{id: "A", rarity: "C", user_card_id: "uc-1"}, {id: "owned", rarity: "R", user_card_id: "uc-2"}],
+    [{id: "A", rarity: "SR", user_card_id: "uc-3"}, {id: "B", rarity: "C", user_card_id: "uc-4"}],
+    [{id: "C", rarity: "C", user_card_id: "uc-5"}],
+  ];
+  let calls = 0;
+  globalThis.fetch = async (url) => {
+    if (url !== "/api/packs/open") return response(500, {});
+    const cards = packsOf[calls++];
+    // Arrêt demandé pendant le deuxième paquet : il se termine, le troisième n'est pas ouvert
+    if (calls === 2) m.packs.stopOpenAll();
+    return response(200, {cards, packs_remaining: 3 - calls});
+  };
+  m.packs.packsStatus.set({remaining: 3, at: 1});
+  assert.deepEqual(await m.packs.openAllPacks(), {packs: 2, cards: 4});
+  assert.equal(calls, 2);
+  const s = m.packs.openAllState.get();
+  assert.equal(s.running, false);
+  assert.equal(s.stopping, false);
+  assert.equal(s.total, 3);
+  assert.deepEqual(s.batches.map((b) => b.map((c) => [c.id, c.isNew])), [[["A", true], ["owned", false]], [["A", false], ["B", true]]]);
+  assert.equal(m.packs.recapState.get().cards.length, 4);
+  m.packs.stopOpenAll();
+  assert.equal(m.packs.openAllState.get().stopping, false, "rien à arrêter");
+});
+
 test("mise aux enchères : résultat de la fenêtre reporté sur la carte", () => {
   const {m, card} = setup(pulled);
   m.packs.markListed(42, 0, null);

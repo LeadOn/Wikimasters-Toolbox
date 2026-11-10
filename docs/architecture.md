@@ -82,7 +82,8 @@ extension/
         market.js              enchères, surenchère, alerte de fin, enchères en cours d'une carte, vente et défausse des doublons
         achievements.js        succès : liste et progression, réclamation des récompenses (un clic ou automatique, option)
         auction-tab.js         titre de l'onglet sur la page d'une enchère : temps restant, en tête ou surenchéri, relecture régulière
-        packs.js               récapitulatif (gardé d'une page à l'autre), statistiques de tirage, « Tout ouvrir »
+        packs.js               récapitulatif (gardé d'une page à l'autre), statistiques de tirage, « Tout ouvrir » (cartes de chaque paquet, arrêt)
+        open-all.js            scène de « Tout ouvrir » : déroulé d'un paquet (distribution, charge, retournement), meilleures cartes
         pack-dock.js           page Paquets : récapitulatif et taux de drop dans la marge gauche ou droite (colonnes fixes), ou dessous
         quick-tags.js          étiquettes et favori des cartes tirées en un clic (révélation, récapitulatif)
         suspense.js            suspense de la révélation : durées selon la rareté, cartes déjà jouées
@@ -104,6 +105,7 @@ extension/
         panel.css              styles du panneau et des blocs intégrés
         site.css               styles injectés dans les pages du site : badges, nouvel affichage des cartes
         PackRecap.jsx          récapitulatif de paquet, avec vente et défausse de chaque carte
+        OpenAllStage.jsx       scène de « Tout ouvrir » : paquets distribués et retournés, compteurs par rareté, pile, meilleures cartes
         QuickTags.jsx          choix des étiquettes et étoile d'une carte tirée (panneau de la révélation, lignes du récapitulatif)
         DockPicker.jsx         emplacement d'un bloc de la page Paquets : gauche, dessous, droite
         SellDialog.jsx         fenêtre de mise aux enchères, d'une carte ou de plusieurs (Marché, récapitulatif de paquet, jamais vendues)

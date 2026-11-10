@@ -163,7 +163,7 @@
 }
 .wmt-open-all svg { display: block; flex: none; }
 .wmt-open-all:hover:not(:disabled) { border-color: #c5ef55; background: #21211e; }
-.wmt-open-all:disabled { cursor: progress; color: #a9a69b; }
+.wmt-open-all.running { color: #a9a69b; }
 .wmt-open-all:focus-visible { outline: 2px solid #c5ef55; outline-offset: 2px; }
 /* Sous la carte révélée (bloc de la page) ou sous le compteur de paquets ; marge latérale sur mobile */
 .wmt-recap-host {

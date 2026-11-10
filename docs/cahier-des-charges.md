@@ -113,7 +113,7 @@ Remplacent les règles codées en dur pour chaque ami.
 |---|---|---|
 | K1 | Récapitulatif après un paquet : cartes, nouveautés, doublons, prix du marché, valeur totale | P1 |
 | K2 | Statistiques de tirage : répartition des raretés, réinitialisables | P2 |
-| K3 | « Tout ouvrir » : ouvre tous les paquets disponibles sans animation, sur clic + confirmation, en respectant le délai du site entre deux paquets (429 « trop rapide » : attente puis même paquet redemandé) ; s'arrête à toute autre erreur et à la vérification anti-robot, laissée au joueur | P2 |
+| K3 | « Tout ouvrir » : ouvre tous les paquets disponibles, sur clic + confirmation, cartes révélées paquet après paquet dans une scène (réductible, arrêt après le paquet en cours), en respectant le délai du site entre deux paquets (429 « trop rapide » : attente puis même paquet redemandé) ; s'arrête à toute autre erreur et à la vérification anti-robot, laissée au joueur | P2 |
 | K4 | Étiquettes et favori de chaque carte tirée en un clic, à côté de la carte pendant la révélation et dans le récapitulatif | P2 |
 | K5 | Suspense à la révélation, plus long pour une carte plus rare (option) | P3 |
 | K7 | Roulette façon ouverture de caisse pour la dernière carte d'un paquet, à la place du suspense (option) | P3 |

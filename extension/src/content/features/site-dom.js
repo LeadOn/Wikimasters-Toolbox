@@ -495,18 +495,19 @@ function ensureOpenAllButton() {
     btn.type = "button";
     btn.className = "wmt-open-all";
     btn.append(svgElement(markSvg({size: 16})), document.createElement("span"));
-    btn.title = L("WikiMasters Toolbox : ouvre tous les paquets disponibles, sans animation", "WikiMasters Toolbox: opens all available packs, without animation");
+    btn.title = L("WikiMasters Toolbox : ouvre tous les paquets disponibles l'un après l'autre et révèle leurs cartes au fur et à mesure", "WikiMasters Toolbox: opens all available packs one after another and reveals their cards as they come");
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       emit("confirm-open-all", {});
     });
     open.insertAdjacentElement("afterend", btn);
   }
-  // Progression : le site impose un délai entre deux paquets, l'ouverture prend quelques secondes par paquet
+  // Progression : le site impose un délai entre deux paquets, l'ouverture prend quelques secondes par
+  // paquet ; pendant l'ouverture, le bouton rouvre sa scène (ui/OpenAllStage.jsx) si elle a été réduite
   const {running, opened} = openAllState.get();
   const label = running ? L(`Ouverture… (${opened})`, `Opening… (${opened})`) : L("Tout ouvrir", "Open all");
   if (btn.lastChild.textContent !== label) btn.lastChild.textContent = label;
-  btn.disabled = running;
+  btn.classList.toggle("running", running);
 }
 
 // --- Page Paquets : récapitulatif du paquet et graphique des taux de drop

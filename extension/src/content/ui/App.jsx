@@ -22,6 +22,7 @@ import {ImagesTab} from "./tabs/ImagesTab";
 import {AchievementsTab, claimedMessage} from "./tabs/AchievementsTab";
 import {SettingsTab} from "./tabs/SettingsTab";
 import {SellDialogHost} from "./SellDialog";
+import {OpenAllStage, openAllStage, showOpenAllStage} from "./OpenAllStage";
 import {CardAuctionsHost} from "./CardAuctions";
 import {L} from "../../shared/i18n";
 
@@ -183,19 +184,26 @@ export function App() {
       on("route", setPath),
       on("open-panel", ({tab} = {}) => openPanel(tab)),
       on("confirm-open-all", async () => {
-        if (openAllState.get().running) return;
+        // Ouverture en cours : le bouton rouvre sa scène
+        if (openAllState.get().running) return showOpenAllStage();
         const remaining = packsStatus.get().remaining;
         const ok = await confirmAction({
           title: L("Ouvrir tous les paquets ?", "Open all packs?"),
-          body: `${remaining != null ? `${plural(remaining, L("paquet disponible", "pack available"), L("paquets disponibles", "packs available"))}. ` : ""}${L("Ils seront ouverts d'un coup, sans animation. Cette action consomme vos paquets.", "They will be opened at once, without animation. This uses up your packs.")}`,
+          body: `${remaining != null ? `${plural(remaining, L("paquet disponible", "pack available"), L("paquets disponibles", "packs available"))}. ` : ""}${L("Ils seront ouverts l'un après l'autre (quelques secondes par paquet, le rythme du site) et leurs cartes révélées au fur et à mesure. Cette action consomme vos paquets.", "They will be opened one after another (a few seconds per pack, the site's pace) and their cards revealed as they come. This uses up your packs.")}`,
           confirm: L("Tout ouvrir", "Open all"),
         });
         if (!ok) return;
+        // La scène attend le premier paquet de cette ouverture (rien de la précédente)
+        openAllState.set({batches: [], opened: 0, error: null});
+        showOpenAllStage();
         try {
           const r = await openAllPacks();
-          if (openAllState.get().error) toast(openAllState.get().error, {type: "error", duration: 10000});
-          else if (!r.packs) toast(L("Aucun paquet ouvert.", "No pack opened."));
+          // Scène ouverte : l'erreur y est affichée
+          const shown = openAllStage.get().open;
+          if (openAllState.get().error) !shown && toast(openAllState.get().error, {type: "error", duration: 10000});
+          else if (!r.packs && !shown) toast(L("Aucun paquet ouvert.", "No pack opened."));
         } catch (e) {
+          openAllStage.set({open: false});
           toast(errorMessage(e), {type: "error"});
         }
       }),
@@ -230,6 +238,7 @@ export function App() {
       <TradeValuesWidget path={path} />
       <SellDialogHost />
       <CardAuctionsHost />
+      <OpenAllStage />
       <Dialog />
       <Toasts />
     </>

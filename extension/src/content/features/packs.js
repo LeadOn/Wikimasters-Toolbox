@@ -83,7 +83,11 @@ export async function refreshCollectionRarity() {
     setCollectionRarity(await site.myCollectionStats());
   } catch {}
 }
-export const openAllState = createStore({running: false, opened: 0, error: null});
+// « Tout ouvrir » : opened = paquets ouverts, total = paquets à ouvrir (ouverts + restants, null si
+// inconnu), batches = cartes de chaque paquet dans l'ordre d'ouverture (isNew : estimation avec la
+// collection en mémoire, affinée ensuite par le récapitulatif), stopping = arrêt demandé par le joueur
+// après le paquet en cours. Montré pendant l'ouverture par ui/OpenAllStage.jsx.
+export const openAllState = createStore({running: false, opened: 0, total: null, batches: [], stopping: false, error: null});
 export const pullStats = persistentStore("pullStats", {since: Date.now(), packs: 0, cards: 0, byRarity: {}});
 // En dessous de ce nombre de cartes tirées, la répartition de la collection estime mieux les taux de drop
 export const MIN_PULLED = 50;
@@ -235,20 +239,30 @@ async function openPackPolitely() {
 // (dont une vérification anti-robot demandée par le site, à faire par le joueur).
 export async function openAllPacks() {
   return withLock("packs", async () => {
-    openAllState.set({running: true, opened: 0, error: null});
+    const remaining = packsStatus.get().remaining;
+    openAllState.set({running: true, opened: 0, total: remaining || null, batches: [], stopping: false, error: null});
     const wasOwned = new Set(owned.get().ids);
+    // Cartes déjà vues (collection + paquets précédents de cette ouverture), pour signaler les nouvelles
+    const known = owned.get().loadedAt > 0;
+    const seen = new Set(wasOwned);
     const all = [];
     let packs = 0;
     openedByAll = new Set();
     try {
-      for (let guard = 0; guard < 100; guard++) {
+      for (let guard = 0; guard < 100 && !openAllState.get().stopping; guard++) {
         const res = await openPackPolitely();
         // Réponse sans cartes (erreur rendue en 200, format changé) : on s'arrête sans rien supposer
         if (!Array.isArray(res?.cards) || !res.cards.length) throw new Error(res?.error ? String(res.error) : L("réponse du site sans cartes", "site response without cards"));
         packs++;
         all.push(...res.cards);
         for (const c of res.cards) if (c.user_card_id) openedByAll.add(c.user_card_id);
-        openAllState.set({opened: packs});
+        const batch = res.cards.map((c) => {
+          const isNew = known ? !seen.has(c.id) : null;
+          seen.add(c.id);
+          return {...c, isNew};
+        });
+        const total = typeof res.packs_remaining === "number" ? packs + res.packs_remaining : openAllState.get().total;
+        openAllState.set((s) => ({...s, opened: packs, total, batches: [...s.batches, batch]}));
         if (typeof res.packs_remaining === "number") packsStatus.set({remaining: res.packs_remaining, at: Date.now()});
         if (!res.packs_remaining) break;
         await sleep(PACK_INTERVAL);
@@ -266,7 +280,7 @@ export async function openAllPacks() {
             : L(`Arrêt après ${packs} paquet(s) : ${reason}`, `Stopped after ${packs} pack(s): ${reason}`),
       });
     } finally {
-      openAllState.set({running: false});
+      openAllState.set({running: false, stopping: false});
       if (all.length) {
         // Ces ouvertures ne passent pas par la page : la collection en mémoire n'est plus à jour
         invalidateCollection();
@@ -277,6 +291,9 @@ export async function openAllPacks() {
     return {packs, cards: all.length};
   });
 }
+
+// Arrêt demandé par le joueur : le paquet en cours se termine, aucun autre n'est ouvert
+export const stopOpenAll = () => openAllState.get().running && openAllState.set({stopping: true});
 
 // Garde le récapitulatif à chaque changement (cartes, nouveautés, défausses, ventes, tri terminé,
 // fermeture), et le reprend une fois le stockage lu

@@ -7,6 +7,58 @@ Une section par version, la plus récente en premier. Pour chaque version :
   champ : anglais par défaut, puis français).
 - Le Chrome Web Store n'a pas de champ de notes de version : rien à saisir.
 
+## 2.3.0
+
+### Note complète
+
+```
+v2.3.0 : scène d'ouverture pour « Tout ouvrir », cartes révélées paquet après paquet
+
+Paquets
+- « Tout ouvrir » n'ouvre plus les paquets en silence : une scène (ui/OpenAllStage.jsx) montre chaque
+  paquet reçu. Ses cartes sont distribuées face cachée puis retournées l'une après l'autre ; à partir de
+  Super Rare, le dos se charge à la couleur de la rareté (aura, texture du site, tremblement) avant de se
+  retourner, la carte arrive avec éclair, ondes et reflet, et une Ultra Rare ou une Légendaire se soulève
+  dans un halo (rayons pour la Légendaire). Shiny irisée, mention « Nouvelle ».
+- Compteurs par rareté et nouvelles cartes mis à jour carte retournée par carte retournée ; pile des
+  paquets précédents ; un clic sur la table retourne tout le paquet ; déroulé accéléré si la scène prend
+  du retard (déroulé calculé par features/open-all.js : packTimeline, bestCards).
+- « Arrêter » termine le paquet en cours sans en ouvrir d'autre (stopOpenAll de features/packs.js) ; la
+  croix ou Échap réduit la scène sans arrêter l'ouverture, le bouton « Tout ouvrir » la rouvre et
+  affiche la progression.
+- À la fin : meilleures cartes (rareté, shiny, nouvelles), toutes les cartes tirées et « Voir le
+  récapitulatif ». Erreur ou vérification anti-robot affichée dans la scène. Moins d'animations
+  demandées par le système : cartes affichées directement, face visible.
+- openAllState transmet les cartes de chaque paquet (batches, isNew estimé avec la collection en
+  mémoire), le total de paquets et la demande d'arrêt.
+
+Tests (173), guide, README, architecture, cahier des charges (K3), AGENTS.md et notes de version mis à jour.
+```
+
+### Firefox Add-ons : notes de version (anglais)
+
+```
+New in 2.3.0
+
+Packs
+- "Open all" now shows the opening: each pack's cards are dealt face down, then flipped one by one, with effects based on rarity (charge-up from Super Rare, halo for Ultra Rare and Legendary).
+- Live counters by rarity and new cards, a pile of the cards already opened, and a click on the table flips the whole pack.
+- "Stop" finishes the current pack and opens no more; the scene can be minimized while opening continues.
+- At the end: your best cards, all the cards pulled, and a link to the summary.
+```
+
+### Firefox Add-ons : notes de version (français)
+
+```
+Nouveau dans la 2.3.0
+
+Paquets
+- « Tout ouvrir » montre l'ouverture : les cartes de chaque paquet sont distribuées face cachée, puis retournées une à une, avec des effets selon la rareté (charge à partir de Super Rare, halo pour les Ultra Rare et Légendaires).
+- Compteurs par rareté et nouvelles cartes en direct, pile des cartes déjà ouvertes, et un clic sur la table retourne tout le paquet.
+- « Arrêter » termine le paquet en cours sans en ouvrir d'autre ; la scène peut être réduite pendant que l'ouverture continue.
+- À la fin : vos meilleures cartes, toutes les cartes tirées et un lien vers le récapitulatif.
+```
+
 ## 2.2.2
 
 ### Note complète

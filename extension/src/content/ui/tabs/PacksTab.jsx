@@ -27,12 +27,12 @@ export function PacksTab() {
           <h3>{L("Tout ouvrir", "Open all")}</h3>
           <p class="help">
             {L(
-              "Ouvre d'un coup tous les paquets disponibles, sans animation, puis affiche le récapitulatif. S'arrête à la première erreur, ou si le site demande une vérification anti-robot (à faire vous-même sur la page Paquets).",
-              "Opens all available packs at once, without animation, then shows the summary. Stops at the first error, or if the site asks for a bot check (complete it yourself on the Packs page).",
+              "Ouvre tous les paquets disponibles l'un après l'autre, au rythme du site : les cartes de chaque paquet sont distribuées puis révélées au fur et à mesure, et le récapitulatif s'affiche à la fin. S'arrête à la première erreur, ou si le site demande une vérification anti-robot (à faire vous-même sur la page Paquets).",
+              "Opens all available packs one after another, at the site's pace: each pack's cards are dealt and revealed as they come, and the summary is shown at the end. Stops at the first error, or if the site asks for a bot check (complete it yourself on the Packs page).",
             )}
           </p>
           <div class="row">
-            <button class="btn primary" disabled={openAll.running} onClick={() => emit("confirm-open-all", {})}>
+            <button class="btn primary" title={openAll.running ? L("Voir l'ouverture en cours", "Watch the opening in progress") : undefined} onClick={() => emit("confirm-open-all", {})}>
               {openAll.running ? L(`Ouverture… (${openAll.opened})`, `Opening… (${openAll.opened})`) : L("Tout ouvrir", "Open all")}
             </button>
             <span class="small muted">{status.remaining != null
