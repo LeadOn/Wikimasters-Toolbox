@@ -71,6 +71,17 @@ export function startSuspense(at, index) {
   return "hold";
 }
 
+// Son de la Légendaire du site (retenu par hook/main-world.js) : à retenir tant que la carte
+// affichée est retenue (current : résultat de startSuspense) ou qu'une Légendaire du paquet `at`
+// n'a pas encore été jouée et le sera (animated(index) : suspense ou roulette pour cette carte)
+export function holdsLegendarySound(at, cards, {current, animated}) {
+  if (current === "hold") return true;
+  if (reducedMotion()) return false;
+  const s = suspense.get();
+  const played = s.at === at ? s.played : new Set();
+  return cards.some((c, i) => c?.rarity === "L" && !played.has(i) && animated(i));
+}
+
 export function releaseSuspense() {
   const s = suspense.get();
   if (s.active != null && !s.released) suspense.set({released: true});

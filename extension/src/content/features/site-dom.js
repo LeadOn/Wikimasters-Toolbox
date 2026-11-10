@@ -3,7 +3,7 @@
 // (« îlots ») dans les pages : collection, fiche d'une carte, enchère, profil d'un joueur, bilan d'une
 // proposition d'échange, et la page Stonks à la place du contenu de la page.
 // Tous les sélecteurs du site sont ici : si le site change, c'est le seul fichier à adapter.
-import {emit} from "../lib/bus";
+import {emit, on, tellHook} from "../lib/bus";
 import {sleep} from "../lib/http";
 import {ext} from "../lib/ext";
 import {lookupTitle, registryVersion, normTitle} from "../lib/registry";
@@ -14,7 +14,7 @@ import {wikiImage} from "./wiki-images";
 import {recapState, openAllState, markRevealed, pullStats, collectionRarity, refreshCollectionRarity} from "./packs";
 import {placeBlocks, clearBlocks} from "./pack-dock";
 import {pulledTags, noteStarred, setStarProxy} from "./quick-tags";
-import {suspense, startSuspense, releaseSuspense, endSuspense, ENTER} from "./suspense";
+import {suspense, startSuspense, releaseSuspense, endSuspense, holdsLegendarySound, reducedMotion, ENTER} from "./suspense";
 import {auctionById, auctionVersion, nextBid, msLeft} from "./market";
 import {resolveCard} from "./card-lookup";
 import {collectionView, setCollectionView} from "./collection-view";
@@ -647,6 +647,7 @@ function ensureRevealExtras(reveal, r) {
   if (effect === "hold") holdCard(flip);
   else if (flip?.dataset.wmtHeld && animated) enterCard(flip, card);
   else if (flip?.dataset.wmtHeld) restoreCard(flip);
+  syncLegendarySound(r, effect);
   const hidden = Boolean(effect);
   if (hidden) {
     if (!ladderHost) {
@@ -689,6 +690,24 @@ function ensureRevealExtras(reveal, r) {
     }
     if (shownCard.starButton) noteStarred(card.user_card_id, SEL.starredLabel.test(shownCard.starButton.getAttribute("aria-label") || ""));
   } else sideHost?.remove();
+}
+
+// Son de la Légendaire du site : retenu par le script de la page (hook/main-world.js) tant qu'il
+// dévoilerait une carte cachée, joué à sa révélation. Le site le lance au clic qui passe à la
+// carte, avant de l'afficher : la retenue est donc posée d'avance, pour toute Légendaire du paquet
+// encore à révéler (et, dès l'ouverture d'un paquet, par le script de la page lui-même : arm).
+let soundState = "";
+on("pack-opened", () => (soundState = ""));
+function syncLegendarySound(r, effect) {
+  const roulette = isOn("packRoulette");
+  const anyEffect = isOn("packSuspense") || roulette;
+  const animated = (i) => isOn("packSuspense") || (roulette && i === r.cards.length - 1);
+  const arm = anyEffect && !reducedMotion();
+  const hold = anyEffect && r.source === "reveal" && r.phase === "revealing" && holdsLegendarySound(r.at, r.cards, {current: effect, animated});
+  const key = `${arm}-${hold}`;
+  if (key === soundState) return;
+  soundState = key;
+  tellHook("legendary-sound", {arm, hold});
 }
 
 // Roulette : taille de la carte (les dos de la bande en sont une réduction) et demi-largeur de la

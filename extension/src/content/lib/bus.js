@@ -34,6 +34,13 @@ const ROUTES = [
   ["packs-status", /^\/rest\/v1\/rpc\/sync_profile_packs$/],
 ];
 
+// Message au script du monde principal (hook/main-world.js)
+export function tellHook(type, data) {
+  try {
+    window.postMessage({__wmt: "toolbox", type, ...data}, location.origin);
+  } catch {}
+}
+
 export function startHookBridge() {
   window.addEventListener("message", (event) => {
     const msg = event.data;

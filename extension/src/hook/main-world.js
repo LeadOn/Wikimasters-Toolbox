@@ -1,6 +1,7 @@
 // Script du « monde principal » de la page : observe les réponses que le site reçoit déjà
 // (collection, paquets, échanges, marché…) et les transmet à l'extension par window.postMessage.
-// Aucune requête supplémentaire n'est faite ici, et rien n'est modifié.
+// Aucune requête supplémentaire n'est faite ici. Seule modification : le son de la Légendaire du
+// site est retenu tant que la Toolbox cache la carte (voir « Son de la Légendaire » plus bas).
 (() => {
   if (window.__wmtHook) return;
   window.__wmtHook = true;
@@ -67,6 +68,63 @@
     post({type: "response", path, method: (method || "GET").toUpperCase(), status, data, request});
   }
 
+  // --- Son de la Légendaire. Le site joue « legendary-reveal » (Web Audio) dès qu'on passe à une
+  // Légendaire, dans le clic, avant même d'afficher la carte : pendant le suspense ou la roulette,
+  // il dévoilerait la rareté. Le script de contenu demande de le retenir (hold) tant qu'une
+  // Légendaire du paquet doit encore être cachée ou que la carte affichée l'est ; levée la
+  // retenue, le son retenu est joué (à la révélation). Le son est reconnu à son fichier : ses
+  // octets, puis le tampon décodé, sont marqués. Rien d'autre n'est retenu ; un son arrêté par le
+  // site pendant la retenue (carte quittée) est oublié. arm : retenue posée dès l'ouverture d'un
+  // paquet (suspense ou roulette activés), le temps que le script de contenu lise le paquet.
+  const LEGENDARY_SOUND = /\/audio\/legendary-reveal\.mp3(?:[?#]|$)/;
+  const PACK_OPEN = /^\/api\/packs\/(?:open|pro-daily|special)$/;
+  const soundBytes = new WeakSet();
+  const soundBuffers = new WeakSet();
+  const heldNodes = new Set();
+  let holdSound = false;
+  let armOnPack = false;
+  let holdTimer = null;
+  const Source = window.AudioBufferSourceNode?.prototype;
+  const startSource = Source?.start;
+  const stopSource = Source?.stop;
+  function setSoundHold(on) {
+    holdSound = on;
+    clearTimeout(holdTimer);
+    // Filet de sécurité : jamais retenu plus de 10 minutes sans nouvelle du script de contenu
+    if (on) holdTimer = setTimeout(() => setSoundHold(false), 10 * 60 * 1000);
+    else {
+      for (const node of heldNodes)
+        try {
+          startSource.call(node);
+        } catch {}
+      heldNodes.clear();
+    }
+  }
+  if (Source && startSource && stopSource) {
+    Source.start = function () {
+      if (holdSound && this.buffer && soundBuffers.has(this.buffer)) return void heldNodes.add(this);
+      return startSource.apply(this, arguments);
+    };
+    Source.stop = function () {
+      if (heldNodes.delete(this)) return;
+      return stopSource.apply(this, arguments);
+    };
+    const Ctx = (window.BaseAudioContext || window.AudioContext)?.prototype;
+    const decode = Ctx?.decodeAudioData;
+    if (decode)
+      Ctx.decodeAudioData = function (bytes) {
+        const mark = bytes && soundBytes.has(bytes);
+        const result = decode.apply(this, arguments);
+        return mark && result?.then ? result.then((buffer) => (soundBuffers.add(buffer), buffer)) : result;
+      };
+  }
+  window.addEventListener("message", (event) => {
+    const msg = event.data;
+    if (event.source !== window || !msg || msg.__wmt !== "toolbox" || msg.type !== "legendary-sound") return;
+    armOnPack = Boolean(msg.arm);
+    setSoundHold(Boolean(msg.hold));
+  });
+
   const originalFetch = window.fetch;
   window.fetch = function (input, init) {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input?.url;
@@ -74,6 +132,17 @@
     noteHeaders(url, init?.headers || (typeof input === "object" ? input?.headers : null));
     const promise = originalFetch.apply(this, arguments);
     const path = relative(url);
+    if (armOnPack && path && PACK_OPEN.test(path) && String(method).toUpperCase() === "POST") setSoundHold(true);
+    if (path && LEGENDARY_SOUND.test(path))
+      // Avant les .then du site : ses octets sont marqués dès leur lecture
+      promise
+        .then((res) => {
+          const read = res.arrayBuffer;
+          res.arrayBuffer = function () {
+            return read.apply(this, arguments).then((bytes) => (soundBytes.add(bytes), bytes));
+          };
+        })
+        .catch(() => {});
     if (isWatched(path)) {
       promise
         .then((res) => {

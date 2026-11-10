@@ -7,6 +7,42 @@ Une section par version, la plus récente en premier. Pour chaque version :
   champ : anglais par défaut, puis français).
 - Le Chrome Web Store n'a pas de champ de notes de version : rien à saisir.
 
+## 2.2.1
+
+### Note complète
+
+```
+v2.2.1 : le son de la Légendaire ne dévoile plus la carte pendant la roulette ou le suspense
+
+Paquets
+- Le site joue son son de Légendaire (legendary-reveal) dans le clic qui passe à la carte, avant de
+  l'afficher : pendant la roulette (6 s) ou le suspense, il dévoilait la rareté. Le script de la page
+  (hook/main-world.js) reconnaît ce son à son fichier et le retient tant que la Toolbox cache la carte,
+  puis le joue à la révélation ; quitter la carte avant l'oublie. Retenue posée d'avance tant qu'une
+  Légendaire du paquet reste à révéler (holdsLegendarySound de features/suspense.js, syncLegendarySound
+  de site-dom.js) et dès l'ouverture d'un paquet. Les autres sons du site ne changent pas.
+
+Tests (168), guide, architecture, site-api (sons du site), cahier des charges (K8) et AGENTS.md mis à jour.
+```
+
+### Firefox Add-ons : notes de version (anglais)
+
+```
+Fixed in 2.2.1
+
+Packs
+- The site's Legendary sound no longer gives the card away during the roulette or the suspense: it now plays when the card is revealed.
+```
+
+### Firefox Add-ons : notes de version (français)
+
+```
+Corrigé dans la 2.2.1
+
+Paquets
+- Le son de la Légendaire du site ne dévoile plus la carte pendant la roulette ou le suspense : il est joué à sa révélation.
+```
+
 ## 2.2.0
 
 ### Note complète

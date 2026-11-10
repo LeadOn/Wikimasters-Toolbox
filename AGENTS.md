@@ -126,7 +126,7 @@ Le script lit le token dans la variable `SUPABASE_TOKEN` (ou le fichier `.env`),
 L'extension rend tous ces outils accessibles à n'importe quel joueur, sans Node ni token. Cahier des charges : `docs/cahier-des-charges.md` ; routes du site : `docs/site-api.md`.
 
 ### Architecture
-- `extension/src/hook/main-world.js` : script du monde principal de la page. Observe (sans les modifier) les réponses que le site reçoit déjà (`/api/my-collection`, `/api/cards`, `/api/marketplace…`, `/api/trades`, `/api/packs/open`, …) et relève la clé publique Supabase ; transmet tout par `window.postMessage`.
+- `extension/src/hook/main-world.js` : script du monde principal de la page. Observe (sans les modifier) les réponses que le site reçoit déjà (`/api/my-collection`, `/api/cards`, `/api/marketplace…`, `/api/trades`, `/api/packs/open`, …) et relève la clé publique Supabase ; transmet tout par `window.postMessage`. Seule modification du site : son de la Légendaire (`legendary-reveal`, Web Audio) retenu tant que le suspense ou la roulette cache la carte, à la demande du script de contenu (`tellHook` de `lib/bus.js`, `syncLegendarySound` de `site-dom.js`), joué à la révélation.
 - `extension/src/content/` : application (monde isolé, Preact dans un Shadow DOM).
   - `lib/` : session lue dans les cookies, requêtes avec réessais (`http.js` : lectures réessayées, **écritures jamais rejouées**, 429 respectés, `HumanCheckError` quand le site demande une vérification anti-robot), stockage `chrome.storage.local`, verrou entre onglets (`locks.js`, voir « Firefox » dans les règles), bus d'événements, registre des cartes vues (par titre : le DOM du site n'expose pas les ids).
   - `api/` : Supabase REST et routes `/api` du site.

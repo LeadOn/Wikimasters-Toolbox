@@ -76,6 +76,14 @@ Recherche `q` (relevé en novembre 2026) : morceau du titre seulement (« mars �
 | `POST /api/packs/open` (sans corps), `/api/packs/pro-daily`, `/api/packs/special` | `{cards: [{…carte, summary, user_card_id}], packs_remaining, owned_copies}` ou `{error, human_verification_required}`. La page révèle les cartes une à une ; le bouton du bas affiche « Encore N cartes » puis « Continuer ». |
 | `POST /api/packs/open` trop tôt (relevé le 13/10/2026) | moins de 2 s après l'ouverture précédente : **429** `{error: "Ouverture trop rapide…", rate_limited: true, rate_limit_daily, retry_after: <date ISO>, packs_remaining}` + `Retry-After: 1`, sans consommer de paquet. Une ouverture en série espacée de 2,4 s a reçu un **403** `{human_verification_required: true}` au 2e paquet ; la page affiche alors une vérification Turnstile (`POST /api/human-check {token}`) puis relance l'ouverture. Une fois la vérification faite par le joueur, 7 paquets ont été ouverts à la suite, 2,4 s d'écart, sans nouvelle demande. |
 
+Sons de la révélation (code client, relevé le 10/11/2026) : module `playSound(nom, {allowLate})` / `stopSound(nom)`, Web Audio
+(`fetch` → `arrayBuffer()` → `decodeAudioData`, puis un `createBufferSource()` par lecture, `start()` sans argument).
+Sons : `pack-rip` (`/audio/pack-rip.mp3`, volume 0,5), `card-flip` (`/audio/card-flip.mp3`, 0,35), `legendary-reveal`
+(`/audio/legendary-reveal.mp3`, 0,45). À l'affichage de la première carte : `pack-rip`, plus `legendary-reveal` si c'est une
+Légendaire. Au passage à une autre carte (clic, flèches, balayage), **avant** son affichage : `stopSound("legendary-reveal")`,
+`card-flip`, puis `legendary-reveal` si la carte est une Légendaire. Sons coupés par le joueur : `localStorage`
+`wiki-masters-sound` = `off`.
+
 ## Succès
 
 | Route | Réponse |

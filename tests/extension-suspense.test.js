@@ -63,3 +63,24 @@ test("aucun effet quand le système demande moins d'animations", () => {
   assert.equal(startSuspense(1, 0), null);
   assert.equal(suspense.get().active, null);
 });
+
+test("son de la Légendaire : retenu tant qu'une Légendaire du paquet reste à révéler", () => {
+  const {holdsLegendarySound, startSuspense, releaseSuspense, endSuspense} = load();
+  const cards = [{rarity: "C"}, {rarity: "L"}, {rarity: "R"}];
+  const all = () => true;
+  assert.equal(holdsLegendarySound(1, cards, {current: null, animated: all}), true, "avant même d'arriver sur la Légendaire");
+  assert.equal(holdsLegendarySound(1, cards, {current: null, animated: (i) => i === 2}), false, "Légendaire pas animée (roulette sur la dernière seulement)");
+  assert.equal(holdsLegendarySound(1, [{rarity: "C"}], {current: "hold", animated: all}), true, "carte affichée cachée");
+  startSuspense(1, 0);
+  endSuspense();
+  assert.equal(startSuspense(1, 1), "hold");
+  assert.equal(holdsLegendarySound(1, cards, {current: "hold", animated: all}), true);
+  releaseSuspense();
+  assert.equal(holdsLegendarySound(1, cards, {current: "release", animated: all}), false, "révélée : le son est joué");
+  assert.equal(holdsLegendarySound(2, cards, {current: null, animated: all}), true, "paquet suivant");
+});
+
+test("son de la Légendaire : jamais retenu quand le système demande moins d'animations", () => {
+  const {holdsLegendarySound} = load(true);
+  assert.equal(holdsLegendarySound(1, [{rarity: "L"}], {current: null, animated: () => true}), false);
+});

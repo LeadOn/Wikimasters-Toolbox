@@ -52,7 +52,7 @@ extension/
   static/                      popup.html et icônes, copiés tels quels
   dev/                         banc d'essai : injecter l'extension dans une page sans l'installer
   src/
-    hook/main-world.js         script du monde principal de la page : observe les réponses du site
+    hook/main-world.js         script du monde principal de la page : observe les réponses du site, retient le son de la Légendaire pendant le suspense ou la roulette
     shared/                    identité visuelle : marque, icônes, polices (brand.mjs, Brand.jsx, fonts.css) ; langue de l'interface (i18n.js)
     popup/                     popup d'actions rapides
     content/                   application, dans le monde isolé de la page
@@ -153,7 +153,7 @@ Le détail des règles de classement, et la façon de les modifier sans rien cas
 
 | Contexte | Fichiers | Rôle |
 |---|---|---|
-| Monde principal de la page | `src/hook/main-world.js` | Observe, sans les modifier, les réponses que le site reçoit déjà (`/api/my-collection`, `/api/packs/open`, `/api/marketplace…`) et relève la clé publique Supabase. Transmet tout par `window.postMessage` |
+| Monde principal de la page | `src/hook/main-world.js` | Observe, sans les modifier, les réponses que le site reçoit déjà (`/api/my-collection`, `/api/packs/open`, `/api/marketplace…`) et relève la clé publique Supabase. Transmet tout par `window.postMessage`. Retient le son de la Légendaire du site tant que le suspense ou la roulette cache la carte (message `legendary-sound` du script de contenu) |
 | Monde isolé (script de contenu) | `src/content/` | L'application : lit la session, appelle l'API, calcule, affiche le panneau et les blocs intégrés |
 | Page de l'extension | `src/popup/` | Popup d'actions rapides ; envoie des messages au script de contenu de l'onglet actif |
 
