@@ -618,7 +618,8 @@ function ensurePullsWidgets() {
   placeBlocks(container, items);
 }
 
-// --- Révélation des cartes : suspense (option packSuspense) et panneau d'étiquettes à
+// --- Révélation des cartes : suspense (option packSuspense), roulette de la dernière carte
+// (option packRoulette) et panneau d'étiquettes à
 // droite de la carte (option revealTags). La carte affichée est celle du compteur « Carte n / N »,
 // dans l'ordre de la réponse du site (recapState).
 let ladderHost = null;
@@ -638,23 +639,28 @@ function ensureRevealExtras(reveal, r) {
   // charge jusqu'à sa rareté, puis elle entre avec l'animation de sa rareté, une fois le dos sorti
   // (délai), à la place de celle du site. La carte est cachée avant son premier affichage (boucle
   // groupée par image).
+  // Roulette (option packRoulette) : même principe pour la dernière carte, à la place du suspense.
   const flip = card ? parts.cardBox.querySelector(SEL.revealFlip) : null;
-  const effect = flip && isOn("packSuspense") ? startSuspense(r.at, parts.index) : null;
+  const roulette = Boolean(flip) && isOn("packRoulette") && parts.index === parts.total - 1;
+  const animated = roulette || isOn("packSuspense");
+  const effect = flip && animated ? startSuspense(r.at, parts.index) : null;
   if (effect === "hold") holdCard(flip);
-  else if (flip?.dataset.wmtHeld && isOn("packSuspense")) enterCard(flip, card);
+  else if (flip?.dataset.wmtHeld && animated) enterCard(flip, card);
   else if (flip?.dataset.wmtHeld) restoreCard(flip);
   const hidden = Boolean(effect);
   if (hidden) {
     if (!ladderHost) {
       ladderHost = document.createElement("div");
-      ladderHost.className = "wmt-suspense-host";
       updateLadder = mountIsland(ladderHost, SuspenseLadder);
     }
+    const hostClass = roulette ? "wmt-suspense-host wmt-roulette" : "wmt-suspense-host";
+    if (ladderHost.className !== hostClass) ladderHost.className = hostClass;
+    if (roulette) sizeRoulette(ladderHost, parts.cardBox);
     if (ladderHost.parentElement !== parts.cardBox) parts.cardBox.append(ladderHost);
     const key = `${r.at}-${parts.index}`;
     if (ladderKey !== key) {
       ladderKey = key;
-      updateLadder({id: key, rarity: card.rarity, shiny: Boolean(card.is_shiny), onRelease: releaseSuspense, onDone: endSuspense});
+      updateLadder({id: key, mode: roulette ? "roulette" : "suspense", rarity: card.rarity, shiny: Boolean(card.is_shiny), onRelease: releaseSuspense, onDone: endSuspense});
     }
   } else if (ladderHost?.isConnected) {
     ladderHost.remove();
@@ -683,6 +689,18 @@ function ensureRevealExtras(reveal, r) {
     }
     if (shownCard.starButton) noteStarred(card.user_card_id, SEL.starredLabel.test(shownCard.starButton.getAttribute("aria-label") || ""));
   } else sideHost?.remove();
+}
+
+// Roulette : taille de la carte (les dos de la bande en sont une réduction) et demi-largeur de la
+// bande, centrée sur la carte sans sortir de l'écran (marge de 8 px, 560 px au plus de chaque côté)
+function sizeRoulette(host, cardBox) {
+  const box = cardBox.getBoundingClientRect();
+  const mid = box.left + box.width / 2;
+  const half = Math.max(box.width / 2, Math.min(560, mid - 8, document.documentElement.clientWidth - mid - 8));
+  for (const [k, v] of [["--cw", box.width], ["--ch", box.height], ["--half", half]]) {
+    const px = `${Math.round(v)}px`;
+    if (host.style.getPropertyValue(k) !== px) host.style.setProperty(k, px);
+  }
 }
 
 // Carte du site pendant le suspense. Le style en ligne l'emporte sur la classe d'animation du site

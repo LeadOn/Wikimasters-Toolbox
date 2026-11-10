@@ -193,6 +193,9 @@
 .wmt-suspense-host { position: absolute; inset: 0; z-index: 60; }
 /* Petit écran : les effets du suspense ne sortent pas de la place de la carte (pas de défilement horizontal) */
 @media (max-width: 767px) { .wmt-suspense-host { overflow: clip; overflow-clip-margin: 14px; } }
+/* Roulette de la dernière carte : la bande déborde de la place de la carte, centrée sur elle, sans
+   sortir de l'écran (largeur calculée par site-dom.js : --half) */
+.wmt-suspense-host.wmt-roulette { inset: 0 auto 0 50%; width: calc(2 * var(--half)); margin-left: calc(-1 * var(--half)); overflow: visible; }
 /* Entrée de la carte révélée après le suspense, à la place du retournement du site (délai et durée :
    ENTER de features/suspense.js). Jusqu'à Super Rare, elle enchaîne le retournement du dos de la
    Toolbox ; au-delà, elle sort surexposée du flash et retrouve ses couleurs. */

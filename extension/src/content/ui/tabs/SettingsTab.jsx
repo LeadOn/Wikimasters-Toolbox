@@ -1,13 +1,15 @@
 // Onglet « Réglages » : fonctionnalités, thèmes de tri, caches.
+import {Fragment} from "preact";
 import {useStore} from "../../lib/store";
 import {keysWithPrefix, remove} from "../../lib/storage";
 import {settings, FEATURES, DEFAULT_SETTINGS} from "../../state/settings";
 import {clearPrices} from "../../state/prices";
-import {Toggle} from "../components";
+import {Toggle, FileButton} from "../components";
 import {confirmAction, toast} from "../feedback";
 import {ThemeEditor} from "../ThemeEditor";
 import {defaultThemeList, storeThemes} from "../../../../../core";
 import {L} from "../../../shared/i18n";
+import {rouletteSound, importSound, resetSound, previewTick, MAX_SOUND_BYTES} from "../../features/roulette-sound";
 
 // Nombre entier saisi, borné ; champ vide ou illisible : valeur par défaut
 const count = (value, min, max, fallback) => {
@@ -33,13 +35,16 @@ export function SettingsTab() {
           <div class="box" key={g}>
             <h3>{g}</h3>
             {FEATURES.filter((f) => f.group === g).map((f) => (
-              <div class="setting" key={f.key}>
-                <div class="txt">
-                  <strong>{f.label}</strong>
-                  <span>{f.help}</span>
+              <Fragment key={f.key}>
+                <div class="setting">
+                  <div class="txt">
+                    <strong>{f.label}</strong>
+                    <span>{f.help}</span>
+                  </div>
+                  <Toggle checked={s.features[f.key] !== false} label={f.label} onChange={(on) => setFeature(f.key, on)} />
                 </div>
-                <Toggle checked={s.features[f.key] !== false} label={f.label} onChange={(on) => setFeature(f.key, on)} />
-              </div>
+                {f.key === "packRoulette" && s.features.packRoulette && <RouletteSound />}
+              </Fragment>
             ))}
           </div>
         ))}
@@ -112,6 +117,43 @@ export function SettingsTab() {
           </button>
         </div>
         <p class="small muted">WikiMasters Toolbox {__VERSION__} · {L("données gardées dans votre navigateur uniquement, aucun serveur tiers.", "data kept in your browser only, no third-party server.")}</p>
+      </div>
+    </div>
+  );
+}
+
+// Son du cliquetis de la roulette : clic par défaut ou fichier importé par le joueur
+function RouletteSound() {
+  const sound = useStore(rouletteSound);
+  const pick = async (file) => {
+    try {
+      await importSound(file);
+      toast(L("Son de la roulette enregistré.", "Roulette sound saved."), {type: "ok"});
+      previewTick();
+    } catch (e) {
+      toast(e.message, {type: "error"});
+    }
+  };
+  return (
+    <div class="setting sub">
+      <div class="txt">
+        <strong>{L("Son du cliquetis", "Click sound")}</strong>
+        <span>
+          {sound.data
+            ? L(`Votre son : ${sound.name}. Joué à chaque dos qui passe (0,6 s au plus), gardé dans votre navigateur uniquement.`, `Your sound: ${sound.name}. Played for each back that passes (0.6 s at most), kept in your browser only.`)
+            : L("Clic mécanique de la Toolbox. Vous pouvez importer votre propre son (fichier audio court, 300 Ko au plus), gardé dans votre navigateur uniquement.", "The Toolbox's mechanical click. You can import your own sound (short audio file, 300 KB max), kept in your browser only.")}
+        </span>
+        <div class="row">
+          <button class="btn" onClick={previewTick}>
+            {L("Écouter", "Play")}
+          </button>
+          <FileButton label={sound.data ? L("Changer de son", "Change sound") : L("Importer un son", "Import a sound")} accept="audio/*" maxSize={MAX_SOUND_BYTES} onFile={pick} onError={() => toast(L("Son trop volumineux (300 Ko au plus).", "Sound too large (300 KB max)."), {type: "error"})} />
+          {sound.data && (
+            <button class="btn ghost" onClick={resetSound}>
+              {L("Son par défaut", "Default sound")}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

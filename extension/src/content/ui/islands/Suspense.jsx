@@ -14,6 +14,7 @@ import {RARITY_LABEL} from "../../../../../core";
 import {ENTER, RANKS, suspenseTimeline} from "../../features/suspense";
 import {rarityTexture, siteLogo} from "../../features/site-assets";
 import {L} from "../../../shared/i18n";
+import {Roulette} from "./Roulette";
 
 // Particules par rareté : braises pendant l'attente (palier UR, L), aspirées pendant la charge,
 // gerbe de la révélation ; fissures de lumière sur le dos pendant la charge
@@ -108,10 +109,10 @@ const Dial = ({level}) => (
   </svg>
 );
 
-// id : carte affichée (paquet + index), rarity, shiny ; onRelease : la carte peut entrer ;
-// onDone : fin de la révélation. Un composant neuf par carte : rien de la précédente ne s'affiche,
-// même le temps d'une image.
-export const SuspenseLadder = (props) => (props.id ? <Charge key={props.id} {...props} /> : null);
+// id : carte affichée (paquet + index), rarity, shiny ; mode : "roulette" pour la roulette de la
+// dernière carte (Roulette.jsx) ; onRelease : la carte peut entrer ; onDone : fin de la révélation.
+// Un composant neuf par carte : rien de la précédente ne s'affiche, même le temps d'une image.
+export const SuspenseLadder = (props) => (!props.id ? null : props.mode === "roulette" ? <Roulette key={props.id} {...props} /> : <Charge key={props.id} {...props} />);
 
 function Charge({id, rarity, shiny, onRelease, onDone}) {
   const plan = suspenseTimeline(rarity, shiny);

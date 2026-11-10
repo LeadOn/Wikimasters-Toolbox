@@ -256,6 +256,10 @@ input[type="color"]::-moz-color-swatch { border: 0; border-radius: 3px; }
 .setting .txt { flex: 1; }
 .setting .txt strong { display: block; font-weight: 600; }
 .setting .txt span { color: var(--muted); font-size: 12.5px; }
+/* Réglage qui dépend du précédent (son de la roulette) : en retrait, boutons dessous */
+.setting.sub { padding-left: 14px; }
+.setting.sub .row { margin-top: 8px; }
+.setting.sub .row .btn { margin-right: 0 !important; }
 
 /* --- Puces */
 .chip {
@@ -784,12 +788,96 @@ button.chip:disabled { opacity: 0.5; cursor: progress; }
 .sx-stars i:nth-child(3n + 1) { background: #ffe35e; }
 .sx-stars i:nth-child(3n + 2) { background: #9ff3ff; }
 
+/* --- Roulette de la dernière carte (ui/islands/Roulette.jsx) : bande de dos de cartes sous un
+   repère (.spin), recentrage (.settle), le dos de la carte grandit à sa place (.grow), puis se
+   révèle (.release) pendant que la carte du site entre (wmt-enter-* de site.css). Taille de la
+   carte : --cw, --ch (site-dom.js) ; dos de la bande : --k fois la carte. Durées : --grow, --out,
+   --face (features/roulette.js, features/suspense.js).
+   Exception à la charte, réservée à ce moment : lueurs aux couleurs des raretés. */
+.ro { position: absolute; inset: 0; cursor: pointer; user-select: none; outline: none; -webkit-tap-highlight-color: transparent; --k: 0.48; --iw: calc(var(--cw) * var(--k)); --ih: calc(var(--ch) * var(--k)); }
+.ro.release { pointer-events: none; }
+.ro:focus-visible .ro-band { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Lumière de la page baissée pendant le défilement, revient à la révélation */
+.ro-dim { position: fixed; inset: 0; background: #060605; opacity: 0.62; pointer-events: none; animation: sx-fade-in 0.25s ease-out; transition: opacity 0.45s ease-out; }
+.ro.release .ro-dim { opacity: 0; transition-delay: var(--out); }
+/* Bandeau sombre derrière la bande, fondu sur les bords */
+.ro-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: calc(var(--ih) + 30px);
+  transform: translateY(-50%);
+  background: rgba(18, 18, 17, 0.94);
+  border-block: 1px solid rgba(255, 255, 255, 0.12);
+  mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  animation: sx-fade-in 0.2s ease-out;
+  transition: opacity 0.22s ease-out;
+}
+.ro.grow .ro-band, .ro.release .ro-band { opacity: 0; }
+.ro-view { position: absolute; inset: 0; overflow-x: clip; mask: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
+.ro.grow .ro-view, .ro.release .ro-view { mask: none; }
+.ro-strip { position: absolute; left: 50%; top: 50%; margin-top: calc(var(--ih) / -2); display: flex; gap: 8px; will-change: transform; }
+.ro-item { position: relative; flex: none; width: var(--iw); height: var(--ih); transition: opacity 0.2s ease-out, transform var(--grow) cubic-bezier(0.2, 0.8, 0.3, 1); }
+/* Dos : texture du site de sa rareté, logo, liseré de rareté en bas */
+.ro-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--tx) center / 200% 168% no-repeat, color-mix(in srgb, var(--ic) 70%, #1b1b19);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), 0 6px 16px rgba(0, 0, 0, 0.45);
+  container-type: inline-size;
+  transition: box-shadow 0.3s ease-out;
+}
+.ro-face::before { content: ""; position: absolute; inset: 0; background: radial-gradient(130% 95% at 50% 42%, transparent 45%, rgba(0, 0, 0, 0.34) 100%); }
+.ro-face::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--ic); box-shadow: 0 0 12px 2px var(--ic); transition: opacity 0.2s ease-out; }
+.ro-face img { position: absolute; left: 50%; top: 46%; width: 42%; height: auto; transform: translate(-50%, -50%); opacity: 0.8; user-select: none; }
+/* Arrêt : le dos de la carte s'allume, les autres s'effacent, il grandit à la place de la carte */
+.ro:not(.spin) .ro-item.win .ro-face { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 0 2px var(--ic), 0 0 30px 6px color-mix(in srgb, var(--ic) 70%, transparent); }
+.ro.grow .ro-item:not(.win), .ro.release .ro-item:not(.win) { opacity: 0; }
+.ro.grow .ro-item.win, .ro.release .ro-item.win { z-index: 1; transform: scale(calc(1 / var(--k))); }
+.ro.grow .ro-item.win .ro-face::after, .ro.release .ro-item.win .ro-face::after { opacity: 0; }
+.ro-holo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 12%, #ff5ea8 28%, #ffe35e 40%, #5effc4 52%, #5eb0ff 64%, #c45eff 76%, transparent 90%) 0 0 / 300% 100%;
+  mix-blend-mode: overlay;
+  opacity: 0.85;
+  animation: sx-holo 1.1s linear infinite, sx-fade-in 0.2s ease-out;
+}
+.ro-name { position: absolute; left: 0; right: 0; bottom: 12%; display: flex; justify-content: center; }
+.ro-name span { padding: 2px 6px; border-radius: 3px; background: rgba(18, 18, 17, 0.82); color: #fff; font: 600 clamp(6px, 6cqw, 10px)/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; animation: sx-slot 0.18s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.ro-light { position: absolute; inset: 0; background: radial-gradient(circle at 50% 46%, #fff 0 28%, color-mix(in srgb, var(--rc) 55%, #fff) 100%); opacity: 0; pointer-events: none; }
+/* Repère : un trait vertical au centre, avec une pointe en haut et en bas */
+.ro-marker { position: absolute; left: 50%; top: 50%; width: 2px; height: calc(var(--ih) + 30px); transform: translate(-50%, -50%); background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent); pointer-events: none; transition: opacity 0.2s ease-out; }
+.ro-marker::before, .ro-marker::after { content: ""; position: absolute; left: 50%; width: 0; height: 0; margin-left: -6px; border: 6px solid transparent; }
+.ro-marker::before { top: 0; border-top-color: var(--accent); }
+.ro-marker::after { bottom: 0; border-bottom-color: var(--accent); }
+.ro.grow .ro-marker, .ro.release .ro-marker { opacity: 0; }
+/* Révélation : jusqu'à Super Rare, le dos se retourne ; au-delà, il se dissout dans un flash */
+.ro.release .ro-item.win .ro-face { animation: sx-flip-out var(--out) cubic-bezier(0.55, 0, 0.85, 0.35) forwards; }
+.ro.release.top-4 .ro-item.win .ro-face, .ro.release.top-5 .ro-item.win .ro-face { animation: sx-burn-out calc(var(--out) + 0.12s) ease-in forwards; }
+.ro.release.top-4 .ro-light, .ro.release.top-5 .ro-light { animation: sx-whiteout var(--out) ease-in forwards; }
+.ro-slot { position: absolute; left: 50%; top: 50%; width: var(--cw); height: var(--ch); transform: translate(-50%, -50%); pointer-events: none; }
+.ro-flash { position: absolute; inset: 0; border-radius: 16px; background: #fff; opacity: 0; }
+.ro.top-2 .ro-flash { animation: sx-flash-soft 0.2s ease-out calc(var(--out) * 0.9) forwards; --peak: 0.3; }
+.ro.top-3 .ro-flash { animation: sx-flash-soft 0.26s ease-out calc(var(--out) * 0.9) forwards; --peak: 0.6; }
+.ro.top-4 .ro-flash, .ro.top-5 .ro-flash { box-shadow: 0 0 70px 26px color-mix(in srgb, var(--rc) 80%, #fff); animation: sx-flash-big 0.45s ease-out calc(var(--out) - 25ms) forwards; }
+.ro.top-5 .ro-flash { box-shadow: 0 0 110px 46px color-mix(in srgb, var(--rc) 80%, #fff); animation-duration: 0.65s; }
+.ro-ring { position: absolute; inset: 0; border-radius: 16px; border: 2px solid var(--rc); opacity: 0; --to: 1.14; animation: sx-ring 0.4s cubic-bezier(0.15, 0.7, 0.3, 1) calc(var(--out) + var(--d)) forwards; }
+.ro.top-3 .ro-ring { border-width: 3px; --to: 1.22; }
+.ro.top-4 .ro-ring { border-width: 3px; --to: 1.32; animation-duration: 0.48s; }
+.ro.top-5 .ro-ring { border-width: 4px; --to: 1.42; animation-duration: 0.6s; }
+
 /* Petit écran : rien ne dépasse de l'écran (site.css coupe ce qui sort de la place de la carte) ;
    pas de rayons, aura resserrée (elle serait coupée), la gerbe reste sur la carte */
 @media (max-width: 767px) {
   .sx-rays { display: none; }
   .sx .sx-glow { box-shadow: 0 0 10px 2px var(--rc) !important; }
   .sx-burst i { --x: 0px; --y: 0px; }
+  /* Roulette : dos plus petits, pour en voir plus de deux dans la bande */
+  .ro { --k: 0.4; }
 }
 
 @keyframes sx-spin { to { rotate: 360deg; } }

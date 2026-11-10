@@ -83,6 +83,7 @@ STONKS : VOTRE HISTORIQUE DE TRADING
 
 PAQUETS
 • Suspense à la révélation : chaque nouvelle carte reste face cachée et se charge de rareté en rareté, puis éclate avec un effet qui grandit avec sa rareté (flash, ondes de choc, rayons ; reflet irisé pour une shiny). Un clic passe l'attente.
+• Roulette pour la dernière carte (option) : la dernière carte du paquet se révèle comme une caisse qu'on ouvre, une bande de dos de cartes tirés selon vos taux de drop défile avec un cliquetis et s'arrête sur sa rareté. Cliquetis de la Toolbox ou votre propre son.
 • Étiquettes et favori en un clic à côté de chaque carte révélée.
 • Récapitulatif après chaque paquet : nouveautés, doublons, prix de chaque carte, valeur totale. Il reste affiché jusqu'au paquet suivant, même après un rechargement de la page.
 • Vente ou défausse sur place, carte par carte ou en lot ; « Ouvrir le prochain » pour enchaîner.
@@ -168,6 +169,7 @@ TRADES
 
 PACKS
 • Suspense on reveal: each new card stays face down and charges up rarity by rarity, then bursts open with an effect that grows with its rarity (flash, shockwaves, light rays; iridescent sheen for shiny cards). One click skips the wait.
+• Roulette for the last card (option): the pack's last card is revealed like a case being opened, a strip of card backs drawn from your drop rates scrolls by with a clicking sound and stops on its rarity. Toolbox click or your own sound.
 • Tags and favorite in one click next to each revealed card.
 • A recap after each pack: new cards, duplicates, price of each card, total value. It stays on screen until the next pack, even after reloading the page.
 • Sell or discard in place, card by card or in bulk; "Open next" to keep going.

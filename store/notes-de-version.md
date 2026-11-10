@@ -7,6 +7,52 @@ Une section par version, la plus récente en premier. Pour chaque version :
   champ : anglais par défaut, puis français).
 - Le Chrome Web Store n'a pas de champ de notes de version : rien à saisir.
 
+## 2.2.0
+
+### Note complète
+
+```
+v2.2.0 : roulette pour la dernière carte d'un paquet, avec son cliquetis ou un son importé
+
+Paquets
+- Roulette pour la dernière carte (option, désactivée par défaut) : la dernière carte d'un paquet est
+  révélée comme une caisse qu'on ouvre, à la place du suspense (les autres cartes le gardent). La lumière
+  de la page baisse ; une bande de 56 dos de cartes (texture de rareté et logo du site, liseré de rareté)
+  défile sous un repère, ralentit pendant 5,4 s et s'arrête sur le dos de la rareté de la carte, souvent
+  un peu à côté de son centre, avant de s'y recentrer. Dos tirés selon les taux de drop du joueur (ses
+  tirages, sinon la répartition de sa collection) ; une fois sur deux, le dos suivant est plus rare
+  (quasi-raté). Le dos de la carte grandit à sa place avec le nom de sa rareté (irisé pour une shiny),
+  puis se révèle comme au suspense (retournement, ou flash dès Ultra Rare). Environ 6 s ; un clic passe le
+  défilement, un deuxième la révélation ; rien ne se joue si le système demande moins d'animations.
+  features/roulette.js, ui/islands/Roulette.jsx.
+- Cliquetis à chaque dos qui passe : clic mécanique synthétisé par la Toolbox, ou son importé par le
+  joueur dans les réglages (« Son du cliquetis » : écouter, importer un fichier audio de 300 Ko au plus,
+  revenir au son par défaut). Le son importé est vérifié, gardé dans le navigateur uniquement et joué
+  0,6 s au plus. features/roulette-sound.js.
+
+Tests (163), README, guide, architecture, cahier des charges, AGENTS.md et fiches des stores mis à jour.
+```
+
+### Firefox Add-ons : notes de version (anglais)
+
+```
+New in 2.2.0
+
+Packs
+- Roulette for the last card (option, off by default): the last card of a pack is revealed like a case being opened. A strip of card backs, drawn from your drop rates, scrolls under a marker with a clicking sound, slows down and stops on the card's rarity, which is then revealed. Replaces the suspense for that card only. One click skips the wait.
+- Click sound: the Toolbox's mechanical click, or import your own short sound in the settings (kept in your browser only).
+```
+
+### Firefox Add-ons : notes de version (français)
+
+```
+Nouveautés de la 2.2.0
+
+Paquets
+- Roulette pour la dernière carte (option, désactivée par défaut) : la dernière carte d'un paquet se révèle comme une caisse qu'on ouvre. Une bande de dos de cartes, tirés selon vos taux de drop, défile sous un repère avec un cliquetis, ralentit et s'arrête sur la rareté de la carte, qui se révèle. Remplace le suspense pour cette carte seulement. Un clic passe l'attente.
+- Son du cliquetis : le clic mécanique de la Toolbox, ou votre propre son court importé dans les réglages (gardé dans votre navigateur uniquement).
+```
+
 ## 2.1.0
 
 ### Note complète

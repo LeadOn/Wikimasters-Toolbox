@@ -4,15 +4,12 @@
 // Barres aux couleurs de rareté du site ; la rareté est aussi portée par son libellé.
 import {useState} from "preact/hooks";
 import {useStore} from "../lib/store";
-import {pullStats, collectionRarity} from "../features/packs";
+import {pullStats, collectionRarity, MIN_PULLED} from "../features/packs";
 import {RARITIES, RARITY_LABEL} from "../../../../core";
 import {Mark, fmt, plural} from "./components";
 import {mountIsland} from "./islands/mount";
 import {DockPicker} from "./DockPicker";
 import {L, LOCALE} from "../../shared/i18n";
-
-// En dessous de ce nombre de cartes tirées, la collection donne une meilleure estimation
-const MIN_PULLED = 50;
 
 const pct = (n, total) => {
   if (!total) return "—";

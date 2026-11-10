@@ -366,18 +366,20 @@ export function downloadFile(filename, text, type = "application/json") {
 export const datedFilename = (kind) => `wikimasters-${kind}-${new Date().toISOString().slice(0, 10)}.json`;
 
 // Bouton « Choisir un fichier » : onText(contenu) ou onError(message) si le fichier est trop gros
-export function FileButton({label = L("Choisir un fichier", "Choose a file"), maxSize, onText, onError}) {
+// onText : contenu du fichier (JSON par défaut) ; onFile : le fichier lui-même (accept : son type)
+export function FileButton({label = L("Choisir un fichier", "Choose a file"), accept = ".json,application/json", maxSize, onText, onFile, onError}) {
   const pick = async (e) => {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = "";
     if (!file) return;
     if (maxSize && file.size > maxSize) return onError?.(L("Fichier trop volumineux.", "File too large."));
+    if (onFile) return onFile(file);
     onText(await file.text());
   };
   return (
     <label class="btn" style={{marginRight: "auto"}}>
       {label}
-      <input type="file" accept=".json,application/json" style={{display: "none"}} onChange={pick} />
+      <input type="file" accept={accept} style={{display: "none"}} onChange={pick} />
     </label>
   );
 }

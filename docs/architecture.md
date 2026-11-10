@@ -86,6 +86,8 @@ extension/
         pack-dock.js           page Paquets : récapitulatif et taux de drop dans la marge gauche ou droite (colonnes fixes), ou dessous
         quick-tags.js          étiquettes et favori des cartes tirées en un clic (révélation, récapitulatif)
         suspense.js            suspense de la révélation : durées selon la rareté, cartes déjà jouées
+        roulette.js            roulette de la dernière carte : bande de dos tirés selon les taux de drop, déroulé
+        roulette-sound.js      cliquetis de la roulette : clic synthétisé ou son importé par le joueur
         families.js            familles : catalogue, cartes manquantes en vente, étiquettes
         card-lookup.js         carte affichée par le site mais jamais vue dans ses réponses
         wiki-images.js         images Wikimedia pour les cartes sans image (option) : Wikipédia, Wikidata, éléments liés
@@ -113,7 +115,7 @@ extension/
         ThemeEditor.jsx        éditeur des thèmes de tri (onglet Réglages) : noms, couleurs, mots-clés, essai sur une description, import / export JSON
         CollectionCards.jsx    filtres de la collection et liste des cartes, à cocher, vendre ou défausser (onglet Prix, barre de la collection)
         tabs/                  un fichier par onglet du panneau
-        islands/               blocs intégrés aux pages du site (collection, carte, enchère, profil, bilan d'une offre d'échange, révélation d'un paquet : RevealSide, Suspense) et page Stonks
+        islands/               blocs intégrés aux pages du site (collection, carte, enchère, profil, bilan d'une offre d'échange, révélation d'un paquet : RevealSide, Suspense, Roulette) et page Stonks
 
 scripts/
   categorize_cards.js          CLI de tri (token requis)

@@ -85,6 +85,14 @@ export async function refreshCollectionRarity() {
 }
 export const openAllState = createStore({running: false, opened: 0, error: null});
 export const pullStats = persistentStore("pullStats", {since: Date.now(), packs: 0, cards: 0, byRarity: {}});
+// En dessous de ce nombre de cartes tirées, la répartition de la collection estime mieux les taux de drop
+export const MIN_PULLED = 50;
+// Nombre de cartes par rareté qui estime le mieux les taux de drop (mes tirages, sinon ma collection)
+export function dropCounts() {
+  const stats = pullStats.get();
+  const coll = collectionRarity.get();
+  return stats.cards >= MIN_PULLED || !coll.total ? stats.byRarity : coll.counts;
+}
 
 on("packs-status", ({data}) => typeof data?.packs_remaining === "number" && packsStatus.set({remaining: data.packs_remaining, at: Date.now()}));
 
