@@ -27,6 +27,7 @@ import {
   explain,
   DOUBLON,
   DOUBLON_COLOR,
+  FAVORI,
 } from "../../../../core";
 
 const ROLE_HELP = {
@@ -229,7 +230,7 @@ function TagImportDialog({list, onImport, onClose}) {
     const taken = new Set(tagSlots(list).map((slot) => slot.name));
     myTags()
       .then((rows) => {
-        const mine = rows.filter((t) => t.name !== DOUBLON && !t.name.startsWith("Pour :") && !taken.has(t.name));
+        const mine = rows.filter((t) => t.name !== DOUBLON && t.name !== FAVORI && !t.name.startsWith("Pour :") && !taken.has(t.name));
         setTags(mine);
         setChoice(Object.fromEntries(mine.map((t) => [t.id, matchTagSlot(list, t.name) || "skip"])));
       })

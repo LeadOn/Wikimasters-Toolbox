@@ -1,25 +1,32 @@
-// Plan de synchronisation des tags gérés (thèmes, « Pour : … », Doublon) avec la collection.
+// Plan de synchronisation des tags gérés (thèmes, « Pour : … », Doublon, Favori) avec la collection.
 // Fonctions pures : la lecture et l'écriture en base sont faites par l'appelant (script Node ou extension).
 "use strict";
 
-const {DOUBLON, DOUBLON_COLOR} = require("./themes");
+const {DOUBLON, DOUBLON_COLOR, FAVORI, FAVORI_COLOR} = require("./themes");
 const {tagForProfile} = require("./profiles");
 const {categorize} = require("./categorize");
 const {themeSetOf} = require("./theme-set");
 
 // `themes` (partout) : liste de thèmes du joueur (core/theme-set.js) ; par défaut, celle de core/themes.js.
 
-// Tags gérés par l'outil, avec leur couleur : thèmes, puis profils actifs, puis Doublon.
+// Tags gérés par l'outil, avec leur couleur : thèmes, puis profils actifs, puis Doublon, puis Favori.
 // Les autres tags (créés à la main par le joueur) ne sont jamais touchés.
 // withThemes false : tri sans étiquettes de thème (seulement « Pour : … » et Doublon) ; les
 // étiquettes de thème déjà posées ne sont alors plus gérées, donc plus jamais touchées.
-function managedTags({profiles = [], themeColors = {}, themes = null, withThemes = true} = {}) {
+// withFavorites : étiquette Favori sur les exemplaires en favori (réglage, désactivé par défaut) ;
+// sans elle, une étiquette Favori déjà posée n'est plus gérée, comme les thèmes.
+function managedTags({profiles = [], themeColors = {}, themes = null, withThemes = true, withFavorites = false} = {}) {
   const tags = {};
   if (withThemes) for (const [name, color] of Object.entries(themeSetOf(themes).tags)) tags[name] = themeColors[name] || color;
   for (const p of profiles) tags[tagForProfile(p)] = p.color || "#64748b";
   tags[DOUBLON] = themeColors[DOUBLON] || DOUBLON_COLOR;
+  if (withFavorites) tags[FAVORI] = themeColors[FAVORI] || FAVORI_COLOR;
   return tags;
 }
+
+// Étiquettes qui reflètent un état de la collection (plusieurs exemplaires, étoile) et non le
+// contenu de la carte : recalculées sur toute la collection à chaque tri, même incrémental.
+const COLLECTION_TAGS = new Set([DOUBLON, FAVORI]);
 
 // Tag de thème générique (un seul par carte triée).
 const isThemeTag = (name, themes = null) => Object.prototype.hasOwnProperty.call(themeSetOf(themes).tags, name);
@@ -61,13 +68,15 @@ function countCopies(userCards) {
 // copies : à fournir (countCopies de toute la collection) quand userCards n'en est qu'une partie,
 // sinon deux exemplaires répartis dans deux parties ne seraient pas vus comme un doublon.
 // withThemes false : pas de thème (voir managedTags), les profils restent évalués avec le thème calculé.
-function computeAssignments(userCards, {profiles = [], manualMapping = null, themes = null, copies = countCopies(userCards), withThemes = true} = {}) {
+// withFavorites : Favori sur les exemplaires en favori (`starred`).
+function computeAssignments(userCards, {profiles = [], manualMapping = null, themes = null, copies = countCopies(userCards), withThemes = true, withFavorites = false} = {}) {
   const assignments = [];
   for (const uc of userCards) {
     if (!uc.cards) continue;
     const tags = categorize(uc.cards, {profiles, manualMapping, userCardId: uc.id, themes});
     if (!withThemes) tags.shift();
     if (uc.cards.id && copies.get(uc.cards.id) > 1) tags.push(DOUBLON);
+    if (withFavorites && uc.starred) tags.push(FAVORI);
     assignments.push({userCard: uc, tags: [...new Set(tags)]});
   }
   return assignments;
@@ -85,13 +94,15 @@ function managedTagIds(existingTags, managed) {
 // current : Map(tagId → Set(userCardId)), associations actuelles des tags gérés (et retirés).
 // Mode complet : toutes les cartes sont resynchronisées sur le résultat du moteur.
 // Mode newOnly : seules les cartes sans tag de thème (jamais triées) sont classées ; les cartes
-// déjà triées gardent leurs tags (corrections manuelles comprises), sauf Doublon, recalculé partout.
+// déjà triées gardent leurs tags (corrections manuelles comprises), sauf Doublon et Favori,
+// recalculés partout (COLLECTION_TAGS).
 // retired : étiquettes de thèmes retirés (planThemeTags) : comptent comme thème en mode newOnly,
 // vidées puis supprimées en mode complet. existingTags : la liste renvoyée par planThemeTags.
 // frozen : Set(userCardId) d'exemplaires jamais modifiés (favoris exclus du tri) : aucune
 // étiquette gérée ajoutée ni retirée, Doublon compris. Ils comptent toujours dans le nombre
-// d'exemplaires (Doublon sur les autres exemplaires de la carte). Seule exception : la suppression
-// d'une étiquette retirée ou en double, en mode complet, qui retire l'étiquette entière.
+// d'exemplaires (Doublon sur les autres exemplaires de la carte). Exceptions : Favori, qui ne
+// concerne que les favoris et suit leur étoile ; la suppression d'une étiquette retirée ou en double,
+// en mode complet, qui retire l'étiquette entière.
 function planChanges(assignments, existingTags, current, {newOnly = false, managed, themes = null, retired = [], frozen = null}) {
   const wanted = Object.fromEntries(Object.keys(managed).map((name) => [name, new Set()]));
   for (const {userCard, tags} of assignments) for (const t of tags) wanted[t]?.add(userCard.id);
@@ -106,12 +117,12 @@ function planChanges(assignments, existingTags, current, {newOnly = false, manag
     const themeTagIds = Object.entries(idsByName).flatMap(([name, ids]) => (isThemeTag(name, themes) ? ids : []));
     for (const id of [...themeTagIds, ...retired.map((t) => t.id)]) for (const ucId of current.get(id) || []) sorted.add(ucId);
     fresh = new Set(assignments.map((a) => a.userCard.id).filter((id) => !sorted.has(id) && !frozen?.has(id)));
-    inScope = (name, ucId) => name === DOUBLON || fresh.has(ucId);
-    mayDelete = (name) => name === DOUBLON;
+    inScope = (name, ucId) => COLLECTION_TAGS.has(name) || fresh.has(ucId);
+    mayDelete = (name) => COLLECTION_TAGS.has(name);
   }
   if (frozen?.size) {
     const scope = inScope;
-    inScope = (name, ucId) => !frozen.has(ucId) && scope(name, ucId);
+    inScope = (name, ucId) => (name === FAVORI || !frozen.has(ucId)) && scope(name, ucId);
   }
 
   const toInsert = [];

@@ -11,7 +11,10 @@ import {settings, isOn} from "../state/settings";
 import {owned} from "../state/collection";
 import {priceOf, priceInfo, uncertainNote, requestPrice, priceVersion} from "../state/prices";
 import {wikiImage} from "./wiki-images";
-import {recapState, openAllState, markRevealed, dismissRecap, pullStats, collectionRarity, refreshCollectionRarity} from "./packs";
+import {recapState, openAllState, markRevealed, pullStats, collectionRarity, refreshCollectionRarity} from "./packs";
+import {placeBlocks, clearBlocks} from "./pack-dock";
+import {pulledTags, noteStarred, setStarProxy} from "./quick-tags";
+import {suspense, startSuspense, releaseSuspense, endSuspense, ENTER} from "./suspense";
 import {auctionById, auctionVersion, nextBid, msLeft} from "./market";
 import {resolveCard} from "./card-lookup";
 import {collectionView, setCollectionView} from "./collection-view";
@@ -25,6 +28,8 @@ import {AuctionInsight} from "../ui/islands/AuctionInsight";
 import {FriendTrades} from "../ui/islands/FriendTrades";
 import {TradeRecap} from "../ui/islands/TradeRecap";
 import {StonksPage} from "../ui/islands/StonksPage";
+import {RevealSide} from "../ui/islands/RevealSide";
+import {SuspenseLadder} from "../ui/islands/Suspense";
 import {readSession} from "../lib/session";
 import {themeMemo, tagColor, otherTheme} from "../state/themes";
 import {iconSvg, markSvg, markOutlineSvg, stonksOutlineSvg} from "../../shared/brand.mjs";
@@ -55,6 +60,15 @@ const SEL = {
   openButtonText: /^(Ouvrir$|Ouverture)/,
   // Bouton du bas de la révélation des cartes : « Encore 3 cartes », puis « Continuer »
   revealButtonText: /^(Continuer|Encore \d+ cartes?)$/,
+  // Au-dessus de la carte révélée : « Carte 2 / 5 »
+  revealCounter: /^Carte\s*(\d+)\s*\/\s*(\d+)$/,
+  // Étoile des favoris posée par le site sur la carte révélée
+  starButton: 'button[aria-label^="Ajouter aux favoris"], button[aria-label^="Retirer des favoris"]',
+  starredLabel: /^Retirer des favoris/,
+  // Carte révélée qui se retourne (animation du site : card-flip, -back, -legendary…)
+  revealFlip: '[class*="animate-card-flip"]',
+  // Carte encore en chargement (images) : bloc gris à la place de la carte
+  revealLoading: "[aria-busy]",
   pageTitle: "main h1",
   collectionSearch: 'main input[placeholder^="Rechercher par titre"]',
   // Fenêtre d'une carte : voile plein écran, titre en h2, carte en grand (classe glow-<rareté>)
@@ -497,12 +511,14 @@ function ensureOpenAllButton() {
 
 // --- Page Paquets : récapitulatif du paquet et graphique des taux de drop
 // Pendant que le site révèle les cartes une à une, on attend ; quand le bouton du bas devient
-// « Continuer » (toutes les cartes vues), le récapitulatif s'affiche dessous. Au retour sur l'écran
-// « Ouvrir un paquet », il disparaît (sauf après « Tout ouvrir », qui n'a pas d'écran de révélation).
-// Sur cet écran, sous le compteur de paquets : le graphique des taux de drop par rareté.
+// « Continuer » (toutes les cartes vues), le récapitulatif s'affiche dessous. Il reste ensuite sur
+// l'écran « Ouvrir un paquet » (« Paquet précédent ») jusqu'au paquet suivant, ou jusqu'à ce que
+// le joueur le ferme. Sur cet écran, sous le compteur de paquets : le graphique des taux de drop.
+// Chaque bloc peut aussi se placer dans la marge, à gauche ou à droite (features/pack-dock.js).
 let recapHost = null;
+let updateRecap = null;
+let recapProps = "";
 let ratesHost = null;
-let revealSeenFor = 0;
 
 function place(host, anchor) {
   if (!host.isConnected || host.previousElementSibling !== anchor) anchor.insertAdjacentElement("afterend", host);
@@ -538,25 +554,34 @@ function homeAnchor() {
   return anchor || open;
 }
 
+// Écran de révélation : bloc du compteur « Carte n / N », de la carte, des flèches et du bouton du bas
+function revealParts(button) {
+  const root = button.parentElement;
+  const counter = [...(root?.children || [])].find((el) => SEL.revealCounter.test(el.textContent.replace(/\s+/g, " ").trim()));
+  if (!counter) return null;
+  const [, n, total] = SEL.revealCounter.exec(counter.textContent.replace(/\s+/g, " ").trim());
+  const cardBox = counter.nextElementSibling;
+  if (!cardBox) return null;
+  return {root, cardBox, index: Number(n) - 1, total: Number(total), loading: Boolean(cardBox.querySelector(SEL.revealLoading))};
+}
+
 function ensurePullsWidgets() {
   const onPulls = currentPath().startsWith("/pulls");
   const reveal = onPulls ? findButton((t) => SEL.revealButtonText.test(t)) : null;
   const home = onPulls && !reveal ? homeAnchor() : null;
   const r = recapState.get();
+  ensureRevealExtras(reveal, r);
 
   // Récapitulatif
   let recapAnchor = null;
   if (onPulls && isOn("packRecap") && r.cards.length && !r.dismissed) {
-    if (r.source === "reveal") {
-      if (reveal) revealSeenFor = r.at;
-      if (reveal?.textContent.trim() === "Continuer") {
+    if (reveal) {
+      if (r.source === "reveal" && reveal.textContent.trim() === "Continuer") {
         markRevealed();
         recapAnchor = revealBlock(reveal);
-      } else if (!reveal && revealSeenFor === r.at && home) {
-        // « Continuer » cliqué : retour à l'accueil, on n'y laisse pas l'ancien récapitulatif
-        dismissRecap();
       }
-    } else if (home) {
+    } else if (home && r.phase === "ready") {
+      // Pendant l'ouverture d'un paquet, le récapitulatif du suivant attend sa révélation
       recapAnchor = home;
     }
   }
@@ -564,22 +589,134 @@ function ensurePullsWidgets() {
     if (!recapHost) {
       recapHost = document.createElement("div");
       recapHost.className = "wmt-recap-host";
-      mountPackRecap(recapHost, {onNext: openNextPack});
+      updateRecap = mountPackRecap(recapHost);
     }
-    place(recapHost, recapAnchor);
+    const previous = recapAnchor === home && r.source === "reveal";
+    if (recapProps !== String(previous)) {
+      recapProps = String(previous);
+      updateRecap({onNext: openNextPack, previous});
+    }
   } else recapHost?.remove();
 
   // Taux de drop (écran d'accueil seulement)
-  if (home && isOn("pullStats")) {
+  const rates = home && isOn("pullStats");
+  if (rates) {
     if (!ratesHost) {
       ratesHost = document.createElement("div");
       ratesHost.className = "wmt-rates-host";
       mountDropRates(ratesHost);
     }
     refreshCollectionRarity();
-    place(ratesHost, recapAnchor === home ? recapHost : home);
   } else ratesHost?.remove();
+
+  // Sous le contenu ou dans la marge (réglage de chaque bloc)
+  const container = reveal ? reveal.parentElement : home?.parentElement;
+  if (!container || (!recapAnchor && !rates)) return clearBlocks();
+  const items = [];
+  if (recapAnchor) items.push({key: "recap", host: recapHost, below: () => place(recapHost, recapAnchor)});
+  if (rates) items.push({key: "rates", host: ratesHost, below: () => place(ratesHost, recapHost?.parentElement === home.parentElement ? recapHost : home)});
+  placeBlocks(container, items);
 }
+
+// --- Révélation des cartes : suspense (option packSuspense) et panneau d'étiquettes à
+// droite de la carte (option revealTags). La carte affichée est celle du compteur « Carte n / N »,
+// dans l'ordre de la réponse du site (recapState).
+let ladderHost = null;
+let updateLadder = null;
+let ladderKey = "";
+let sideHost = null;
+let updateSide = null;
+let sideKey = "";
+let shownCard = null; // {at, index, starButton} : carte affichée, pour l'étoile du récapitulatif
+
+function ensureRevealExtras(reveal, r) {
+  const parts = reveal && r.source === "reveal" ? revealParts(reveal) : null;
+  const card = parts && !parts.loading && parts.total === r.cards.length ? r.cards[parts.index] : null;
+  shownCard = card ? {at: r.at, index: parts.index, starButton: parts.cardBox.querySelector(SEL.starButton)} : null;
+
+  // Suspense : la carte est cachée (son retournement par le site retiré) le temps que son dos se
+  // charge jusqu'à sa rareté, puis elle entre avec l'animation de sa rareté, une fois le dos sorti
+  // (délai), à la place de celle du site. La carte est cachée avant son premier affichage (boucle
+  // groupée par image).
+  const flip = card ? parts.cardBox.querySelector(SEL.revealFlip) : null;
+  const effect = flip && isOn("packSuspense") ? startSuspense(r.at, parts.index) : null;
+  if (effect === "hold") holdCard(flip);
+  else if (flip?.dataset.wmtHeld && isOn("packSuspense")) enterCard(flip, card);
+  else if (flip?.dataset.wmtHeld) restoreCard(flip);
+  const hidden = Boolean(effect);
+  if (hidden) {
+    if (!ladderHost) {
+      ladderHost = document.createElement("div");
+      ladderHost.className = "wmt-suspense-host";
+      updateLadder = mountIsland(ladderHost, SuspenseLadder);
+    }
+    if (ladderHost.parentElement !== parts.cardBox) parts.cardBox.append(ladderHost);
+    const key = `${r.at}-${parts.index}`;
+    if (ladderKey !== key) {
+      ladderKey = key;
+      updateLadder({id: key, rarity: card.rarity, shiny: Boolean(card.is_shiny), onRelease: releaseSuspense, onDone: endSuspense});
+    }
+  } else if (ladderHost?.isConnected) {
+    ladderHost.remove();
+    ladderKey = "";
+    updateLadder({id: null});
+  }
+
+  // Panneau d'étiquettes : à droite de la carte s'il y a la place, sinon sous le bouton du bas ;
+  // caché pendant le suspense, effet de sortie compris (il dévoilerait la carte)
+  if (card && isOn("revealTags") && !hidden) {
+    if (!sideHost) {
+      sideHost = document.createElement("div");
+      sideHost.className = "wmt-reveal-side";
+      updateSide = mountIsland(sideHost, RevealSide);
+    }
+    const box = parts.cardBox.getBoundingClientRect();
+    const beside = box.right + 20 + 260 <= document.documentElement.clientWidth - 8;
+    if (beside) {
+      if (sideHost.parentElement !== parts.cardBox) parts.cardBox.append(sideHost);
+    } else if (sideHost.parentElement !== parts.root || sideHost.previousElementSibling !== reveal) reveal.insertAdjacentElement("afterend", sideHost);
+    sideHost.classList.toggle("beside", beside);
+    const key = `${r.at}-${parts.index}`;
+    if (sideKey !== key) {
+      sideKey = key;
+      updateSide({at: r.at, index: parts.index});
+    }
+    if (shownCard.starButton) noteStarred(card.user_card_id, SEL.starredLabel.test(shownCard.starButton.getAttribute("aria-label") || ""));
+  } else sideHost?.remove();
+}
+
+// Carte du site pendant le suspense. Le style en ligne l'emporte sur la classe d'animation du site
+// (animate-card-flip…) ; il reste sur l'élément jusqu'à ce que le site le remplace (carte suivante),
+// sinon le retournement du site rejouerait.
+function holdCard(flip) {
+  if (flip.dataset.wmtHeld) return;
+  flip.dataset.wmtHeld = "1";
+  flip.style.animation = "none";
+  flip.style.opacity = "0";
+}
+function enterCard(flip, card) {
+  delete flip.dataset.wmtHeld;
+  const rarity = card.rarity in ENTER ? card.rarity : "C";
+  const {back, ms} = ENTER[rarity];
+  flip.style.opacity = "";
+  flip.style.animation = `wmt-enter-${rarity} ${ms}ms ${back}ms both`;
+}
+// Option désactivée pendant l'attente : la carte retrouve l'animation du site
+function restoreCard(flip) {
+  delete flip.dataset.wmtHeld;
+  flip.style.opacity = "";
+  flip.style.animation = "";
+}
+
+// Étoile d'une carte du récapitulatif : si la révélation l'affiche, on passe par le bouton du site
+// pour qu'il garde son état ; le changement se relit sur son libellé
+setStarProxy((index) => {
+  const button = shownCard?.starButton;
+  if (!button?.isConnected || shownCard.index !== index || shownCard.at !== recapState.get().at) return false;
+  button.click();
+  for (const delay of [50, 300, 1000]) setTimeout(schedule, delay);
+  return true;
+});
 
 // --- Blocs de la Toolbox dans les pages (« îlots »)
 // Chaque îlot est créé une fois, re-rendu seulement quand ses données changent, et replacé sous
@@ -818,6 +955,12 @@ export function startSiteDom() {
   // Les pastilles « bonne affaire » dépendent du temps restant
   setInterval(() => currentPath().startsWith("/marketplace") && bump(), 60000);
   recapState.subscribe(schedule);
+  suspense.subscribe(schedule);
+  pulledTags.subscribe(schedule);
+  // Étoile du site cliquée sur la carte révélée : son libellé change sans que la page soit reconstruite
+  document.addEventListener("click", (e) => e.target.closest?.(SEL.starButton) && [50, 300, 1000].forEach((d) => setTimeout(schedule, d)), true);
+  // Récapitulatif et taux de drop dans la marge : leur place dépend de la largeur de la fenêtre
+  window.addEventListener("resize", schedule, {passive: true});
   openAllState.subscribe(schedule);
   pullStats.subscribe(schedule);
   collectionRarity.subscribe(schedule);

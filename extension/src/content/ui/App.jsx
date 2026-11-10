@@ -22,6 +22,7 @@ import {ImagesTab} from "./tabs/ImagesTab";
 import {AchievementsTab, claimedMessage} from "./tabs/AchievementsTab";
 import {SettingsTab} from "./tabs/SettingsTab";
 import {SellDialogHost} from "./SellDialog";
+import {CardAuctionsHost} from "./CardAuctions";
 import {L} from "../../shared/i18n";
 
 // L'icône de chaque onglet porte le même nom dans shared/brand.mjs
@@ -228,6 +229,7 @@ export function App() {
       {open && <Panel />}
       <TradeValuesWidget path={path} />
       <SellDialogHost />
+      <CardAuctionsHost />
       <Dialog />
       <Toasts />
     </>

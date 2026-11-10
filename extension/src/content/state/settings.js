@@ -19,8 +19,11 @@ export const FEATURES = [
   {key: "dealBadges", group: L("Pages du site", "Site pages"), label: L("Bonnes affaires du marché", "Market deals"), help: L("Signale sur le marché les enchères nettement sous le prix du marché (ou très au-dessus).", "Flags auctions on the market well below the market price (or far above).")},
   {key: "friendTrades", group: L("Pages du site", "Site pages"), label: L("Échanges sur le profil d'un ami", "Trades on a friend's profile"), help: L("Sur le profil d'un joueur : cherche ses cartes qui vous intéressent et les vôtres qui l'intéressent.", "On a player's profile: finds their cards you want and your cards they want.")},
   {key: "sortThemes", group: L("Tri", "Sorting"), label: L("Étiquettes de thème", "Theme tags"), help: L("Le tri donne un thème à chaque carte (Sports, Histoire…). Désactivé, il ne pose plus que Doublon et les étiquettes « Pour : … » ; les étiquettes de thème déjà posées restent sur vos cartes et ne sont plus touchées.", "Sorting gives each card a theme (Sports, Histoire…). When off, it only sets Doublon and the \"Pour : …\" tags; theme tags already set stay on your cards and are no longer touched.")},
-  {key: "skipStarred", group: L("Tri", "Sorting"), label: L("Ne pas trier les favoris", "Don't sort favorites"), help: L("Les exemplaires mis en favori (étoile du site) ne reçoivent ni ne perdent aucune étiquette du tri, Doublon compris. Ils comptent quand même pour signaler les autres exemplaires en Doublon.", "Copies marked as favorites (the site's star) never gain or lose a sorting tag, Doublon included. They still count when flagging the other copies as Doublon.")},
+  {key: "favoriteTag", group: L("Tri", "Sorting"), label: L("Étiquette Favori", "Favori tag"), help: L("Le tri pose l'étiquette « Favori » sur vos exemplaires en favori (étoile du site) et la retire quand l'étoile est retirée, même avec « Ne pas trier les favoris » : la collection du site peut alors être filtrée sur vos favoris. Recalculée à chaque tri, y compris celui des nouvelles cartes. Une étiquette « Favori » que vous auriez créée vous-même est reprise. Désactivé, l'étiquette reste sur vos cartes et n'est plus touchée.", "Sorting puts the \"Favori\" tag on your favorite copies (the site's star) and removes it when the star is removed, even with \"Don't sort favorites\": the site's collection can then be filtered on your favorites. Recomputed on every sort, including the new-cards sort. A \"Favori\" tag you created yourself is taken over. When off, the tag stays on your cards and is no longer touched.")},
+  {key: "skipStarred", group: L("Tri", "Sorting"), label: L("Ne pas trier les favoris", "Don't sort favorites"), help: L("Les exemplaires mis en favori (étoile du site) ne reçoivent ni ne perdent aucune étiquette du tri, Doublon compris (seule exception : l'étiquette Favori, si elle est activée). Ils comptent quand même pour signaler les autres exemplaires en Doublon.", "Copies marked as favorites (the site's star) never gain or lose a sorting tag, Doublon included (only exception: the Favori tag, if turned on). They still count when flagging the other copies as Doublon.")},
   {key: "packRecap", group: L("Paquets", "Packs"), label: L("Récapitulatif après un paquet", "Recap after a pack"), help: L("Bloc dans la page Paquets, affiché après la dernière carte révélée : nouveautés, doublons, prix du marché et valeur totale.", "Block on the Packs page, shown after the last card is revealed: new cards, duplicates, market prices and total value.")},
+  {key: "packSuspense", group: L("Paquets", "Packs"), label: L("Suspense à la révélation", "Suspense on reveal"), help: L("Pendant la révélation d'un paquet, chaque carte reste face cachée et se charge de rareté en rareté, de Commune à la sienne, avec des effets de plus en plus marqués, puis éclate selon sa rareté. Plus la carte est rare, plus l'attente est longue. Un clic passe l'attente.", "While a pack is revealed, each card stays face down and charges up rarity by rarity, from Common to its own, with stronger effects at each step, then bursts open based on its rarity. The rarer the card, the longer the wait. A click skips the wait.")},
+  {key: "revealTags", group: L("Paquets", "Packs"), label: L("Étiquettes et favori à côté de la carte", "Tags and favorite next to the card"), help: L("Pendant la révélation, à droite de la carte : son prix, ses étiquettes et l'étoile des favoris, pour la classer en un clic. Les mêmes boutons sont dans le récapitulatif.", "During the reveal, to the right of the card: its price, its tags and the favorite star, to file it in one click. The same buttons are in the recap.")},
   {key: "pullStats", group: L("Paquets", "Packs"), label: L("Statistiques de tirage", "Pull stats"), help: L("Compte les raretés obtenues et affiche les taux de drop sur la page Paquets.", "Counts the rarities pulled and shows drop rates on the Packs page.")},
   {key: "openAll", group: L("Paquets", "Packs"), label: L("Bouton « Tout ouvrir »", "\"Open all\" button"), help: L("Sur la page Paquets : ouvre tous les paquets disponibles sans animation, après confirmation.", "On the Packs page: opens all available packs without animation, after confirmation.")},
   {key: "autoSortPulls", group: L("Paquets", "Packs"), label: L("Trier automatiquement les cartes tirées", "Auto-sort pulled cards"), help: L("Dès l'ouverture d'un paquet, ajoute aux cartes tirées leur thème, les étiquettes « Pour : … » et Doublon. Seuls les nouveaux exemplaires sont touchés, rien n'est supprimé.", "As soon as a pack is opened, adds their theme, the \"Pour : …\" tags and Doublon to the pulled cards. Only the new copies are touched; nothing is removed.")},
@@ -33,7 +36,11 @@ export const FEATURES = [
   {key: "notificationSound", group: L("Confort", "Comfort"), label: L("Son de notification", "Notification sound"), help: L("Joue un son discret quand une nouvelle notification arrive.", "Plays a subtle sound when a new notification arrives.")},
 ];
 
-const OFF_BY_DEFAULT = new Set(["missingImages", "notificationSound", "autoSortPulls", "autoClaimAchievements", "skipStarred"]);
+const OFF_BY_DEFAULT = new Set(["favoriteTag", "missingImages", "notificationSound", "autoSortPulls", "autoClaimAchievements", "skipStarred"]);
+
+// Activées par défaut pour une nouvelle installation seulement : une installation qui a déjà des
+// réglages enregistrés, sans cette option, la garde désactivée (le joueur l'active dans les réglages)
+const ON_FOR_NEW_INSTALLS = ["packSuspense"];
 
 export const DEFAULT_SETTINGS = {
   features: Object.fromEntries(FEATURES.map((f) => [f.key, !OFF_BY_DEFAULT.has(f.key)])),
@@ -46,6 +53,8 @@ export const DEFAULT_SETTINGS = {
   minSales: PRICE_DEFAULTS.minSales,
   skipFirstSales: PRICE_DEFAULTS.skipFirst,
   bidAlertMinutes: 2,
+  // Page Paquets : place du récapitulatif et des taux de drop ("below" sous le contenu, "left" / "right" dans la marge)
+  packDock: {recap: "below", rates: "below"},
 };
 
 // Couleurs de thèmes choisies avant l'éditeur de thèmes (v1.4) : reprises dans la liste des thèmes.
@@ -62,7 +71,8 @@ export const settings = persistentStore("settings", DEFAULT_SETTINGS, {
   merge: (saved) => ({
     ...DEFAULT_SETTINGS,
     ...saved,
-    features: {...DEFAULT_SETTINGS.features, ...(saved.features || {})},
+    features: {...DEFAULT_SETTINGS.features, ...Object.fromEntries(ON_FOR_NEW_INSTALLS.map((k) => [k, false])), ...(saved.features || {})},
+    packDock: {...DEFAULT_SETTINGS.packDock, ...(saved.packDock || {})},
     ...migrateThemeColors(saved),
   }),
 });

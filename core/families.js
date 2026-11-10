@@ -6,7 +6,7 @@ const {categorize} = require("./categorize");
 const {themeSetOf, themeAliases} = require("./theme-set");
 const {hasKeyword, normalize} = require("./text");
 const {keywordsToPattern} = require("./profiles");
-const {RARITIES} = require("./prices");
+const {RARITIES, rarityRank} = require("./prices");
 const {L} = require("./i18n");
 
 // rule : {query, themes: [], keywords: "…", exclude: "…", rarities: []}
@@ -56,6 +56,62 @@ function familyProgress(family, ownedCardIds) {
   return {owned, total, missing: total - owned, percent: total ? Math.round((100 * owned) / total) : 0};
 }
 
+// Ordre d'affichage des familles. "manual" : l'ordre de la liste, rangée par le joueur (glisser-
+// déposer) ; "name" : alphabétique (accents et casse ignorés, nombres dans l'ordre naturel) ;
+// "progress" : les plus complètes d'abord (puis le moins de cartes manquantes, puis le nom) ;
+// "recent" : modifiées le plus récemment d'abord. Ne modifie pas la liste.
+const FAMILY_SORTS = ["manual", "name", "progress", "recent"];
+const byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, {sensitivity: "base", numeric: true});
+function sortFamilies(list, sort, ownedCardIds = new Set()) {
+  const items = [...list];
+  if (sort === "name") return items.sort(byName);
+  if (sort === "recent") return items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || byName(a, b));
+  if (sort === "progress") {
+    const p = new Map(items.map((f) => [f.id, familyProgress(f, ownedCardIds)]));
+    // Une famille vide passe après les autres (0 % sans rien à compléter)
+    const rate = (f) => (p.get(f.id).total ? p.get(f.id).owned / p.get(f.id).total : -1);
+    return items.sort((a, b) => rate(b) - rate(a) || p.get(a.id).missing - p.get(b.id).missing || byName(a, b));
+  }
+  return items;
+}
+
+// Ordre des cartes dans une famille. "manual" : l'ordre de la famille, rangée par le joueur ;
+// "name" : alphabétique ; "rarity" : les plus rares d'abord ; "price" : les plus chères d'abord
+// (prix du marché donné par priceOf(carte), les cartes sans prix à la fin). Ne modifie pas la liste.
+const CARD_SORTS = ["manual", "name", "rarity", "price"];
+const byTitle = (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, {sensitivity: "base", numeric: true});
+function sortFamilyCards(cards, sort, {priceOf = () => null} = {}) {
+  const items = [...cards];
+  if (sort === "name") return items.sort(byTitle);
+  if (sort === "rarity") return items.sort((a, b) => rarityRank(b.rarity) - rarityRank(a.rarity) || byTitle(a, b));
+  if (sort === "price") {
+    const price = new Map(items.map((c) => [c.id, priceOf(c)]));
+    const value = (c) => (price.get(c.id) == null ? -1 : price.get(c.id));
+    return items.sort((a, b) => value(b) - value(a) || rarityRank(b.rarity) - rarityRank(a.rarity) || byTitle(a, b));
+  }
+  return items;
+}
+
+// Cartes d'une famille intelligente après une nouvelle recherche : celles qui y étaient déjà gardent
+// la place où le joueur les a rangées, les nouvelles suivent dans l'ordre de la recherche
+function keepCardOrder(previous, found) {
+  const at = new Map(previous.map((c, i) => [c.id, i]));
+  const kept = found.filter((c) => at.has(c.id)).sort((a, b) => at.get(a.id) - at.get(b.id));
+  return [...kept, ...found.filter((c) => !at.has(c.id))];
+}
+
+// Déplace l'élément d'identifiant `id` à la position `to` (bornée) ; même liste si rien ne change
+function moveItem(list, id, to) {
+  const from = list.findIndex((x) => x.id === id);
+  if (from < 0) return list;
+  const target = Math.max(0, Math.min(list.length - 1, to));
+  if (target === from) return list;
+  const items = [...list];
+  const [item] = items.splice(from, 1);
+  items.splice(target, 0, item);
+  return items;
+}
+
 // Charge utile d'un code de partage (sans possessions)
 function familyToShare(family) {
   return {
@@ -103,4 +159,4 @@ function familyFromShare(payload) {
   };
 }
 
-module.exports = {matchesFamilyRule, titleHasWords, compactCard, familyProgress, familyToShare, familyFromShare};
+module.exports = {matchesFamilyRule, titleHasWords, compactCard, familyProgress, FAMILY_SORTS, sortFamilies, CARD_SORTS, sortFamilyCards, keepCardOrder, moveItem, familyToShare, familyFromShare};

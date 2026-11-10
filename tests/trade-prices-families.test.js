@@ -246,3 +246,32 @@ test("couleurs des raretés : celles du site, identiques dans l'extension", () =
   const css = require("node:fs").readFileSync(require("node:path").join(__dirname, "../extension/src/content/ui/panel.css"), "utf8");
   for (const [r, color] of Object.entries(core.RARITY_COLORS)) assert.match(css, new RegExp(`--r-${r}: ${color};`), `--r-${r} dans panel.css`);
 });
+
+test("familles : ordre par nom, complétion, modification, et déplacement", () => {
+  const f = (id, name, cards, updatedAt) => ({id, name, updatedAt, cards: cards.map((c) => ({id: c}))});
+  const list = [f("a", "Zoo", ["1", "2"], 3), f("b", "écoles", ["3"], 1), f("c", "Rois 10", ["4", "5", "6", "7"], 2), f("d", "Rois 9", [], 4), f("e", "Avions", ["8", "9"], 5)];
+  const owned = new Set(["1", "3", "4", "5", "6", "8"]);
+  assert.deepEqual(core.sortFamilies(list, "name").map((x) => x.id), ["e", "b", "d", "c", "a"], "accents ignorés, nombres dans l'ordre naturel");
+  assert.deepEqual(core.sortFamilies(list, "progress", owned).map((x) => x.id), ["b", "c", "e", "a", "d"], "100 %, 75 %, puis 50 % (moins de manquantes, puis nom), famille vide en dernier");
+  assert.deepEqual(core.sortFamilies(list, "recent").map((x) => x.id), ["e", "d", "a", "c", "b"]);
+  assert.deepEqual(core.sortFamilies(list, "manual").map((x) => x.id), ["a", "b", "c", "d", "e"]);
+  assert.deepEqual(list.map((x) => x.id), ["a", "b", "c", "d", "e"], "la liste n'est pas modifiée");
+  assert.deepEqual(core.moveItem(list, "d", 0).map((x) => x.id), ["d", "a", "b", "c", "e"]);
+  assert.deepEqual(core.moveItem(list, "a", 99).map((x) => x.id), ["b", "c", "d", "e", "a"], "position bornée");
+  assert.equal(core.moveItem(list, "c", 2), list, "rien ne change : même liste");
+  assert.equal(core.moveItem(list, "zz", 0), list);
+});
+
+test("cartes d'une famille : ordre par nom, rareté, prix, et rangement gardé à l'actualisation", () => {
+  const c = (id, title, rarity) => ({id, title, rarity});
+  const cards = [c("1", "Yoda", "UR"), c("2", "Anakin", "C"), c("3", "Dark Vador", "L"), c("4", "Boba Fett", "UR"), c("5", "Ewok", "SR")];
+  const prices = {1: 300, 2: 5, 3: null, 4: 300, 5: 40};
+  assert.deepEqual(core.sortFamilyCards(cards, "name").map((x) => x.id), ["2", "4", "3", "5", "1"]);
+  assert.deepEqual(core.sortFamilyCards(cards, "rarity").map((x) => x.id), ["3", "4", "1", "5", "2"], "L, puis UR par nom, SR, C");
+  assert.deepEqual(core.sortFamilyCards(cards, "price", {priceOf: (x) => prices[x.id]}).map((x) => x.id), ["4", "1", "5", "2", "3"], "les plus chères, égalité départagée par le nom, sans prix à la fin");
+  assert.deepEqual(core.sortFamilyCards(cards, "manual").map((x) => x.id), ["1", "2", "3", "4", "5"]);
+  // Actualisation d'une famille intelligente : 3 a disparu, 6 est nouvelle
+  const found = [c("6", "Jabba", "R"), c("1", "Yoda", "UR"), c("5", "Ewok", "SR"), c("2", "Anakin", "C"), c("4", "Boba Fett", "UR")];
+  const arranged = [cards[4], cards[0], cards[3], cards[1], cards[2]]; // 5, 1, 4, 2, 3
+  assert.deepEqual(core.keepCardOrder(arranged, found).map((x) => x.id), ["5", "1", "4", "2", "6"]);
+});

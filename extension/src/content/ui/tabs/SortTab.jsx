@@ -6,7 +6,10 @@ import {activeProfiles} from "../../state/profiles";
 import {settings, isOn} from "../../state/settings";
 import {Progress, Notice, ThemeChip, fmt, plural, timeAgo} from "../components";
 import {confirmAction, toast, errorMessage} from "../feedback";
-import {DOUBLON} from "../../../../../core";
+import {DOUBLON, FAVORI} from "../../../../../core";
+
+// Pastille d'une étiquette gérée qui n'est pas un thème : Doublon, Favori, « Pour : … »
+const chipClass = (name) => (name === DOUBLON ? "danger" : name === FAVORI ? "warn" : "accent");
 import {isTheme} from "../../state/themes";
 import {L} from "../../../shared/i18n";
 
@@ -17,7 +20,7 @@ function TagCounts({counts}) {
       <tbody>
         {counts.map(({name, count}) => (
           <tr key={name}>
-            <td style={{width: "45%"}}>{isTheme(name) ? <ThemeChip theme={name} /> : <span class={`chip ${name === DOUBLON ? "danger" : "accent"}`}>{name}</span>}</td>
+            <td style={{width: "45%"}}>{isTheme(name) ? <ThemeChip theme={name} /> : <span class={`chip ${chipClass(name)}`}>{name}</span>}</td>
             <td>
               <div class="bar" style={{width: `${(100 * count) / max}%`}} />
             </td>
@@ -77,6 +80,13 @@ function PlanView({plan}) {
           {plan.doublonDels.length > 0 && <p class="small muted">− {plan.doublonDels.join(", ")}</p>}
         </div>
       )}
+      {(plan.favoriAdds?.length > 0 || plan.favoriDels?.length > 0) && (
+        <div class="box">
+          <h3>{L("Favoris", "Favorites")}</h3>
+          {plan.favoriAdds.length > 0 && <p class="small">+ {plan.favoriAdds.join(", ")}</p>}
+          {plan.favoriDels.length > 0 && <p class="small muted">− {plan.favoriDels.join(", ")}</p>}
+        </div>
+      )}
       {plan.counts.length > 0 && (
         <div class="box">
           <h3>{L("Répartition", "Breakdown")}</h3>
@@ -102,7 +112,7 @@ function PlanView({plan}) {
                   </td>
                   <td>
                     <div class="chips">
-                      {c.tags.map((t) => (isTheme(t) ? <ThemeChip key={t} theme={t} /> : <span key={t} class={`chip ${t === DOUBLON ? "danger" : "accent"}`}>{t}</span>))}
+                      {c.tags.map((t) => (isTheme(t) ? <ThemeChip key={t} theme={t} /> : <span key={t} class={`chip ${chipClass(t)}`}>{t}</span>))}
                     </div>
                   </td>
                 </tr>
@@ -165,7 +175,11 @@ export function SortTab() {
       <div class="page-head">
         <div>
           <h2>{L("Tri automatique", "Automatic sort")}</h2>
-          <p>{L("Un thème par carte, les étiquettes « Pour : … » de vos profils d'intérêts et l'étiquette Doublon. Vos étiquettes personnelles ne sont jamais modifiées.", 'One theme per card, the "Pour : …" tags of your interest profiles and the Doublon tag. Your personal tags are never changed.')}</p>
+          <p>
+            {isOn("favoriteTag")
+              ? L("Un thème par carte, les étiquettes « Pour : … » de vos profils d'intérêts, l'étiquette Doublon et l'étiquette Favori. Vos étiquettes personnelles ne sont jamais modifiées.", 'One theme per card, the "Pour : …" tags of your interest profiles, the Doublon tag and the Favori tag. Your personal tags are never changed.')
+              : L("Un thème par carte, les étiquettes « Pour : … » de vos profils d'intérêts et l'étiquette Doublon. Vos étiquettes personnelles ne sont jamais modifiées.", 'One theme per card, the "Pour : …" tags of your interest profiles and the Doublon tag. Your personal tags are never changed.')}
+          </p>
         </div>
       </div>
 
@@ -173,7 +187,11 @@ export function SortTab() {
         <div class="box stack">
           <div>
             <h3>{L("Trier mes nouvelles cartes", "Sort my new cards")}</h3>
-            <p class="help">{L("Classe les cartes qui n'ont encore aucun thème et met à jour les doublons. Les cartes déjà triées, et vos corrections, ne sont pas modifiées.", "Sorts the cards that have no theme yet and updates duplicates. Cards already sorted, and your fixes, are left unchanged.")}</p>
+            <p class="help">
+              {isOn("favoriteTag")
+                ? L("Classe les cartes qui n'ont encore aucun thème et met à jour les doublons et les favoris. Les cartes déjà triées, et vos corrections, ne sont pas modifiées.", "Sorts the cards that have no theme yet and updates duplicates and favorites. Cards already sorted, and your fixes, are left unchanged.")
+                : L("Classe les cartes qui n'ont encore aucun thème et met à jour les doublons. Les cartes déjà triées, et vos corrections, ne sont pas modifiées.", "Sorts the cards that have no theme yet and updates duplicates. Cards already sorted, and your fixes, are left unchanged.")}
+            </p>
           </div>
           <div class="row">
             <button class="btn primary" disabled={s.running} onClick={() => preview(true)}>{L("Aperçu du tri", "Preview sort")}</button>
@@ -195,6 +213,7 @@ export function SortTab() {
         {profiles.length ? profiles.map((p) => p.name).join(", ") : L("aucun (ajoutez-en dans l'onglet Profils)", "none (add some in the Profiles tab)")}
         {!isOn("sortThemes") && L(" · Étiquettes de thème désactivées", " · Theme tags off")}
         {isOn("skipStarred") && L(" · Favoris exclus", " · Favorites left out")}
+        {isOn("favoriteTag") && L(" · Étiquette Favori", " · Favori tag")}
         {s.lastRun && L(` · Dernier tri ${timeAgo(s.lastRun.at)} (${plural(s.lastRun.sorted, "carte")})`, ` · Last sort ${timeAgo(s.lastRun.at)} (${plural(s.lastRun.sorted, "card")})`)}
       </p>
 

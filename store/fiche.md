@@ -1,5 +1,7 @@
 # Fiche du Chrome Web Store
 
+Les descriptions détaillées servent aussi à la fiche Firefox Add-ons (`firefox.md`).
+
 Textes à copier dans l'onglet **Fiche Play Store / Store listing** du tableau de bord développeur, une
 fois par langue (anglais par défaut, puis français : voir « Fiche multilingue » dans `README.md`).
 Le nom et le résumé viennent du manifeste (`extension/build.mjs`, `_locales`) : ils ne se saisissent pas ici.
@@ -50,7 +52,7 @@ TRI AUTOMATIQUE
 • « Trier les nouvelles cartes » depuis la page Collection : aperçu, puis application en un clic. Vos corrections et vos étiquettes personnelles ne sont jamais modifiées.
 • Étiquette « Doublon » sur les cartes possédées en plusieurs exemplaires, et « Pour : pseudo » sur celles qui intéressent un ami.
 • Vous aviez déjà classé vos cartes avec vos propres étiquettes ? Reprenez-les comme thèmes, sans retrier toute la collection.
-• Au choix : tri sans thèmes (seulement « Doublon » et « Pour : … »), favoris laissés hors du tri, tri des cartes dès l'ouverture d'un paquet.
+• Au choix : tri sans thèmes (seulement « Doublon » et « Pour : … »), favoris laissés hors du tri, étiquette « Favori » sur vos cartes en favori (pour les filtrer dans la collection), tri des cartes dès l'ouverture d'un paquet.
 
 FILTRES DE TOUTE LA COLLECTION
 • Doublons, cartes sans image, GIF : des critères cumulables, sur toute la collection et pas seulement la page affichée.
@@ -61,7 +63,8 @@ FILTRES DE TOUTE LA COLLECTION
 
 PRIX ET MARCHÉ
 • Prix du marché de chaque carte dans sa rareté : médiane des dernières ventes, prix à part pour les shiny, « ≈ » quand la carte s'est trop peu vendue.
-• Sur la page d'une enchère : écart entre la mise et le prix du marché.
+• Sur la page d'une enchère : écart entre la mise et le prix du marché, et un avertissement si vous misez déjà sur une autre enchère de la même carte.
+• « Prochaines enchères de cette carte » : toutes les enchères en cours de la carte, avec la mise, le prix du marché et le temps restant.
 • Le titre de l'onglet d'une enchère affiche le temps restant et si vous êtes en tête (✓) ou surenchéri (✗), et clignote quand quelqu'un surenchérit : surveillez l'enchère depuis un autre onglet.
 • Pastilles « bonne affaire » et « trop cher » sur le marché.
 • Valeur de votre collection et vos cartes les plus chères.
@@ -79,14 +82,18 @@ STONKS : VOTRE HISTORIQUE DE TRADING
 • Valeur de chaque côté des échanges en cours.
 
 PAQUETS
-• Récapitulatif après chaque paquet : nouveautés, doublons, prix de chaque carte, valeur totale.
+• Suspense à la révélation : chaque nouvelle carte reste face cachée et se charge de rareté en rareté, puis éclate avec un effet qui grandit avec sa rareté (flash, ondes de choc, rayons ; reflet irisé pour une shiny). Un clic passe l'attente.
+• Étiquettes et favori en un clic à côté de chaque carte révélée.
+• Récapitulatif après chaque paquet : nouveautés, doublons, prix de chaque carte, valeur totale. Il reste affiché jusqu'au paquet suivant, même après un rechargement de la page.
 • Vente ou défausse sur place, carte par carte ou en lot ; « Ouvrir le prochain » pour enchaîner.
+• Récapitulatif et taux de drop à placer à gauche, dessous ou à droite.
 • Taux de drop par rareté.
 • « Tout ouvrir » : seulement sur votre clic, après confirmation. Aucune ouverture automatique.
 
 FAMILLES
 • Groupes de cartes à compléter, choisies une à une ou remplies par une recherche. Partageables par code.
 • Recherche au mot exact : la carte « Mars » et ses homonymes en tête, au lieu de 30 pages de « Marseille » et de « 10 mars ».
+• Familles et cartes rangées à votre goût par glisser-déposer, ou par nom, complétion, rareté ou prix.
 • Cartes manquantes en vente, ou ajoutées en un clic à votre liste de souhaits : le site vous prévient quand l'une d'elles est mise en vente.
 
 SUCCÈS
@@ -130,7 +137,7 @@ AUTOMATIC SORTING
 • "Sort new cards" from the Collection page: preview, then apply in one click. Your fixes and your own tags are never changed.
 • A "Doublon" tag on cards you own more than once, and "Pour : name" on cards a friend would like.
 • Already sorted your cards with your own tags? Turn them into themes instead of re-sorting the whole collection.
-• Optional: sorting without themes (only "Doublon" and "Pour : …"), favorites left out of sorting, sorting cards as soon as a pack is opened.
+• Optional: sorting without themes (only "Doublon" and "Pour : …"), favorites left out of sorting, a "Favori" tag on your starred cards (to filter them in your collection), sorting cards as soon as a pack is opened.
 
 FILTERS ACROSS YOUR WHOLE COLLECTION
 • Duplicates, cards without an image, GIFs: combinable criteria, across the whole collection, not just the page shown.
@@ -141,7 +148,8 @@ FILTERS ACROSS YOUR WHOLE COLLECTION
 
 PRICES AND MARKET
 • Market price of each card in its rarity: median of recent sales, separate prices for shiny cards, "≈" when a card has sold too rarely.
-• On an auction page: gap between the bid and the market price.
+• On an auction page: gap between the bid and the market price, and a warning when you already bid on another auction of the same card.
+• "Upcoming auctions for this card": every running auction of the card, with the bid, market price and time left.
 • An auction's tab title shows the time left and whether you lead (✓) or were outbid (✗), and flashes when someone outbids you: keep an eye on it from another tab.
 • "Good deal" and "overpriced" badges on the market.
 • Your collection's value and your most valuable cards.
@@ -159,14 +167,18 @@ TRADES
 • Value of each side of your pending trades.
 
 PACKS
-• A recap after each pack: new cards, duplicates, price of each card, total value.
+• Suspense on reveal: each new card stays face down and charges up rarity by rarity, then bursts open with an effect that grows with its rarity (flash, shockwaves, light rays; iridescent sheen for shiny cards). One click skips the wait.
+• Tags and favorite in one click next to each revealed card.
+• A recap after each pack: new cards, duplicates, price of each card, total value. It stays on screen until the next pack, even after reloading the page.
 • Sell or discard in place, card by card or in bulk; "Open next" to keep going.
+• Place the recap and drop rates on the left, below or on the right.
 • Drop rates by rarity.
 • "Open all": only on your click, after confirmation. Packs are never opened automatically.
 
 FAMILIES
 • Sets of cards to complete, hand-picked or filled from a search. Shareable by code.
 • Exact word search: the "Mars" card and its namesakes first, instead of 30 pages of "Marseille" and "10 mars".
+• Families and their cards ordered your way with drag and drop, or by name, completion, rarity or price.
 • Missing cards on sale, or added to your wishlist in one click: the site lets you know when one of them is put up for sale.
 
 ACHIEVEMENTS

@@ -8,6 +8,7 @@ import {pullStats, collectionRarity} from "../features/packs";
 import {RARITIES, RARITY_LABEL} from "../../../../core";
 import {Mark, fmt, plural} from "./components";
 import {mountIsland} from "./islands/mount";
+import {DockPicker} from "./DockPicker";
 import {L, LOCALE} from "../../shared/i18n";
 
 // En dessous de ce nombre de cartes tirées, la collection donne une meilleure estimation
@@ -52,6 +53,7 @@ export function DropRatesView() {
             {L("Ma collection", "My collection")}
           </button>
         </div>
+        <DockPicker block="rates" />
       </header>
       {total ? (
         <ul class="rates-list">

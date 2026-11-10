@@ -221,10 +221,33 @@ const Badges = ({badges}) =>
 // selected (avec onClick) : carte à cocher ; onTitle : clic sur le titre (ouvre la carte ailleurs) ;
 // wiki : sinon, titre lié à l'article Wikipédia
 // price : prix du marché ; uncertain : explication quand ce prix n'est qu'indicatif (state/prices.js → pricing)
-export function CardRow({card, rarity, theme, price, uncertain, badges = [], selected, onClick, onTitle, action, wiki = true}) {
+// Fenêtre de la Toolbox (familles, prochaines enchères d'une carte) : clic à côté ou Échap pour
+// fermer. Échap ne ferme que la fenêtre, pas le panneau derrière (écouté avant lui, en capture).
+export function Modal({title, wide, onClose, children}) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+  return (
+    <div class="modal-wrap" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div class={`modal${wide ? " wide" : ""}`} role="dialog" aria-label={typeof title === "string" ? title : undefined}>
+        <h3>{title}</h3>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// sortId / dragging : carte d'une liste rangée à la main (ui/sortable.js)
+export function CardRow({card, rarity, theme, price, uncertain, badges = [], selected, onClick, onTitle, action, wiki = true, sortId, dragging = false}) {
   const r = rarity || card?.rarity;
   return (
-    <div class={`card${selected ? " sel" : ""}`} {...cardProps({card, rarity: r, selected, onClick})}>
+    <div class={`card${selected ? " sel" : ""}${dragging ? " dragging" : ""}`} data-sort-id={sortId} {...cardProps({card, rarity: r, selected, onClick})}>
       {selected && <Picked />}
       <CardArt card={card} rarity={r} class="thumb" />
       <div class="body">
@@ -279,9 +302,11 @@ export function CardTile({card, rarity, theme, price, uncertain, badges = [], se
 }
 
 // Liste paginée côté client (évite de rendre des milliers de cartes d'un coup)
-export function Paged({items, pageSize = 60, render, empty = L("Aucune carte.", "No cards."), class: cls = ""}) {
+// resetKey : le nombre de cartes affichées revient à pageSize quand il change (par défaut : à chaque
+// nouvelle liste ; une liste rangée à la main garde ce qui est affiché pendant qu'on la range)
+export function Paged({items, pageSize = 60, render, empty = L("Aucune carte.", "No cards."), class: cls = "", resetKey}) {
   const [shown, setShown] = useState(pageSize);
-  useEffect(() => setShown(pageSize), [items, pageSize]);
+  useEffect(() => setShown(pageSize), [resetKey === undefined ? items : resetKey, pageSize]);
   if (!items.length) return <div class="empty">{empty}</div>;
   return (
     <div class="stack">

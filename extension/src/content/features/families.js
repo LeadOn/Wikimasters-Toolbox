@@ -21,24 +21,39 @@ import {
   ensureTags,
   insertLinks,
   isFriendTag,
+  moveItem,
+  keepCardOrder,
+  FAMILY_SORTS,
+  CARD_SORTS,
   DOUBLON,
+  FAVORI,
 } from "../../../../core";
 import {L} from "../../shared/i18n";
 
-// list : [{id, name, kind: "manual"|"smart", rule, cards: [{id, title, rarity, category, image_url}], cover, updatedAt}]
-export const families = persistentStore("families", {list: []});
+// list : [{id, name, kind: "manual"|"smart", rule, cards: [{id, title, rarity, category, image_url}], cover, updatedAt}],
+// dans l'ordre rangé par le joueur ; sort : ordre d'affichage (FAMILY_SORTS de core/families.js)
+export const families = persistentStore("families", {list: [], sort: "manual"});
 
-const update = (id, fn) => families.set((s) => ({list: s.list.map((f) => (f.id === id ? {...fn(f), updatedAt: Date.now()} : f))}));
+export const setFamilySort = (sort) => FAMILY_SORTS.includes(sort) && families.set({sort});
+// Range une famille à la position `to` de « Mon ordre » (glisser-déposer, flèches du clavier)
+export const moveFamily = (id, to) => families.set((s) => ({...s, list: moveItem(s.list, id, to)}));
+// Ordre des cartes d'une famille (cardSort, CARD_SORTS de core/families.js) et rangement à la main.
+// Ce ne sont pas des modifications du contenu : la date de modification (ordre « Récentes ») ne change pas.
+const arrange = (id, fn) => families.set((s) => ({...s, list: s.list.map((f) => (f.id === id ? fn(f) : f))}));
+export const setCardSort = (id, sort) => CARD_SORTS.includes(sort) && arrange(id, (f) => ({...f, cardSort: sort}));
+export const moveCard = (id, cardId, to) => arrange(id, (f) => ({...f, cards: moveItem(f.cards, cardId, to)}));
+
+const update = (id, fn) => families.set((s) => ({...s, list: s.list.map((f) => (f.id === id ? {...fn(f), updatedAt: Date.now()} : f))}));
 
 export function createFamily({name, kind = "manual", rule = null}) {
   const family = {id: newId(), name: name.trim(), kind, rule, cards: [], cover: null, updatedAt: Date.now()};
-  families.set((s) => ({list: [...s.list, family]}));
+  families.set((s) => ({...s, list: [...s.list, family]}));
   return family;
 }
 export const renameFamily = (id, name) => update(id, (f) => ({...f, name}));
 export const setRule = (id, rule) => update(id, (f) => ({...f, rule}));
 export const setCover = (id, cardId) => update(id, (f) => ({...f, cover: cardId}));
-export const deleteFamily = (id) => families.set((s) => ({list: s.list.filter((f) => f.id !== id)}));
+export const deleteFamily = (id) => families.set((s) => ({...s, list: s.list.filter((f) => f.id !== id)}));
 export const addCard = (id, card) =>
   update(id, (f) => (f.cards.some((c) => c.id === (card.id || card.card_id)) ? f : {...f, cards: [...f.cards, compactCard(card)]}));
 export const removeCard = (id, cardId) => update(id, (f) => ({...f, cards: f.cards.filter((c) => c.id !== cardId)}));
@@ -106,8 +121,8 @@ export async function refreshSmartFamily(id, {maxPages = 10, onProgress, signal}
     const res = await site.searchCards({q: family.rule.query.trim(), page, rarities: family.rule.rarities || [], signal});
     const cards = res.cards || [];
     for (const c of cards) if (matchesFamilyRule(c, family.rule, {themes: themeSet()})) found.set(c.id, compactCard(c));
-    // Résultats visibles au fil des pages
-    update(id, (f) => ({...f, cards: [...found.values()]}));
+    // Résultats visibles au fil des pages ; les cartes déjà rangées par le joueur gardent leur place
+    update(id, (f) => ({...f, cards: keepCardOrder(family.cards, [...found.values()])}));
     onProgress?.({page: page + 1, maxPages, found: found.size});
     if (cards.length < 50) break;
   }
@@ -193,7 +208,7 @@ export async function importFamily(code) {
   const {payload} = await decodeShareCode(code, "F");
   const data = familyFromShare(payload);
   const family = {id: newId(), ...data, updatedAt: Date.now()};
-  families.set((s) => ({list: [...s.list, family]}));
+  families.set((s) => ({...s, list: [...s.list, family]}));
   return family;
 }
 
@@ -202,7 +217,7 @@ export async function importFamily(code) {
 // tri est donc refusé, sinon le prochain retri complet retirerait ces associations).
 export async function familyToTag(family, color = "#0ea5e9") {
   const name = family.name.trim();
-  if (isTheme(name) || name === DOUBLON || isFriendTag(name))
+  if (isTheme(name) || name === DOUBLON || name === FAVORI || isFriendTag(name))
     throw new Error(
       L(
         `« ${name} » est une étiquette gérée par le tri automatique : renommez la famille avant d'en faire une étiquette.`,

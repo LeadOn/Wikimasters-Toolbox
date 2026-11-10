@@ -383,6 +383,28 @@ table.list td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical
 table.list tr:last-child td { border-bottom: 0; }
 table.list tbody tr:hover td { background: color-mix(in srgb, var(--fg) 3%, transparent); }
 .num { text-align: right; font: 500 12px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Familles et cartes d'une famille : ordre de la liste, poignée pour ranger en faisant glisser (ui/sortable.js) */
+.family-sort { gap: 10px; flex-wrap: wrap; }
+.family-filters { justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.family-head { display: flex; align-items: flex-start; gap: 6px; }
+.family-head .t { flex: 1; min-width: 0; }
+.sort-grip { all: unset; flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 4px; color: var(--faint); cursor: grab; touch-action: none; }
+.family-head .sort-grip { margin: -4px -6px 0 0; }
+.sort-grip:hover { color: var(--fg); background: var(--surface-2); }
+.sort-grip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; color: var(--fg); }
+.sorting, .sorting .sort-grip { cursor: grabbing; user-select: none; }
+.card.dragging { opacity: 0.45; border-style: dashed; border-color: var(--line-3); }
+/* Analyse d'une enchère : je mise déjà sur une autre enchère de cette carte */
+.already { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--warn) 6%, transparent); }
+.already-title { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; color: var(--warn); }
+.already-title.soft { color: var(--muted); font-weight: 500; }
+.already-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.already-row .small { flex: 1; min-width: 0; }
+/* Prochaines enchères d'une carte (ui/CardAuctions.jsx) : l'enchère de la page est signalée */
+.row-inline { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+table.card-auctions td.act { text-align: right; }
+table.card-auctions td.act .row-inline { justify-content: flex-end; }
+table.card-auctions tr.current td { background: var(--surface-2); }
 .bar { height: 6px; border-radius: 1px; background: var(--fg); opacity: 0.82; }
 
 /* --- Dialogues et toasts */
@@ -501,6 +523,329 @@ table.list tbody tr:hover td { background: color-mix(in srgb, var(--fg) 3%, tran
 .recap-foot-do { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .recap-foot-do .num { font: 500 11.5px var(--mono); opacity: 0.75; }
 
+/* Emplacement d'un bloc de la page Paquets (marge gauche, dessous, marge droite) */
+.seg.dock-picker { flex: none; }
+.seg.dock-picker button { display: inline-grid; place-items: center; padding: 3px 5px; }
+.recap-head .seg.dock-picker { align-self: center; }
+/* Étiquettes d'une ligne du récapitulatif, ouvertes par son bouton */
+.recap-tags { grid-column: 2 / -1; padding: 6px 0 2px; border-top: 1px solid var(--line); }
+.recap-do .btn.on { color: var(--fg); background: var(--surface-3); }
+
+/* --- Étiquettes et favori en un clic (révélation et récapitulatif) */
+.spinner.sm { width: 10px; height: 10px; border-width: 2px; margin: 0; }
+.qt { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.qt-chips, .qt-found { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+button.chip { cursor: pointer; font-family: inherit; }
+button.chip:hover:not(:disabled) { border-color: var(--line-3); }
+button.chip:disabled { opacity: 0.5; cursor: progress; }
+.chip.qt-tag { gap: 5px; padding-right: 5px; background: transparent; border-color: var(--line-2); color: var(--muted); }
+.chip.qt-tag .i { width: 10px; height: 10px; color: var(--faint); }
+.chip.qt-tag.on { background: var(--surface-2); border-color: var(--line-3); color: var(--fg); }
+.chip.qt-tag.on:hover:not(:disabled) .i { color: var(--danger); }
+.chip.qt-tag:not(.on):hover:not(:disabled) { color: var(--fg); }
+.chip.qt-tag:not(.on):hover:not(:disabled) .i { color: var(--accent); }
+.chip.qt-more { background: transparent; border-style: dashed; color: var(--muted); }
+.qt-search { display: flex; flex-direction: column; gap: 6px; }
+.qt-search input[type="text"] { height: 28px; font-size: 12.5px; }
+.qt-found { max-height: 132px; overflow-y: auto; }
+.btn.qt-star.on { color: var(--warn); }
+.btn.qt-star.on .i path { fill: currentColor; }
+
+/* À droite de la carte révélée (ou dessous sur un petit écran) */
+.reveal-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  color: var(--fg);
+  text-align: left;
+  animation: rise 0.2s ease-out;
+}
+.reveal-side-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 22px; }
+.reveal-side-head .grow { flex: 1; }
+.reveal-side .qt-star { align-self: flex-start; margin-left: -6px; }
+
+/* --- Suspense de la révélation (ui/islands/Suspense.jsx) : un dos de carte qui se charge palier par
+   palier (.lvl-N : texture, anneau, aura, rayons, lumière de la page), se charge une fois arrêté
+   (.charge : fissures, particules aspirées), puis se révèle (.release) pendant que la carte du site
+   entre (wmt-enter-* de site.css). Durées : --out (sortie du dos), --face (entrée de la carte),
+   --charge (features/suspense.js).
+   Exception à la charte, réservée à ce moment : lumière, lueurs et dégradés aux couleurs des raretés. */
+.sx { position: absolute; inset: 0; container-type: size; cursor: pointer; user-select: none; outline: none; -webkit-tap-highlight-color: transparent; }
+.sx.release { pointer-events: none; }
+.sx:focus-visible .sx-back { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+/* Lumière de la page : baisse à partir du palier Ultra Rare, revient pendant la révélation */
+.sx-dim { position: fixed; inset: 0; background: #060605; opacity: 0; pointer-events: none; transition: opacity 0.3s ease-out; }
+.sx.lvl-4 .sx-dim { opacity: 0.42; }
+.sx.lvl-5 .sx-dim { opacity: 0.66; }
+.sx.release .sx-dim { opacity: 0; transition: opacity 0.45s ease-out calc(var(--out) + 0.04s); }
+
+/* Rayons qui tournent autour de la carte (jamais dessus : masque), à partir du palier Super Rare */
+.sx-rays {
+  position: absolute;
+  inset: -45cqh;
+  padding: 45cqh;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.sx-rays i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 240cqh;
+  height: 240cqh;
+  margin: -120cqh 0 0 -120cqh;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rc) 75%, transparent) 0deg 2.5deg, transparent 2.5deg 12deg);
+  mask: radial-gradient(closest-side, #000 22%, transparent 66%);
+  animation: sx-spin 22s linear infinite;
+}
+.sx.lvl-3 .sx-rays { opacity: 0.35; }
+.sx.lvl-4 .sx-rays { opacity: 0.6; }
+.sx.lvl-5 .sx-rays { opacity: 0.9; }
+.sx.lvl-5 .sx-rays i { animation-duration: 9s; }
+.sx.release.lvl-3 .sx-rays, .sx.release.lvl-4 .sx-rays, .sx.release.lvl-5 .sx-rays { animation: sx-rays-out calc(var(--out) + var(--face) + 0.22s) ease-out forwards; }
+.sx.release.lvl-3 .sx-rays i, .sx.release.lvl-4 .sx-rays i, .sx.release.lvl-5 .sx-rays i { animation: sx-spin 6s linear infinite, sx-rays-grow calc(var(--out) + var(--face)) cubic-bezier(0.2, 0.7, 0.3, 1) forwards; }
+
+/* Aura autour de la carte (ombre portée : jamais sur la carte), de plus en plus large */
+.sx-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  pointer-events: none;
+  --gb: 10px;
+  --gs: 0px;
+  opacity: 0.25;
+  box-shadow: 0 0 var(--gb) var(--gs) var(--rc);
+  transition: box-shadow 0.24s ease-out, opacity 0.24s ease-out;
+}
+.sx.lvl-1 .sx-glow { --gb: 16px; --gs: 1px; opacity: 0.35; }
+.sx.lvl-2 .sx-glow { --gb: 24px; --gs: 2px; opacity: 0.45; }
+.sx.lvl-3 .sx-glow { --gb: 34px; --gs: 4px; opacity: 0.55; }
+.sx.lvl-4 .sx-glow { --gb: 48px; --gs: 8px; opacity: 0.7; }
+.sx.lvl-5 .sx-glow { --gb: 66px; --gs: 14px; opacity: 0.85; }
+.sx.charge .sx-glow { animation: sx-throb 0.26s ease-in-out infinite alternate; }
+/* Révélation : l'aura s'éteint pendant que le dos se retourne (sinon la place vide de la carte se
+   verrait), puis revient autour de la carte arrivée ; elle reste à partir d'Ultra Rare (flash) */
+.sx.release .sx-glow { animation: sx-glow-off var(--out) ease-in forwards; }
+.sx.release.lvl-2 .sx-glow, .sx.release.lvl-3 .sx-glow { animation: sx-glow-off var(--out) ease-in forwards, sx-afterglow calc(var(--face) + 0.2s) ease-out var(--out) forwards; }
+.sx.release.lvl-4 .sx-glow, .sx.release.lvl-5 .sx-glow { animation: sx-afterglow calc(var(--out) + var(--face) + 0.22s) ease-out forwards; }
+
+/* Onde à chaque palier */
+.sx-pulse { position: absolute; inset: 0; border-radius: 16px; border: 2px solid var(--rc); pointer-events: none; animation: sx-pulse 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) forwards; }
+.sx.lvl-4 .sx-pulse, .sx.lvl-5 .sx-pulse { border-width: 3px; animation-duration: 0.45s; }
+
+/* Le dos : entrée, battement à chaque palier (deux noms pour relancer l'animation), puis sortie */
+.sx-card { position: absolute; inset: 0; animation: sx-intro 0.12s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.sx.lvl-1 .sx-card, .sx.lvl-3 .sx-card, .sx.lvl-5 .sx-card { animation: sx-thump-a 0.2s cubic-bezier(0.3, 0.7, 0.4, 1); }
+.sx.lvl-2 .sx-card, .sx.lvl-4 .sx-card { animation: sx-thump-b 0.2s cubic-bezier(0.3, 0.7, 0.4, 1); }
+/* Jusqu'à Super Rare, le dos se retourne (la carte du site enchaîne) ; au-delà, il se dissout dans la lumière */
+.sx.release .sx-card { animation: sx-flip-out var(--out) cubic-bezier(0.55, 0, 0.85, 0.35) forwards; }
+.sx.release.lvl-4 .sx-card, .sx.release.lvl-5 .sx-card { animation: sx-burn-out calc(var(--out) + 0.12s) ease-in forwards; }
+
+/* Flottement à partir du palier Ultra Rare ; tremblement pendant la charge, plus fort avec la rareté */
+.sx-shake { position: absolute; inset: 0; --amp: 1.2px; }
+.sx.lvl-4 .sx-shake, .sx.lvl-5 .sx-shake { animation: sx-float 1.6s ease-in-out infinite; }
+.sx.charge .sx-shake { animation: sx-tremble 0.11s linear infinite; }
+.sx.charge.lvl-4 .sx-shake { --amp: 2.2px; }
+.sx.charge.lvl-5 .sx-shake { --amp: 3.4px; }
+
+.sx-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #1b1b19;
+  container-type: inline-size;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+/* Texture du site de la rareté atteinte (fondu de l'une à l'autre) ; la carte occupe le centre de l'image */
+.sx-tex { position: absolute; inset: 0; background: center / 200% 168% no-repeat; opacity: 0; transition: opacity 0.18s ease-out; }
+.sx-tex.on { opacity: 1; }
+/* Relief et double filet du dos ; s'assombrit pendant la charge (les fissures ressortent) */
+.sx-shade {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(8, 8, 7, 0);
+  background-image: radial-gradient(130% 95% at 50% 42%, transparent 45%, rgba(0, 0, 0, 0.32) 100%);
+  transition: background-color var(--charge) ease-in;
+}
+.sx-shade::before, .sx-shade::after { content: ""; position: absolute; border-radius: 10px; pointer-events: none; }
+.sx-shade::before { inset: 4.5cqw; border: 1px solid rgba(255, 255, 255, 0.55); }
+.sx-shade::after { inset: 6.5cqw; border: 1px solid rgba(18, 18, 17, 0.2); border-radius: 8px; }
+.sx.charge .sx-shade, .sx.release.lvl-4 .sx-shade, .sx.release.lvl-5 .sx-shade { background-color: rgba(8, 8, 7, 0.5); }
+
+/* Reflet qui traverse le dos à chaque palier */
+.sx-sheen { position: absolute; inset: -20%; background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.6) 50%, transparent 62%); animation: sx-sheen 0.38s ease-out forwards; pointer-events: none; }
+/* Shiny : reflet irisé sur le dos */
+.sx-holo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 12%, #ff5ea8 28%, #ffe35e 40%, #5effc4 52%, #5eb0ff 64%, #c45eff 76%, transparent 90%) 0 0 / 300% 100%;
+  mix-blend-mode: overlay;
+  opacity: 0.85;
+  animation: sx-holo 1.1s linear infinite, sx-fade-in 0.2s ease-out;
+}
+
+/* Logo du site dans un anneau : un segment par rareté, allumé à chaque palier */
+.sx-emblem { position: absolute; left: 50%; top: 44%; width: 54cqw; aspect-ratio: 1; transform: translate(-50%, -50%); display: grid; place-items: center; }
+.sx-emblem::before { content: ""; position: absolute; inset: 11%; border-radius: 50%; background: rgba(255, 255, 255, 0.42); box-shadow: inset 0 0 0 1px rgba(18, 18, 17, 0.14); }
+.sx-emblem img { position: relative; width: 54%; height: auto; }
+.sx-dial { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.sx-dial circle { fill: none; stroke: rgba(18, 18, 17, 0.16); stroke-width: 5; transition: stroke 0.14s ease-out; }
+.sx-dial circle.on { stroke: #121211; }
+.sx.charge .sx-dial { animation: sx-spin 0.45s linear infinite; }
+.sx.charge .sx-dial circle.on { stroke: #fff; }
+.sx.charge .sx-emblem::before { background: rgba(255, 255, 255, 0.7); }
+
+/* Nom de la rareté atteinte, qui défile à chaque palier */
+.sx-name { position: absolute; left: 0; right: 0; top: calc(44% + 33cqw); display: flex; justify-content: center; overflow: hidden; padding: 2px 0; }
+.sx-name span {
+  padding: 3px 9px;
+  border-radius: 4px;
+  background: rgba(18, 18, 17, 0.82);
+  color: #fff;
+  font: 600 clamp(9px, 4.4cqw, 12.5px)/1.2 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  animation: sx-slot 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* Charge : fissures de lumière du centre vers les bords */
+.sx-cracks { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.sx-cracks polyline {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: sx-crack calc(var(--charge) * 0.7) cubic-bezier(0.3, 0.6, 0.4, 1) calc(var(--charge) * var(--d)) forwards;
+}
+.sx-cracks .halo { stroke: color-mix(in srgb, var(--rc) 70%, #fff); stroke-width: 7; opacity: 0.7; filter: blur(2.5px); }
+.sx-cracks .core { stroke: #fff; stroke-width: 1.8; }
+
+/* Dos qui devient lumière (révélation à partir d'Ultra Rare) */
+.sx-light { position: absolute; inset: 0; background: radial-gradient(circle at 50% 46%, #fff 0 28%, color-mix(in srgb, var(--rc) 55%, #fff) 100%); opacity: 0; pointer-events: none; }
+.sx.release.lvl-4 .sx-light, .sx.release.lvl-5 .sx-light { animation: sx-whiteout var(--out) ease-in forwards; }
+
+/* Particules : braises (attente), aspirées (charge), gerbe (révélation) ; parties du contour */
+.sx-dots { position: absolute; inset: 0; pointer-events: none; }
+.sx-dots i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); border-radius: 50%; background: var(--c, var(--rc)); box-shadow: 0 0 6px 1px var(--c, var(--rc)); opacity: 0; }
+.sx-ember i { animation: sx-ember 1.1s ease-out var(--d) infinite; }
+.sx-suck i { background: #fff; animation: sx-suck 0.32s cubic-bezier(0.5, 0, 0.9, 0.5) var(--d) infinite; }
+.sx-burst i { animation: sx-burst 0.6s cubic-bezier(0.12, 0.7, 0.3, 1) calc(var(--out) + var(--d)) forwards; }
+.sx.lvl-5 .sx-burst i { animation-duration: 0.8s; }
+
+/* Révélation : éclair sur la carte, ondes de choc, reflet qui balaie la carte arrivée */
+.sx-flash { position: absolute; inset: 0; border-radius: 16px; background: #fff; opacity: 0; pointer-events: none; }
+.sx.lvl-2 .sx-flash { animation: sx-flash-soft 0.2s ease-out calc(var(--out) * 0.9) forwards; --peak: 0.3; }
+.sx.lvl-3 .sx-flash { animation: sx-flash-soft 0.26s ease-out calc(var(--out) * 0.9) forwards; --peak: 0.6; }
+.sx.lvl-4 .sx-flash, .sx.lvl-5 .sx-flash { box-shadow: 0 0 70px 26px color-mix(in srgb, var(--rc) 80%, #fff); animation: sx-flash-big 0.45s ease-out calc(var(--out) - 25ms) forwards; }
+.sx.lvl-5 .sx-flash { box-shadow: 0 0 110px 46px color-mix(in srgb, var(--rc) 80%, #fff); animation-duration: 0.65s; }
+.sx-ring { position: absolute; inset: 0; border-radius: 16px; border: 2px solid var(--rc); opacity: 0; pointer-events: none; --to: 1.14; animation: sx-ring 0.4s cubic-bezier(0.15, 0.7, 0.3, 1) calc(var(--out) + var(--d)) forwards; }
+.sx.lvl-3 .sx-ring { border-width: 3px; --to: 1.22; }
+.sx.lvl-4 .sx-ring { border-width: 3px; --to: 1.32; animation-duration: 0.48s; }
+.sx.lvl-5 .sx-ring { border-width: 4px; --to: 1.42; animation-duration: 0.6s; }
+.sx-glare { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; pointer-events: none; }
+.sx-glare i {
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: -60%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-14deg);
+  opacity: 0;
+  animation: sx-glare 0.45s ease-in-out calc(var(--out) + var(--face) * 0.7) forwards;
+}
+.sx.is-shiny .sx-glare i { width: 70%; background: linear-gradient(100deg, transparent 5%, rgba(255, 94, 168, 0.5), rgba(255, 227, 94, 0.55), rgba(94, 255, 196, 0.5), rgba(94, 176, 255, 0.5), rgba(196, 94, 255, 0.45), transparent 95%); animation-duration: 0.6s; }
+
+/* Shiny : étoiles qui scintillent sur et autour de la carte */
+.sx-stars { position: absolute; inset: 0; pointer-events: none; }
+.sx-stars i {
+  position: absolute;
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  background: #fff;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  scale: 0;
+  animation: sx-twinkle 0.7s ease-in-out var(--d) infinite;
+}
+.sx-stars i:nth-child(3n + 1) { background: #ffe35e; }
+.sx-stars i:nth-child(3n + 2) { background: #9ff3ff; }
+
+/* Petit écran : rien ne dépasse de l'écran (site.css coupe ce qui sort de la place de la carte) ;
+   pas de rayons, aura resserrée (elle serait coupée), la gerbe reste sur la carte */
+@media (max-width: 767px) {
+  .sx-rays { display: none; }
+  .sx .sx-glow { box-shadow: 0 0 10px 2px var(--rc) !important; }
+  .sx-burst i { --x: 0px; --y: 0px; }
+}
+
+@keyframes sx-spin { to { rotate: 360deg; } }
+@keyframes sx-rays-out { 0% { opacity: var(--o, 0.9); } 18% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes sx-rays-grow { from { scale: 0.85; } to { scale: 1.25; } }
+@keyframes sx-throb { to { opacity: 1; } }
+@keyframes sx-glow-off { to { opacity: 0; } }
+@keyframes sx-afterglow {
+  0% { opacity: 0; }
+  25% { opacity: 1; box-shadow: 0 0 calc(var(--gb) * 1.6) calc(var(--gs) * 1.8 + 4px) var(--rc); }
+  100% { opacity: 0; box-shadow: 0 0 calc(var(--gb) * 2) calc(var(--gs) * 2) var(--rc); }
+}
+@keyframes sx-pulse { from { transform: scale(1); opacity: 0.95; } to { transform: scale(1.14, 1.1); opacity: 0; } }
+@keyframes sx-intro { from { opacity: 0; transform: translateY(10px) scale(0.94); } }
+@keyframes sx-thump-a { 30% { transform: scale(1.045); } }
+@keyframes sx-thump-b { 30% { transform: scale(1.045); } }
+@keyframes sx-flip-out { from { transform: perspective(1000px) rotateY(0); } to { transform: perspective(1000px) rotateY(90deg); } }
+@keyframes sx-burn-out {
+  0% { opacity: 1; transform: none; }
+  60% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes sx-float { 0%, 100% { translate: 0 0; rotate: 0deg; } 50% { translate: 0 -5px; rotate: 0.5deg; } }
+@keyframes sx-tremble {
+  0%, 100% { translate: 0 0; }
+  25% { translate: calc(var(--amp) * -1) calc(var(--amp) * 0.5); }
+  50% { translate: var(--amp) calc(var(--amp) * -0.6); }
+  75% { translate: calc(var(--amp) * -0.6) calc(var(--amp) * -0.4); }
+}
+@keyframes sx-sheen { from { transform: translateX(-75%); } to { transform: translateX(75%); } }
+@keyframes sx-holo { to { background-position: 150% 0; } }
+@keyframes sx-fade-in { from { opacity: 0; } }
+@keyframes sx-slot { from { transform: translateY(110%); opacity: 0; } }
+@keyframes sx-crack { to { stroke-dashoffset: 0; } }
+@keyframes sx-whiteout { to { opacity: 1; } }
+@keyframes sx-ember {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translate(var(--x), var(--y)) scale(0.4); opacity: 0; }
+}
+@keyframes sx-suck {
+  0% { transform: translate(var(--x), var(--y)) scale(1.2); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
+}
+@keyframes sx-burst {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+  25% { opacity: 1; }
+  100% { transform: translate(var(--x), var(--y)) scale(0.15); opacity: 0; }
+}
+@keyframes sx-flash-soft { 30% { opacity: var(--peak); } 100% { opacity: 0; } }
+@keyframes sx-flash-big { 0% { opacity: 0.85; } 12% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes sx-ring { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(var(--to)); opacity: 0; } }
+@keyframes sx-glare { 0% { opacity: 1; transform: skewX(-14deg) translateX(0); } 100% { opacity: 1; transform: skewX(-14deg) translateX(420%); } }
+@keyframes sx-twinkle { 0%, 100% { scale: 0; rotate: 0deg; } 50% { scale: 1; rotate: 45deg; } }
+
 /* --- Taux de drop (écran « Ouvrir un paquet ») */
 .rates {
   display: flex;
@@ -513,8 +858,8 @@ table.list tbody tr:hover td { background: color-mix(in srgb, var(--fg) 3%, tran
   color: var(--fg);
   text-align: left;
 }
-.rates-head { display: flex; align-items: center; gap: 8px; }
-.rates-title { font-weight: 600; font-size: 13.5px; flex: 1; }
+.rates-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rates-title { font-weight: 600; font-size: 13.5px; flex: 1; white-space: nowrap; }
 .seg { display: inline-flex; padding: 2px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); }
 .seg button { border: 0; background: none; padding: 3px 9px; border-radius: 4px; font-size: 11.5px; font-weight: 500; color: var(--muted); cursor: pointer; }
 .seg button:hover:not(:disabled) { color: var(--fg); }

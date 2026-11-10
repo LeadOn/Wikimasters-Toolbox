@@ -10,7 +10,7 @@ import {isOn} from "../../state/settings";
 import {Icon, Mark, Progress, Notice, ThemeChip, fmt, plural, timeAgo} from "../components";
 import {CollectionFilters, CollectionCards} from "../CollectionCards";
 import {toast} from "../feedback";
-import {DOUBLON} from "../../../../../core";
+import {DOUBLON, FAVORI} from "../../../../../core";
 import {isTheme} from "../../state/themes";
 import {L} from "../../../shared/i18n";
 
@@ -40,7 +40,7 @@ function Plan({plan}) {
             isTheme(c.name) ? (
               <ThemeChip key={c.name} theme={c.name} />
             ) : (
-              <span key={c.name} class={`chip ${c.name === DOUBLON ? "danger" : "accent"}`}>
+              <span key={c.name} class={`chip ${c.name === DOUBLON ? "danger" : c.name === FAVORI ? "warn" : "accent"}`}>
                 {c.name}
               </span>
             ),

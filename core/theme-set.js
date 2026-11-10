@@ -17,7 +17,7 @@
 "use strict";
 
 const {compile, patternProblem, isColor} = require("./text");
-const {THEMES, THEME_COLORS, OTHER, DOUBLON} = require("./themes");
+const {THEMES, THEME_COLORS, OTHER, DOUBLON, FAVORI} = require("./themes");
 const {L} = require("./i18n");
 
 const FALLBACK_COLOR = "#64748b";
@@ -266,7 +266,7 @@ function validateThemes(list) {
     if (!n) return problems.push({id, message: L(`${label} : nom manquant.`, `${label}: missing name.`)});
     if (n !== name) problems.push({id, message: L(`${label} : espace en début ou en fin de nom.`, `${label}: leading or trailing space in the name.`)});
     if (n.length > MAX_NAME) problems.push({id, message: L(`${label} : nom trop long (${MAX_NAME} caractères au plus).`, `${label}: name too long (${MAX_NAME} characters max).`)});
-    if (n === DOUBLON || n.startsWith("Pour :")) problems.push({id, message: L(`« ${n} » est réservé à une autre étiquette de la Toolbox.`, `"${n}" is reserved for another Toolbox tag.`)});
+    if (n === DOUBLON || n === FAVORI || n.startsWith("Pour :")) problems.push({id, message: L(`« ${n} » est réservé à une autre étiquette de la Toolbox.`, `"${n}" is reserved for another Toolbox tag.`)});
     if (seen.has(n)) problems.push({id, message: L(`« ${n} » est utilisé deux fois.`, `"${n}" is used twice.`)});
     seen.set(n, id);
   };

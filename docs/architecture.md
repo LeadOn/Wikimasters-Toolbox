@@ -79,10 +79,13 @@ extension/
         sorter.js              tri : aperçu (planSort) puis application (applySort)
         autosort.js            tri des cartes tirées à l'ouverture d'un paquet (option)
         trades.js              recherche d'échanges, échanges en cours
-        market.js              enchères, surenchère, alerte de fin, vente et défausse des doublons
+        market.js              enchères, surenchère, alerte de fin, enchères en cours d'une carte, vente et défausse des doublons
         achievements.js        succès : liste et progression, réclamation des récompenses (un clic ou automatique, option)
         auction-tab.js         titre de l'onglet sur la page d'une enchère : temps restant, en tête ou surenchéri, relecture régulière
-        packs.js               récapitulatif, statistiques de tirage, « Tout ouvrir »
+        packs.js               récapitulatif (gardé d'une page à l'autre), statistiques de tirage, « Tout ouvrir »
+        pack-dock.js           page Paquets : récapitulatif et taux de drop dans la marge gauche ou droite (colonnes fixes), ou dessous
+        quick-tags.js          étiquettes et favori des cartes tirées en un clic (révélation, récapitulatif)
+        suspense.js            suspense de la révélation : durées selon la rareté, cartes déjà jouées
         families.js            familles : catalogue, cartes manquantes en vente, étiquettes
         card-lookup.js         carte affichée par le site mais jamais vue dans ses réponses
         wiki-images.js         images Wikimedia pour les cartes sans image (option) : Wikipédia, Wikidata, éléments liés
@@ -99,14 +102,18 @@ extension/
         panel.css              styles du panneau et des blocs intégrés
         site.css               styles injectés dans les pages du site : badges, nouvel affichage des cartes
         PackRecap.jsx          récapitulatif de paquet, avec vente et défausse de chaque carte
+        QuickTags.jsx          choix des étiquettes et étoile d'une carte tirée (panneau de la révélation, lignes du récapitulatif)
+        DockPicker.jsx         emplacement d'un bloc de la page Paquets : gauche, dessous, droite
         SellDialog.jsx         fenêtre de mise aux enchères, d'une carte ou de plusieurs (Marché, récapitulatif de paquet, jamais vendues)
+        CardAuctions.jsx       fenêtre des enchères en cours d'une carte, ouverte depuis l'analyse d'une enchère
+        sortable.js            liste rangée à la main : glisser par une poignée (souris, doigt), flèches du clavier (familles, cartes d'une famille)
         discard.js             confirmation d'une défausse, d'une carte ou de plusieurs (doublons du Marché, récapitulatif de paquet, jamais vendues)
         DropRates.jsx          taux de drop par rareté
         ImageCards.jsx         filtre Sans image / GIF et liste des cartes (onglet Images)
         ThemeEditor.jsx        éditeur des thèmes de tri (onglet Réglages) : noms, couleurs, mots-clés, essai sur une description, import / export JSON
         CollectionCards.jsx    filtres de la collection et liste des cartes, à cocher, vendre ou défausser (onglet Prix, barre de la collection)
         tabs/                  un fichier par onglet du panneau
-        islands/               blocs intégrés aux pages du site (collection, carte, enchère, profil, bilan d'une offre d'échange) et page Stonks
+        islands/               blocs intégrés aux pages du site (collection, carte, enchère, profil, bilan d'une offre d'échange, révélation d'un paquet : RevealSide, Suspense) et page Stonks
 
 scripts/
   categorize_cards.js          CLI de tri (token requis)
@@ -117,7 +124,7 @@ scripts/
 
 tests/                         tests node --test (moteur, écriture des étiquettes, réseau, stockage)
 docs/                          guide, structure, routes du site, cahier des charges, scripts
-store/                         fiche, captures et vignettes du Chrome Web Store
+store/                         fiches, captures et vignettes du Chrome Web Store et de Firefox Add-ons, notes de version
 ```
 
 Fichiers à la racine : `README.md`, `AGENTS.md` (connaissances et règles pour les agents IA qui travaillent sur le dépôt), `PRIVACY.md` (politique de confidentialité publiée avec la fiche du store) et `google…html` (vérification du site auprès de Google Search Console).
@@ -224,7 +231,7 @@ Les modules de l'extension sont chargés dans Node par `tests/helpers/extension.
 
 Le build génère le manifeste (Manifest V3, Chrome 120+ et Firefox 128+), regroupe les trois points d'entrée (`hook`, `content`, `popup`), copie `static/` et les polices IBM Plex depuis `node_modules` (avec leur licence OFL). Le numéro de version vient de `package.json`.
 
-La publication sur le Chrome Web Store est décrite dans [store/README.md](../store/README.md).
+La publication sur le Chrome Web Store et Firefox Add-ons est décrite dans [store/README.md](../store/README.md) (Firefox : [store/firefox.md](../store/firefox.md)) ; les notes de chaque version sont dans [store/notes-de-version.md](../store/notes-de-version.md).
 
 ---
 

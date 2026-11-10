@@ -62,6 +62,13 @@ export const ICONS = {
   info: `<circle cx="10" cy="10" r="7.25"/><path d="M10 9v4.75"/><path ${F} d="M9.25 5.75h1.5v1.5h-1.5z"/>`,
   refresh: '<path d="M16.25 10a6.25 6.25 0 1 1-1.83-4.42"/><path d="M15.25 2.5v3.75H11.5"/>',
   discard: '<path d="M3.5 5.5h13M8 5.5V3.25h4V5.5"/><path d="M5 5.5l.9 11.25h8.2L15 5.5"/><path d="M8.5 8.75v5M11.5 8.75v5"/>',
+  // Poignée pour ranger un élément en le faisant glisser
+  grip: `<path ${F} d="M6.5 4h2.5v2.5H6.5zM11 4h2.5v2.5H11zM6.5 8.75h2.5v2.5H6.5zM11 8.75h2.5v2.5H11zM6.5 13.5h2.5V16H6.5zM11 13.5h2.5V16H11z"/>`,
+  tag: `<path d="M2.75 2.75h7l7.5 7.5-7 7-7.5-7.5z"/><path ${F} d="M5.25 5.25h2.25v2.25H5.25z"/>`,
+  // Emplacement d'un bloc dans la page : marge gauche, dessous, marge droite
+  "dock-left": `<path d="M2.75 3.75h14.5v12.5H2.75z"/><path ${F} d="M2.75 3.75h5.5v12.5h-5.5z"/>`,
+  "dock-below": `<path d="M2.75 3.75h14.5v12.5H2.75z"/><path ${F} d="M2.75 11h14.5v5.25H2.75z"/>`,
+  "dock-right": `<path d="M2.75 3.75h14.5v12.5H2.75z"/><path ${F} d="M11.75 3.75h5.5v12.5h-5.5z"/>`,
 };
 
 // Épaisseur du trait selon la taille d'affichage : 1,5 sur la grille, jamais moins de 1,25 px à l'écran

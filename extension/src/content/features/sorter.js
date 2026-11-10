@@ -11,7 +11,7 @@ import {settings, isOn} from "../state/settings";
 import {themeSet, pendingThemeTags, settleThemeTags} from "../state/themes";
 import {invalidateCollection} from "../state/collection";
 import {L} from "../../shared/i18n";
-import {managedTags, planThemeTags, countCopies, computeAssignments, managedTagIds, planChanges, planTagUpserts, countByTag, applyPlan, DOUBLON} from "../../../../core";
+import {managedTags, planThemeTags, countCopies, computeAssignments, managedTagIds, planChanges, planTagUpserts, countByTag, applyPlan, DOUBLON, FAVORI} from "../../../../core";
 
 export const sortState = createStore({running: false, step: "", progress: null, plan: null, result: null, error: null, lastRun: null});
 load("lastSort", null).then((lastRun) => lastRun && sortState.set({lastRun}));
@@ -19,13 +19,13 @@ load("lastSort", null).then((lastRun) => lastRun && sortState.set({lastRun}));
 const step = (label, progress = null) => sortState.set({step: label, progress});
 const yieldToUi = () => new Promise((r) => setTimeout(r, 0));
 
-async function classify(rows, profiles, themes, withThemes) {
+async function classify(rows, profiles, themes, withThemes, withFavorites) {
   // Par tranches, pour garder la page réactive. Les exemplaires sont comptés sur toute la
   // collection : deux exemplaires d'une carte peuvent tomber dans deux tranches différentes.
   const copies = countCopies(rows);
   const out = [];
   for (let i = 0; i < rows.length; i += 400) {
-    out.push(...computeAssignments(rows.slice(i, i + 400), {profiles, themes, copies, withThemes}));
+    out.push(...computeAssignments(rows.slice(i, i + 400), {profiles, themes, copies, withThemes, withFavorites}));
     step(L("Classement des cartes", "Sorting cards"), {done: Math.min(i + 400, rows.length), total: rows.length});
     await yieldToUi();
   }
@@ -38,10 +38,11 @@ export async function planSort({newOnly}) {
     const session = await ensureSession();
     const profiles = activeProfiles();
     const themes = themeSet();
-    // Réglages « Étiquettes de thème » et « Ne pas trier les favoris »
+    // Réglages « Étiquettes de thème », « Étiquette Favori » et « Ne pas trier les favoris »
     const withThemes = isOn("sortThemes");
+    const withFavorites = isOn("favoriteTag");
     const skipStarred = isOn("skipStarred");
-    const managed = managedTags({profiles, themeColors: settings.get().themeColors, themes, withThemes});
+    const managed = managedTags({profiles, themeColors: settings.get().themeColors, themes, withThemes, withFavorites});
     // Sans thèmes, les étiquettes de thème ne sont plus gérées : aucune n'est renommée ni retirée
     const pending = withThemes ? pendingThemeTags() : {renames: {}, removed: []};
 
@@ -79,7 +80,7 @@ export async function planSort({newOnly}) {
       {concurrency: 3},
     );
 
-    const assignments = await classify(rows, profiles, themes, withThemes);
+    const assignments = await classify(rows, profiles, themes, withThemes, withFavorites);
     const frozen = skipStarred ? new Set(rows.filter((r) => r.starred).map((r) => r.id)) : null;
     const {fresh, toInsert, toDelete, extraTagIds} = planChanges(assignments, existingTags, current, {newOnly, managed, themes, retired, frozen});
     const upserts = planTagUpserts(existingTags, managed, toInsert, {newOnly});
@@ -103,6 +104,9 @@ export async function planSort({newOnly}) {
       cards: scoped.map((a) => ({id: a.userCard.id, title: a.userCard.cards.wikipedia_title, category: a.userCard.cards.category, tags: a.tags})),
       doublonAdds: toInsert.filter((x) => x.name === DOUBLON && !fresh?.has(x.userCardId)).map((x) => titleOf(x.userCardId)),
       doublonDels: toDelete.filter((d) => d.name === DOUBLON).flatMap((d) => d.ids.map(titleOf)),
+      // Étiquette Favori (réglage) : ajoutée aux exemplaires mis en favori, retirée quand l'étoile l'est
+      favoriAdds: toInsert.filter((x) => x.name === FAVORI && !fresh?.has(x.userCardId)).map((x) => titleOf(x.userCardId)),
+      favoriDels: toDelete.filter((d) => d.name === FAVORI).flatMap((d) => d.ids.map(titleOf)),
       toInsert,
       toDelete,
       extraTagIds,

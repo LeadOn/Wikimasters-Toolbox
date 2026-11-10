@@ -116,5 +116,8 @@ const THEME_COLORS = {
 const OTHER = "Autre";
 const DOUBLON = "Doublon";
 const DOUBLON_COLOR = "#ef4444";
+// Étiquette des exemplaires mis en favori (étoile du site), pour les filtrer dans la collection
+const FAVORI = "Favori";
+const FAVORI_COLOR = "#eab308";
 
-module.exports = {THEMES, THEME_COLORS, OTHER, DOUBLON, DOUBLON_COLOR};
+module.exports = {THEMES, THEME_COLORS, OTHER, DOUBLON, DOUBLON_COLOR, FAVORI, FAVORI_COLOR};

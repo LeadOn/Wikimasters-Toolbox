@@ -1,7 +1,7 @@
 // Thèmes de tri du joueur : la liste de core/themes.js, modifiée dans l'onglet Réglages.
 // Tout classement de l'extension passe par ici, pour utiliser la liste du joueur.
 import {settings} from "./settings";
-import {categorize, isThemeTag, themeAliases, resolveThemes, compileThemes, storeThemes, settleThemes, DOUBLON, DOUBLON_COLOR} from "../../../../core";
+import {categorize, isThemeTag, themeAliases, resolveThemes, compileThemes, storeThemes, settleThemes, DOUBLON, DOUBLON_COLOR, FAVORI, FAVORI_COLOR} from "../../../../core";
 
 let memo = {stored: undefined, set: null};
 
@@ -21,6 +21,7 @@ export const aliasesOf = (name) => themeAliases(themeSet(), name);
 
 export function tagColor(name) {
   if (name === DOUBLON) return settings.get().themeColors[DOUBLON] || DOUBLON_COLOR;
+  if (name === FAVORI) return FAVORI_COLOR;
   return themeSet().tags[name] || "#64748b";
 }
 

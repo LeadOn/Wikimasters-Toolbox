@@ -2,7 +2,7 @@
 import {useState, useEffect, useRef} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {owned, loadMyCollection} from "../../state/collection";
-import {priceVersion, pricing} from "../../state/prices";
+import {priceVersion, pricing, loadPrices} from "../../state/prices";
 import {
   families,
   createFamily,
@@ -26,23 +26,17 @@ import {
   loadWishlist,
   planWishlist,
   addToWishlist,
+  setFamilySort,
+  moveFamily,
+  setCardSort,
+  moveCard,
 } from "../../features/families";
-import {CardRow, Icon, Paged, Progress, Notice, Copyable, fmt, plural, duration} from "../components";
+import {CardRow, Icon, Modal, Paged, Progress, Notice, Copyable, fmt, plural, duration} from "../components";
 import {confirmAction, toast, errorMessage} from "../feedback";
-import {RARITIES, familyProgress} from "../../../../../core";
+import {RARITIES, FAMILY_SORTS, CARD_SORTS, familyProgress, sortFamilies, sortFamilyCards} from "../../../../../core";
+import {useSortable} from "../sortable";
 import {themeNames} from "../../state/themes";
 import {L} from "../../../shared/i18n";
-
-function Modal({title, wide, onClose, children}) {
-  return (
-    <div class="modal-wrap" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div class={`modal${wide ? " wide" : ""}`}>
-        <h3>{title}</h3>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function RuleEditor({family, onClose}) {
   const r = family.rule || {};
@@ -272,7 +266,18 @@ function FamilyDetail({family, onBack}) {
     loadWishlist().catch(() => {});
   }, []);
   const p = familyProgress(family, ids);
-  const cards = family.cards.filter((c) => (filter === "owned" ? ids.has(c.id) : filter === "missing" ? !ids.has(c.id) : true));
+  const keep = (c) => (filter === "owned" ? ids.has(c.id) : filter === "missing" ? !ids.has(c.id) : true);
+  // Ordre des cartes : rangées à la main (poignée, ui/sortable.js) ou triées
+  const cardSort = family.cardSort || "manual";
+  const manual = cardSort === "manual" && family.cards.length > 1;
+  const visible = family.cards.filter(keep);
+  const {grid, order, dragId, grip} = useSortable(family.cards, (cardId, to) => moveCard(family.id, cardId, to), {visible});
+  const arranged = cardSort === "manual" ? order : sortFamilyCards(family.cards, cardSort, {priceOf: (c) => pricing(c.id, c.rarity).price});
+  const cards = arranged.filter(keep);
+  // Prix des cartes de la famille, pour l'ordre « Prix »
+  useEffect(() => {
+    if (cardSort === "price") loadPrices(family.cards.map((c) => ({id: c.id, rarity: c.rarity}))).catch(() => {});
+  }, [cardSort, family.id]);
 
   const doRefresh = async () => {
     setRefresh({page: 0, maxPages: 10, found: 0});
@@ -401,39 +406,61 @@ function FamilyDetail({family, onBack}) {
         )}
         {refresh && <Progress label={L(`Recherche dans le catalogue · ${plural(refresh.found, "carte retenue", "cartes retenues")}`, `Searching the catalog · ${plural(refresh.found, "card kept", "cards kept")}`)} done={refresh.page} total={refresh.maxPages} />}
       </div>
-      <div class="chips">
-        {[["all", L(`Toutes (${p.total})`, `All (${p.total})`)], ["owned", L(`Possédées (${p.owned})`, `Owned (${p.owned})`)], ["missing", L(`Manquantes (${p.missing})`, `Missing (${p.missing})`)]].map(([k, label]) => (
-          <button key={k} class={`chip${filter === k ? " on" : ""}`} onClick={() => setFilter(k)}>{label}</button>
-        ))}
-      </div>
-      <Paged
-        items={cards}
-        empty={family.kind === "smart" ? L("Définissez la règle puis cliquez sur « Actualiser ».", "Set the rule, then click \"Refresh\".") : L("Ajoutez des cartes depuis le catalogue.", "Add cards from the catalog.")}
-        render={(c) => (
-          <CardRow
-            key={c.id}
-            card={{...c, wikipedia_title: c.title}}
-            {...pricing(c.id, c.rarity)}
-            badges={[
-              ids.has(c.id) ? {label: L("possédée", "owned"), type: "ok", icon: "check"} : {label: L("manquante", "missing"), type: "warn"},
-              !ids.has(c.id) && wished?.has(c.id) && {label: L("souhaitée", "wishlisted"), type: "danger", icon: "heart"},
-              family.cover === c.id && {label: L("couverture", "cover"), type: "accent", icon: "star"},
-            ]}
-            action={
-              <span class="row" style={{gap: "2px"}}>
-                <button class="btn sm ghost" title={L("Image de la famille", "Family image")} aria-label={L("Image de la famille", "Family image")} onClick={() => setCover(family.id, c.id)}>
-                  <Icon name="star" size={14} />
-                </button>
-                {family.kind === "manual" && (
-                  <button class="btn sm ghost" title={L("Retirer", "Remove")} aria-label={L("Retirer", "Remove")} onClick={() => removeCard(family.id, c.id)}>
-                    <Icon name="close" size={14} />
-                  </button>
-                )}
-              </span>
-            }
+      <div class="row family-filters">
+        <div class="chips">
+          {[["all", L(`Toutes (${p.total})`, `All (${p.total})`)], ["owned", L(`Possédées (${p.owned})`, `Owned (${p.owned})`)], ["missing", L(`Manquantes (${p.missing})`, `Missing (${p.missing})`)]].map(([k, label]) => (
+            <button key={k} class={`chip${filter === k ? " on" : ""}`} onClick={() => setFilter(k)}>{label}</button>
+          ))}
+        </div>
+        {family.cards.length > 1 && (
+          <SortPicker
+            sorts={CARD_SORTS}
+            labels={CARD_SORT_LABELS}
+            value={cardSort}
+            onChange={(s) => setCardSort(family.id, s)}
+            label={L("Ordre des cartes", "Card order")}
+            hint={manual ? L("Glissez une carte par sa poignée pour la ranger.", "Drag a card by its handle to reorder it.") : null}
           />
         )}
-      />
+      </div>
+      <div ref={grid} class={dragId ? "sorting" : ""}>
+        <Paged
+          items={cards}
+          resetKey={`${family.id}-${filter}-${cardSort}`}
+          empty={family.kind === "smart" ? L("Définissez la règle puis cliquez sur « Actualiser ».", "Set the rule, then click \"Refresh\".") : L("Ajoutez des cartes depuis le catalogue.", "Add cards from the catalog.")}
+          render={(c) => (
+            <CardRow
+              key={c.id}
+              sortId={c.id}
+              dragging={dragId === c.id}
+              card={{...c, wikipedia_title: c.title}}
+              {...pricing(c.id, c.rarity)}
+              badges={[
+                ids.has(c.id) ? {label: L("possédée", "owned"), type: "ok", icon: "check"} : {label: L("manquante", "missing"), type: "warn"},
+                !ids.has(c.id) && wished?.has(c.id) && {label: L("souhaitée", "wishlisted"), type: "danger", icon: "heart"},
+                family.cover === c.id && {label: L("couverture", "cover"), type: "accent", icon: "star"},
+              ]}
+              action={
+                <span class="row" style={{gap: "2px"}}>
+                  {manual && (
+                    <button {...grip(c.id, c.title)}>
+                      <Icon name="grip" size={16} />
+                    </button>
+                  )}
+                  <button class="btn sm ghost" title={L("Image de la famille", "Family image")} aria-label={L("Image de la famille", "Family image")} onClick={() => setCover(family.id, c.id)}>
+                    <Icon name="star" size={14} />
+                  </button>
+                  {family.kind === "manual" && (
+                    <button class="btn sm ghost" title={L("Retirer", "Remove")} aria-label={L("Retirer", "Remove")} onClick={() => removeCard(family.id, c.id)}>
+                      <Icon name="close" size={14} />
+                    </button>
+                  )}
+                </span>
+              }
+            />
+          )}
+        />
+      </div>
       {modal === "rule" && <RuleEditor family={family} onClose={() => setModal(null)} />}
       {modal === "add" && <AddCards family={family} onClose={() => setModal(null)} />}
       {modal === "market" && <MarketDialog family={family} onClose={() => setModal(null)} />}
@@ -552,8 +579,65 @@ function FromTagDialog({onClose, onCreated}) {
   );
 }
 
+// Ordres proposés pour la liste des familles (core/families.js, sortFamilies)
+const SORT_LABELS = {manual: () => L("Mon ordre", "My order"), name: () => L("Nom", "Name"), progress: () => L("Complétion", "Completion"), recent: () => L("Récentes", "Recent")};
+// Ordres proposés pour les cartes d'une famille (core/families.js, sortFamilyCards)
+const CARD_SORT_LABELS = {manual: () => L("Mon ordre", "My order"), name: () => L("Nom", "Name"), rarity: () => L("Rareté", "Rarity"), price: () => L("Prix", "Price")};
+
+// Choix de l'ordre (familles, cartes d'une famille) : boutons groupés
+function SortPicker({sorts, labels, value, onChange, label, hint}) {
+  return (
+    <div class="row family-sort">
+      <span class="eyebrow">{L("Ordre", "Order")}</span>
+      <div class="seg" role="group" aria-label={label}>
+        {sorts.map((s) => (
+          <button key={s} type="button" class={value === s ? "on" : ""} aria-pressed={value === s} onClick={() => onChange(s)}>
+            {labels[s]()}
+          </button>
+        ))}
+      </div>
+      {hint && <span class="small muted">{hint}</span>}
+    </div>
+  );
+}
+
+// Grille des familles ; en « Mon ordre », chacune se range par sa poignée (ui/sortable.js)
+function FamilyGrid({list, sort, ids, onOpen}) {
+  const manual = sort === "manual" && list.length > 1;
+  const {grid, order, dragId, grip} = useSortable(list, moveFamily);
+  const shown = sort === "manual" ? order : sortFamilies(list, sort, ids);
+  return (
+    <div class={`cards${dragId ? " sorting" : ""}`} ref={grid}>
+      {shown.map((f) => {
+        const p = familyProgress(f, ids);
+        const cover = f.cards.find((c) => c.id === f.cover) || f.cards.find((c) => c.image_url);
+        return (
+          <div key={f.id} data-sort-id={f.id} class={`card family${dragId === f.id ? " dragging" : ""}`} style={{cursor: "pointer"}} onClick={() => !dragId && onOpen(f.id)}>
+            {cover?.image_url ? <img class="thumb" src={cover.image_url} alt="" referrerpolicy="no-referrer" /> : <div class="thumb" />}
+            <div class="body">
+              <div class="family-head">
+                <div class="t">{f.name}</div>
+                {manual && (
+                  <button {...grip(f.id, f.name)}>
+                    <Icon name="grip" size={16} />
+                  </button>
+                )}
+              </div>
+              <div class="d">
+                {f.kind === "smart" ? L("Intelligente", "Smart") : L("Manuelle", "Manual")} · {fmt(p.owned)} / {fmt(p.total)}
+                {sort === "progress" && ` · ${p.percent} %`}
+              </div>
+              <div class="progress" style={{marginTop: "auto"}}><div style={{width: `${p.percent}%`}} /></div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FamiliesTab() {
-  const {list} = useStore(families);
+  const {list, sort = "manual"} = useStore(families);
   const ids = useStore(owned).ids;
   const [openId, setOpenId] = useState(null);
   const [modal, setModal] = useState(null);
@@ -583,24 +667,17 @@ export function FamiliesTab() {
         <button class="btn primary" onClick={() => setModal("create")}>{L("Nouvelle famille", "New family")}</button>
       </div>
       {!list.length && <div class="empty">{L("Aucune famille pour l'instant.", "No families yet.")}</div>}
-      <div class="cards">
-        {list.map((f) => {
-          const p = familyProgress(f, ids);
-          const cover = f.cards.find((c) => c.id === f.cover) || f.cards.find((c) => c.image_url);
-          return (
-            <div key={f.id} class="card" style={{cursor: "pointer"}} onClick={() => setOpenId(f.id)}>
-              {cover?.image_url ? <img class="thumb" src={cover.image_url} alt="" referrerpolicy="no-referrer" /> : <div class="thumb" />}
-              <div class="body">
-                <div class="t">{f.name}</div>
-                <div class="d">
-                  {f.kind === "smart" ? L("Intelligente", "Smart") : L("Manuelle", "Manual")} · {fmt(p.owned)} / {fmt(p.total)}
-                </div>
-                <div class="progress" style={{marginTop: "auto"}}><div style={{width: `${p.percent}%`}} /></div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {list.length > 1 && (
+        <SortPicker
+          sorts={FAMILY_SORTS}
+          labels={SORT_LABELS}
+          value={sort}
+          onChange={setFamilySort}
+          label={L("Ordre des familles", "Family order")}
+          hint={sort === "manual" ? L("Glissez une famille par sa poignée pour la ranger.", "Drag a family by its handle to reorder it.") : null}
+        />
+      )}
+      <FamilyGrid list={list} sort={sort} ids={ids} onOpen={setOpenId} />
       {modal === "create" && <CreateDialog onClose={() => setModal(null)} onCreated={created} />}
       {modal === "import" && <ImportDialog onClose={() => setModal(null)} onCreated={created} />}
       {modal === "tag" && <FromTagDialog onClose={() => setModal(null)} onCreated={created} />}

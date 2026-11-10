@@ -24,6 +24,51 @@ export const packsStatus = createStore({remaining: null, at: 0});
 // {kind: "listed", baseAmount, durationMinutes}, ou {kind: "uncertain", what: "discard"|"sell"} (sans réponse du site)
 export const recapState = createStore({cards: [], packs: 0, at: 0, phase: null, source: null, pricesLoading: false, dismissed: false, sort: null});
 
+// Dernier récapitulatif gardé dans le stockage de l'extension : après un rechargement de la page
+// (ou du navigateur), il revient sur l'écran d'ouverture (« Paquet précédent ») jusqu'au paquet
+// suivant ou à sa fermeture. Seuls les champs affichés ou utiles au classement sont gardés (résumé
+// tronqué), pour qu'un « Tout ouvrir » de centaines de cartes reste léger.
+const KEPT_FIELDS = ["id", "user_card_id", "wikipedia_title", "wikipedia_url", "category", "image_url", "hide_image", "rarity", "is_shiny", "lang", "isNew", "action"];
+const SUMMARY_MAX = 600;
+export const lastRecap = persistentStore("lastRecap", {cards: [], packs: 0, at: 0, source: null, dismissed: false, sort: null});
+
+export function recapSnapshot(r) {
+  const cards = r.cards.map((c) => {
+    const kept = Object.fromEntries(KEPT_FIELDS.filter((k) => c[k] !== undefined).map((k) => [k, c[k]]));
+    if (c.summary) kept.summary = String(c.summary).slice(0, SUMMARY_MAX);
+    return kept;
+  });
+  // Le tri automatique en cours ne reprendra pas : seul son résultat est gardé
+  const sort = r.sort?.status === "done" ? r.sort : null;
+  return {cards, packs: r.packs, at: r.at, source: r.source, dismissed: Boolean(r.dismissed), sort};
+}
+
+// Récapitulatif repris au chargement de la page, s'il n'y en a pas déjà un (paquet ouvert entre-temps)
+export function restoreRecap(saved) {
+  if (!saved?.cards?.length || recapState.get().cards.length) return false;
+  // Rechargé pendant la révélation : le site l'a abandonnée, le récapitulatif s'affiche directement
+  recapState.set({...saved, phase: "ready", pricesLoading: true});
+  // Rechargé avant la fin du calcul des nouveautés : il est refait (même résultat, le paquet compté une fois)
+  if (saved.cards.some((c) => c.isNew == null)) markNovelty(saved.at, saved.cards);
+  loadPrices(saved.cards.map((c) => ({id: c.id, rarity: c.rarity})))
+    .catch(() => {})
+    .finally(() => {
+      if (recapState.get().at === saved.at) recapState.set({pricesLoading: false});
+    });
+  return true;
+}
+
+let lastSaved = "";
+function saveRecap(r) {
+  // Un autre onglet a gardé un paquet plus récent : on ne l'écrase pas avec un ancien
+  if (!r.cards.length || r.at < lastRecap.get().at) return;
+  const snapshot = recapSnapshot(r);
+  const key = JSON.stringify(snapshot);
+  if (key === lastSaved) return;
+  lastSaved = key;
+  lastRecap.set(() => snapshot);
+}
+
 // Répartition des raretés de toute ma collection (/api/my-collection/stats), pour le graphique des taux
 export const collectionRarity = persistentStore("collectionRarity", {counts: {}, total: 0, at: 0});
 const setCollectionRarity = (data) =>
@@ -224,5 +269,12 @@ export async function openAllPacks() {
     return {packs, cards: all.length};
   });
 }
+
+// Garde le récapitulatif à chaque changement (cartes, nouveautés, défausses, ventes, tri terminé,
+// fermeture), et le reprend une fois le stockage lu
+lastRecap.ready.then(() => {
+  restoreRecap(lastRecap.get());
+  recapState.subscribe(saveRecap);
+});
 
 export const resetPullStats = () => pullStats.set({since: Date.now(), packs: 0, cards: 0, byRarity: {}});

@@ -1,5 +1,6 @@
 // Marché : mes enchères (suivi, surenchère, alerte de fin) et vente ou défausse de mes doublons.
 import {site} from "../api/site";
+import {rest, restIn} from "../api/supabase";
 import {createStore} from "../lib/store";
 import {readSession} from "../lib/session";
 import {on, emit} from "../lib/bus";
@@ -63,6 +64,32 @@ export function loadAuction(id) {
 
 // Relecture d'une enchère, sans cache (titre de l'onglet sur sa page)
 export const refreshAuction = (id) => site.auction(id).then(rememberAuctionPage);
+
+// --- Enchères en cours d'une même carte (analyse d'une enchère, bouton « Prochaines enchères ») :
+// lues dans la table auctions par l'id de la carte (exact et en une requête, là où la recherche du
+// marché par titre peut en manquer), de la fin la plus proche à la plus lointaine. Une enchère encore
+// « active » dont la fin est passée attend d'être réglée par le site : écartée.
+const CARD_AUCTION_FIELDS = "id,card_id,snapshot_rarity,current_bid,base_amount,end_at,is_shiny,seller_id,current_bidder_id";
+export async function cardAuctions(cardId, {now = Date.now()} = {}) {
+  const rows = await rest(`auctions?select=${CARD_AUCTION_FIELDS}&card_id=eq.${encodeURIComponent(cardId)}&status=eq.active&order=end_at.asc,id.asc&limit=200`, {retries: 3});
+  if (!Array.isArray(rows)) throw new Error(L("Réponse inattendue de la base WikiMasters.", "Unexpected response from the WikiMasters database."));
+  return rows.filter((a) => new Date(a.end_at).getTime() > now);
+}
+export const isMySale = (a) => Boolean(a.seller_id) && a.seller_id === readSession()?.userId;
+
+// Enchères en cours d'une carte et mes mises sur chacune : {auctions, myBids: Map(id d'enchère →
+// ma plus haute mise)}. Les mises viennent de la table auction_bids, où chaque joueur ne lit que
+// les siennes : exact, sans dépendre de la liste « mes enchères » du site (50 par page).
+export async function cardMarket(cardId, {now = Date.now()} = {}) {
+  const auctions = await cardAuctions(cardId, {now});
+  const me = readSession()?.userId;
+  const myBids = new Map();
+  if (me && auctions.length) {
+    const rows = await restIn(`auction_bids?select=auction_id,amount&bidder_id=eq.${me}`, "auction_id", auctions.map((a) => a.id), {retries: 3});
+    for (const b of rows) myBids.set(b.auction_id, Math.max(myBids.get(b.auction_id) || 0, Number(b.amount) || 0));
+  }
+  return {auctions, myBids};
+}
 
 export async function refreshBids({withBalance = true} = {}) {
   bidsState.set({loading: true, error: null});

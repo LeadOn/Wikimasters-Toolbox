@@ -177,6 +177,59 @@
   margin: 14px auto 0;
 }
 
+/* Récapitulatif et taux de drop dans la marge (features/pack-dock.js) : colonne fixe, qui défile seule */
+.wmt-dock {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.wmt-dock > .wmt-recap-host, .wmt-dock > .wmt-rates-host { width: 100%; margin: 0; flex: none; }
+/* Révélation : attente du retournement (contour et échelle des raretés), panneau d'étiquettes à droite ou dessous */
+.wmt-suspense-host { position: absolute; inset: 0; z-index: 60; }
+/* Petit écran : les effets du suspense ne sortent pas de la place de la carte (pas de défilement horizontal) */
+@media (max-width: 767px) { .wmt-suspense-host { overflow: clip; overflow-clip-margin: 14px; } }
+/* Entrée de la carte révélée après le suspense, à la place du retournement du site (délai et durée :
+   ENTER de features/suspense.js). Jusqu'à Super Rare, elle enchaîne le retournement du dos de la
+   Toolbox ; au-delà, elle sort surexposée du flash et retrouve ses couleurs. */
+@keyframes wmt-enter-C {
+  from { transform: perspective(1000px) rotateY(-90deg); animation-timing-function: cubic-bezier(0.2, 0.7, 0.35, 1); }
+  to { transform: none; }
+}
+@keyframes wmt-enter-PC {
+  from { transform: perspective(1000px) rotateY(-90deg) scale(0.98); animation-timing-function: cubic-bezier(0.2, 0.7, 0.35, 1); }
+  to { transform: none; }
+}
+@keyframes wmt-enter-R {
+  0% { transform: perspective(1000px) rotateY(-90deg); filter: brightness(1.5); animation-timing-function: cubic-bezier(0.2, 0.75, 0.35, 1); }
+  70% { transform: perspective(1000px) rotateY(7deg); filter: brightness(1.1); animation-timing-function: ease-in-out; }
+  100% { transform: none; filter: none; }
+}
+@keyframes wmt-enter-SR {
+  0% { transform: perspective(1000px) rotateY(-90deg) scale(1.06); filter: brightness(1.9); animation-timing-function: cubic-bezier(0.2, 0.75, 0.35, 1); }
+  62% { transform: perspective(1000px) rotateY(9deg) scale(1.04); filter: brightness(1.15); animation-timing-function: ease-in-out; }
+  100% { transform: none; filter: none; }
+}
+@keyframes wmt-enter-UR {
+  0% { opacity: 0; transform: scale(1.14); filter: brightness(2.6) saturate(0.5); animation-timing-function: cubic-bezier(0.15, 0.7, 0.3, 1); }
+  18% { opacity: 1; }
+  58% { transform: scale(0.985); filter: brightness(1.12); animation-timing-function: ease-in-out; }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+@keyframes wmt-enter-L {
+  0% { opacity: 0; transform: scale(1.2) translateY(-6px); filter: brightness(3.2) saturate(0.3); animation-timing-function: cubic-bezier(0.12, 0.7, 0.3, 1); }
+  16% { opacity: 1; }
+  50% { transform: scale(0.975); filter: brightness(1.35); animation-timing-function: ease-in-out; }
+  72% { transform: scale(1.012); filter: brightness(1.05); animation-timing-function: ease-in-out; }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+.wmt-reveal-side { display: block; width: min(340px, calc(100vw - 32px)); margin: 0 auto 16px; }
+.wmt-reveal-side.beside { position: absolute; left: calc(100% + 20px); top: 0; width: 260px; margin: 0; z-index: 5; }
+
 /* Blocs de la Toolbox insérés dans les pages (leur contenu est dans un Shadow DOM) */
 .wmt-island { display: block; }
 .wmt-island-card { margin-top: 12px; }

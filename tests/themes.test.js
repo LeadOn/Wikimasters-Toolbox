@@ -114,6 +114,7 @@ test("vérification d'une liste modifiée", () => {
   const messages = (fn) => core.validateThemes(edited(fn)).map((p) => p.message).join("\n");
   assert.match(messages((l) => (byId(l, "Sports").name = "Histoire")), /utilisé deux fois/);
   assert.match(messages((l) => (byId(l, "Sports").name = "Doublon")), /réservé/);
+  assert.match(messages((l) => (byId(l, "Sports").name = "Favori")), /réservé/);
   assert.match(messages((l) => (byId(l, "Sports").name = "Pour : moi")), /réservé/);
   assert.match(messages((l) => (byId(l, "Sports").name = " ")), /nom manquant/);
   assert.match(messages((l) => (byId(l, "Sports").kw = "")), /aucun mot-clé/);

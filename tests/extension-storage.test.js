@@ -115,3 +115,21 @@ test("extension mise à jour sous la page : écriture refusée, joueur prévenu 
   assert.equal(notified, 1);
   assert.equal(await storage.load("k", "défaut"), "défaut");
 });
+
+test("suspense de la révélation : activé pour une nouvelle installation, pas pour une installation existante", async () => {
+  fakeChrome({});
+  let {settings} = loadExtensionModule({settings: "extension/src/content/state/settings.js"});
+  await settings.settings.ready;
+  assert.equal(settings.isOn("packSuspense"), true, "aucun réglage enregistré");
+
+  fakeChrome({settings: {features: {packRecap: true}}});
+  ({settings} = loadExtensionModule({settings: "extension/src/content/state/settings.js"}));
+  await settings.settings.ready;
+  assert.equal(settings.isOn("packSuspense"), false, "réglages déjà enregistrés, sans l'option");
+  assert.equal(settings.isOn("packRecap"), true);
+
+  fakeChrome({settings: {features: {packSuspense: true}}});
+  ({settings} = loadExtensionModule({settings: "extension/src/content/state/settings.js"}));
+  await settings.settings.ready;
+  assert.equal(settings.isOn("packSuspense"), true, "activée par le joueur");
+});

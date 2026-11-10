@@ -114,3 +114,40 @@ test("tri sans étiquettes de thème : seuls Doublon et « Pour : … » sont g�
   assert.deepEqual(plan.toDelete, []);
   assert.ok(!plan.toInsert.some((i) => i.name === "Sports"));
 });
+
+test("Favori : sur les exemplaires en favori, seulement si l'option est active", () => {
+  const starred = collection.map((u) => (u.id === "u2" || u.id === "u4" ? {...u, starred: true} : u));
+  const off = core.computeAssignments(starred);
+  assert.ok(!off.some((a) => a.tags.includes("Favori")), "option désactivée : pas de Favori");
+  assert.ok(!("Favori" in core.managedTags()), "ni dans les étiquettes gérées");
+  const on = core.computeAssignments(starred, {withFavorites: true});
+  const byId = Object.fromEntries(on.map((x) => [x.userCard.id, x.tags]));
+  assert.deepEqual(["u1", "u2", "u3", "u4"].filter((id) => byId[id].includes("Favori")), ["u2", "u4"]);
+  assert.equal(core.managedTags({withFavorites: true}).Favori, "#eab308");
+});
+
+test("Favori : recalculé sur toute la collection en mode incrémental, et posé même sur les favoris exclus du tri", () => {
+  const managedFav = core.managedTags({withFavorites: true});
+  const tagsFav = [...tags, {id: "t-fav", name: "Favori", color: "#eab308"}];
+  // u1 déjà triée et en favori, sans Favori ; u4 a Favori mais n'est plus en favori
+  const starred = collection.map((u) => (u.id === "u1" ? {...u, starred: true} : u));
+  const assignments = core.computeAssignments(starred, {withFavorites: true});
+  const current = new Map([["t-geo", new Set()], ["t-sport", new Set(["u1", "u2"])], ["t-fav", new Set(["u4"])]]);
+  const plan = core.planChanges(assignments, tagsFav, current, {newOnly: true, managed: managedFav});
+  assert.ok(plan.toInsert.some((i) => i.name === "Favori" && i.userCardId === "u1"), "carte déjà triée : Favori ajouté");
+  assert.deepEqual(plan.toDelete.filter((d) => d.name === "Favori").flatMap((d) => d.ids), ["u4"], "étoile retirée : Favori retiré");
+  // Favoris exclus du tri : seul Favori les concerne
+  const frozen = new Set(["u1"]);
+  for (const newOnly of [true, false]) {
+    const p = core.planChanges(assignments, tagsFav, current, {newOnly, managed: managedFav, frozen});
+    const onU1 = [...p.toInsert.filter((i) => i.userCardId === "u1").map((i) => `+${i.name}`), ...p.toDelete.filter((d) => d.ids.includes("u1")).map((d) => `-${d.name}`)];
+    assert.deepEqual(onU1, ["+Favori"], `favori exclu du tri : seulement Favori (newOnly ${newOnly})`);
+  }
+});
+
+test("Favori : option désactivée, une étiquette Favori déjà posée n'est plus touchée", () => {
+  const tagsFav = [...tags, {id: "t-fav", name: "Favori", color: "#eab308"}];
+  const current = new Map([["t-geo", new Set()], ["t-sport", new Set()], ["t-fav", new Set(["u1", "u4"])]]);
+  const plan = core.planChanges(core.computeAssignments(collection), tagsFav, current, {newOnly: false, managed});
+  assert.ok(!plan.toDelete.some((d) => d.name === "Favori" || d.tagId === "t-fav"));
+});

@@ -1,10 +1,12 @@
-# Publier WikiMasters Toolbox sur le Chrome Web Store
+# Publier WikiMasters Toolbox sur le Chrome Web Store et Firefox Add-ons
 
-Tout ce que le tableau de bord demande est dans ce dossier :
+Tout ce que les tableaux de bord demandent est dans ce dossier (Firefox : `firefox.md`) :
 
 | Fichier | Contenu |
 |---|---|
-| `fiche.md` | Textes de la fiche (description, catégorie, liens) |
+| `fiche.md` | Textes de la fiche (description, catégorie, liens) ; descriptions reprises par Firefox |
+| `firefox.md` | Fiche et publication sur Firefox Add-ons (sources, notes pour les examinateurs) |
+| `notes-de-version.md` | Note complète de chaque version (commit, release GitHub) et notes de version de Firefox |
 | `confidentialite.md` | Réponses de l'onglet « Pratiques de confidentialité » |
 | `../PRIVACY.md` | Politique de confidentialité (URL publique une fois poussée sur GitHub) |
 | `images/capture-*.png` | Captures d'écran 1280 × 800 (pseudos des autres joueurs masqués) |
@@ -32,9 +34,12 @@ Tout ce que le tableau de bord demande est dans ce dossier :
 
 ## Mises à jour
 
-1. Augmenter `version` dans `package.json` (le Web Store refuse un numéro déjà publié).
+1. Augmenter `version` dans `package.json` (le Web Store refuse un numéro déjà publié) et ajouter la
+   section de la version à `notes-de-version.md`.
 2. `npm test && npm run package`.
-3. Tableau de bord → l'élément → *Paquet* → *Importer un nouveau paquet* → *Envoyer pour examen*.
+3. Tableau de bord → l'élément → *Paquet* → *Importer un nouveau paquet* ; si la description a changé,
+   recoller `fiche.md` dans chaque langue ; *Envoyer pour examen*.
+4. Firefox : voir « Publier une nouvelle version » dans `firefox.md`.
 4. Si l'extension demande de nouvelles autorisations ou utilise de nouvelles données, mettre à jour
    `confidentialite.md`, `PRIVACY.md` et l'onglet correspondant **avant** l'envoi : les utilisateurs
    devront accepter les nouvelles autorisations.

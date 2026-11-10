@@ -2,7 +2,8 @@
 // Toolbox), jamais une fenêtre. Les prix arrivent pendant la révélation des cartes ; tant qu'ils
 // ne sont pas là, un indicateur de chargement les remplace. Les cartes cochées sont défaussées
 // ensemble, chacune peut être mise aux enchères, toujours après confirmation. Dans la page, un
-// bouton enchaîne sur le paquet suivant.
+// bouton enchaîne sur le paquet suivant. Avec l'option « revealTags », chaque ligne montre les
+// étiquettes réelles de l'exemplaire, son étoile et un bouton pour l'étiqueter (ui/QuickTags.jsx).
 import {useState} from "preact/hooks";
 import {useStore} from "../lib/store";
 import {recapState, dismissRecap, discardPulledMany, markListed, packsStatus} from "../features/packs";
@@ -17,9 +18,12 @@ import {emit} from "../lib/bus";
 import {DOUBLON, RECENT_SALES} from "../../../../core";
 import {classify, isTheme} from "../state/themes";
 import {mountIsland} from "./islands/mount";
+import {pulledTags, tagColorOf} from "../features/quick-tags";
+import {StarButton, TagPicker} from "./QuickTags";
+import {DockPicker} from "./DockPicker";
 import {L} from "../../shared/i18n";
 
-function Price({card, loading}) {
+export function Price({card, loading}) {
   const shiny = {shiny: card.is_shiny};
   const status = priceStatus(card.id, card.rarity, shiny);
   if (status === "ok") return <Money v={priceOf(card.id, card.rarity, shiny)} class="recap-price" />;
@@ -101,6 +105,21 @@ function SortTags({card, sort, index}) {
   );
 }
 
+// Étiquettes réelles de l'exemplaire (option revealTags, une fois relues), Doublon déjà signalé à part
+function CopyTags({names}) {
+  return names
+    .filter((n) => n !== DOUBLON)
+    .map((n) =>
+      isTheme(n) ? (
+        <ThemeChip key={n} theme={n} />
+      ) : (
+        <span key={n} class="chip theme" style={{"--c": tagColorOf(n)}} title={n}>
+          <span class="lbl">{n}</span>
+        </span>
+      ),
+    );
+}
+
 // Paquet suivant, sans passer par « Continuer » puis « Ouvrir » (seulement dans la page, quand il en reste)
 function NextPack({onNext, disabled}) {
   const {remaining} = useStore(packsStatus);
@@ -125,9 +144,13 @@ function NextPack({onNext, disabled}) {
   );
 }
 
-export function PackRecapView({onClose, onNext, compact = false}) {
+// dock : choix de l'emplacement du bloc (page Paquets) ; previous : affiché sur l'écran d'ouverture,
+// après « Continuer » (paquet précédent)
+export function PackRecapView({onClose, onNext, compact = false, dock = false, previous = false}) {
   const recap = useStore(recapState);
+  const tagged = useStore(pulledTags);
   useStore(priceVersion);
+  const [tagging, setTagging] = useState({at: 0, index: -1}); // ligne dont les étiquettes sont ouvertes
   // Cartes cochées pour la défausse (index dans le paquet), propres à ce récapitulatif
   const [picks, setPicks] = useState({at: 0, set: new Set()});
   const [discarding, setDiscarding] = useState(null); // {done, total} pendant la défausse
@@ -143,7 +166,10 @@ export function PackRecapView({onClose, onNext, compact = false}) {
   const known = recap.cards.some((c) => c.isNew != null);
 
   const choosable = recap.cards.flatMap((c, i) => (available(c) ? [i] : []));
-  const doubles = choosable.filter((i) => recap.cards[i].isNew === false && !recap.cards[i].is_shiny);
+  const quick = isOn("revealTags") && tagged.status === "ready" && tagged.at === recap.at;
+  const starred = (c) => quick && Boolean(tagged.starred[c.user_card_id]);
+  const doubles = choosable.filter((i) => recap.cards[i].isNew === false && !recap.cards[i].is_shiny && !starred(recap.cards[i]));
+  const openTags = tagging.at === recap.at ? tagging.index : -1;
   const checked = picks.at === recap.at ? picks.set : new Set();
   const picked = choosable.filter((i) => checked.has(i));
   const pick = (indexes) => setPicks({at: recap.at, set: new Set(indexes)});
@@ -175,7 +201,7 @@ export function PackRecapView({onClose, onNext, compact = false}) {
       <header class="recap-head">
         <Mark size={22} />
         <div class="recap-heading">
-          <div class="recap-title">{recap.packs > 1 ? L(`${recap.packs} paquets ouverts`, `${recap.packs} packs opened`) : L("Récapitulatif du paquet", "Pack summary")}</div>
+          <div class="recap-title">{recap.packs > 1 ? L(`${recap.packs} paquets ouverts`, `${recap.packs} packs opened`) : previous ? L("Paquet précédent", "Previous pack") : L("Récapitulatif du paquet", "Pack summary")}</div>
           <div class="recap-sub">
             {plural(recap.cards.length, L("carte", "card"))}
             {known && ` · ${L(plural(fresh, "nouvelle", "nouvelles"), `${fmt(fresh)} new`)}`}
@@ -185,6 +211,7 @@ export function PackRecapView({onClose, onNext, compact = false}) {
           <span class="k">{L("Valeur", "Value")}</span>
           {loading && unpriced ? <span class="spinner" aria-label={L("Chargement des prix", "Loading prices")} /> : unpriced === prices.length ? <span class="v none">—</span> : <Money v={total} class="v" />}
         </div>
+        {dock && <DockPicker block="recap" />}
         {onClose && (
           <button class="icon-btn" aria-label={L("Masquer le récapitulatif", "Hide the summary")} onClick={onClose}>
             <Icon name="close" size={16} />
@@ -224,7 +251,7 @@ export function PackRecapView({onClose, onNext, compact = false}) {
               key={`${c.id}-${i}`}
               class={`recap-row${c.action?.kind === "discarded" ? " gone" : ""}${checked.has(i) && available(c) ? " picked" : ""}${choosableRow ? " choosable" : ""}`}
               style={{"--rc": `var(--r-${c.rarity || "C"})`}}
-              onClick={choosableRow ? (e) => !e.target.closest("button, input, a") && toggle(i) : undefined}
+              onClick={choosableRow ? (e) => !e.target.closest("button, input, a, .recap-tags") && toggle(i) : undefined}
             >
               {available(c) ? (
                 <input
@@ -250,15 +277,35 @@ export function PackRecapView({onClose, onNext, compact = false}) {
                       <Icon name="shine" size={12} /> Shiny
                     </span>
                   )}
-                  <SortTags card={c} sort={recap.sort} index={i} />
+                  {quick && c.user_card_id in tagged.links ? <CopyTags names={tagged.links[c.user_card_id]} /> : <SortTags card={c} sort={recap.sort} index={i} />}
                 </div>
               </div>
               <div class="recap-value">
                 <Price card={c} loading={loading} />
               </div>
               <div class="recap-do">
+                {quick && c.user_card_id && c.action?.kind !== "discarded" && (
+                  <>
+                    <StarButton card={c} index={i} />
+                    <button
+                      type="button"
+                      class={`btn sm ghost${openTags === i ? " on" : ""}`}
+                      aria-expanded={openTags === i}
+                      title={L("Étiqueter cette carte", "Tag this card")}
+                      aria-label={L(`Étiqueter ${c.wikipedia_title}`, `Tag ${c.wikipedia_title}`)}
+                      onClick={() => setTagging({at: recap.at, index: openTags === i ? -1 : i})}
+                    >
+                      <Icon name="tag" size={14} />
+                    </button>
+                  </>
+                )}
                 <CardActions card={c} index={i} at={recap.at} locked={Boolean(discarding) && checked.has(i)} />
               </div>
+              {quick && openTags === i && (
+                <div class="recap-tags">
+                  <TagPicker card={c} userCardId={c.user_card_id} />
+                </div>
+              )}
             </li>
           );
         })}
@@ -293,7 +340,7 @@ export function PackRecapView({onClose, onNext, compact = false}) {
               {L("Trier les nouvelles cartes", "Sort the new cards")}
             </button>
           )}
-          {onNext && recap.source === "reveal" && recap.phase === "ready" && <NextPack onNext={onNext} disabled={Boolean(discarding)} />}
+          {onNext && !previous && recap.source === "reveal" && recap.phase === "ready" && <NextPack onNext={onNext} disabled={Boolean(discarding)} />}
         </div>
       </footer>
     </section>
@@ -302,6 +349,8 @@ export function PackRecapView({onClose, onNext, compact = false}) {
 
 // Bloc autonome inséré dans la page du site, isolé dans son propre Shadow DOM.
 // onNext : ouvre le paquet suivant avec les boutons du site (features/site-dom.js).
-export function mountPackRecap(host, {onNext} = {}) {
-  mountIsland(host, PackRecapView)({onClose: dismissRecap, onNext});
+// Renvoie update(props) : {onNext, previous}
+export function mountPackRecap(host) {
+  const update = mountIsland(host, PackRecapView);
+  return (props = {}) => update({onClose: dismissRecap, dock: true, ...props});
 }
