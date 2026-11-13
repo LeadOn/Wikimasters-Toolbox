@@ -97,6 +97,7 @@ extension/
         card-lookup.js         carte affichée par le site mais jamais vue dans ses réponses
         wiki-images.js         images Wikimedia pour les cartes sans image (option) : Wikipédia, Wikidata, éléments liés
         card-images.js         cartes sans image ou en GIF sur toute la collection (onglet Images)
+        collection-order.js    ordre par défaut de la page Collection, choisi dans le menu du site une fois par visite
         collection-view.js     collection filtrée (critères cumulables, prix de vente, mots-clés) : mise en vente et défausse, une à une ou par lot
         notify.js              sons de notification et d'alerte
         stonks.js              page Stonks : historique de mes enchères conclues, cartes achetées en stock, ouverture par #stonks

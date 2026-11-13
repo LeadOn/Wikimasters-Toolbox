@@ -1,4 +1,4 @@
-// Réglages de la Toolbox : un interrupteur par fonctionnalité, thèmes de tri, couleur de Doublon.
+// Réglages de la Toolbox : un interrupteur (ou un choix) par fonctionnalité, thèmes de tri, couleur de Doublon.
 import {persistentStore} from "../lib/storage";
 import {createStore} from "../lib/store";
 import {PRICE_DEFAULTS} from "../../../../core/prices";
@@ -14,6 +14,12 @@ export const FEATURES = [
   {key: "ownedBadges", group: L("Cartes", "Cards"), label: L("Possédée / manquante", "Owned / missing"), help: L("Signale, hors de votre collection, les cartes que vous avez déjà.", "Outside your collection, flags the cards you already have.")},
   {key: "missingImages", group: L("Cartes", "Cards"), label: L("Images manquantes", "Missing images"), help: L("Cherche une image sur Wikimedia (Wikipédia, Wikidata, Commons) pour les cartes qui n'en ont pas. Requêtes anonymes, sans cookie ; jamais pour une image masquée par le site.", "Looks for an image on Wikimedia (Wikipedia, Wikidata, Commons) for cards that have none. Anonymous requests, no cookies; never for an image hidden by the site.")},
   {key: "collectionBar", group: L("Pages du site", "Site pages"), label: L("Barre Toolbox sur la collection", "Toolbox bar on the collection"), help: L("Sous les filtres de la page Collection : trier les nouvelles cartes sur place, n'afficher que les cartes sans image ou en GIF, accès aux doublons et aux prix.", "Below the Collection page filters: sort new cards in place, show only cards without an image or with a GIF, quick access to duplicates and prices.")},
+  {key: "collectionOrder", group: L("Pages du site", "Site pages"), label: L("Ordre de la collection", "Collection order"), help: L("Ordre de la page Collection à chaque visite : le site revient sinon à l'ordre par rareté. Vous pouvez toujours en changer pendant la visite.", "Order of the Collection page on each visit: otherwise the site goes back to ordering by rarity. You can still change it during the visit."), choices: [
+    {id: "rarity", label: L("Rareté", "Rarity")},
+    {id: "name", label: L("Nom", "Name")},
+    {id: "favorites", label: L("Favoris", "Favorites")},
+    {id: "added", label: L("Date d'ajout", "Date added")},
+  ]},
   {key: "cardInsight", group: L("Pages du site", "Site pages"), label: L("Infos dans la fiche d'une carte", "Info in a card's details"), help: L("Dans la fenêtre d'une carte : prix du marché, thème, amis intéressés, ajout à une famille.", "In a card's window: market price, theme, interested friends, add to a family.")},
   {key: "auctionInsight", group: L("Pages du site", "Site pages"), label: L("Analyse des enchères", "Auction analysis"), help: L("Sur la page d'une enchère : prix du marché, écart avec la mise, carte déjà possédée ou non, amis intéressés.", "On an auction page: market price, gap with the bid, whether you already own the card, interested friends.")},
   {key: "auctionTab", group: L("Pages du site", "Site pages"), label: L("Enchère dans le titre de l'onglet", "Auction in the tab title"), help: L("Sur la page d'une enchère, le titre de l'onglet indique le temps restant, si vous êtes en tête (✓) ou surenchéri (✗) et la mise actuelle ; il clignote quand quelqu'un surenchérit pendant que vous êtes sur un autre onglet.", "On an auction page, the tab title shows the time left, whether you are winning (✓) or outbid (✗) and the current bid; it blinks when someone outbids you while you are on another tab.")},
@@ -46,7 +52,10 @@ const OFF_BY_DEFAULT = new Set(["packRoulette", "favoriteTag", "missingImages", 
 const ON_FOR_NEW_INSTALLS = ["packSuspense"];
 
 export const DEFAULT_SETTINGS = {
-  features: Object.fromEntries(FEATURES.map((f) => [f.key, !OFF_BY_DEFAULT.has(f.key)])),
+  // Interrupteurs ; une option à choix (choices) a sa propre valeur, à sa clé
+  features: Object.fromEntries(FEATURES.filter((f) => !f.choices).map((f) => [f.key, !OFF_BY_DEFAULT.has(f.key)])),
+  // Ordre de la page Collection : id d'un choix de collectionOrder ("rarity" : celui du site)
+  collectionOrder: "rarity",
   // Thèmes de tri modifiés par le joueur (différences avec core/themes.js, voir core/theme-set.js) ; null : par défaut
   themes: null,
   // Couleur de l'étiquette Doublon (celles des thèmes sont dans `themes`)

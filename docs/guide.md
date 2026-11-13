@@ -71,6 +71,8 @@ Les pastilles du marché ne s'affichent que pour un prix fiable. Une carte shiny
 
 ### Page Collection
 
+**Ordre de la collection** (option *Ordre de la collection*, onglet *Réglages* ; *Rareté* par défaut) : le site revient à l'ordre par rareté à chaque visite de la page. Choisissez *Nom*, *Favoris* ou *Date d'ajout*, et la Toolbox le sélectionne dans le menu d'ordre du site à chaque arrivée sur la page ; la grille par rareté s'affiche un instant avant d'être remplacée. Un ordre que vous choisissez ensuite dans le menu est gardé jusqu'à la visite suivante ; un changement du réglage s'applique tout de suite.
+
 Une barre **Toolbox** apparaît sous la recherche et les filtres :
 
 - **Trier les nouvelles cartes** : affiche sur place un aperçu (nombre de cartes à classer, étiquettes qui seront ajoutées, doublons apparus ou disparus), puis *Appliquer* pose les étiquettes. Seules les cartes qui n'ont encore aucun thème sont classées.
@@ -410,6 +412,7 @@ Le champ de recherche en haut de l'onglet retrouve une option par un mot de son 
 | Cartes | Possédée / manquante | activée |
 | Cartes | Images manquantes (requêtes anonymes à Wikimedia) | désactivée |
 | Pages du site | Barre Toolbox sur la collection | activée |
+| Pages du site | Ordre de la collection | Rareté (celui du site) |
 | Pages du site | Infos dans la fiche d'une carte | activée |
 | Pages du site | Analyse des enchères | activée |
 | Pages du site | Enchère dans le titre de l'onglet | activée |

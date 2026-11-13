@@ -71,7 +71,17 @@ export function SettingsTab() {
                     </strong>
                     <span>{f.help}</span>
                   </div>
-                  <Toggle checked={s.features[f.key] !== false} label={f.label} onChange={(on) => setFeature(f.key, on)} />
+                  {f.choices ? (
+                    <select class={`mini-select${s[f.key] !== DEFAULT_SETTINGS[f.key] ? " on" : ""}`} aria-label={f.label} value={s[f.key]} onChange={(e) => settings.set({[f.key]: e.currentTarget.value})}>
+                      {f.choices.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Toggle checked={s.features[f.key] !== false} label={f.label} onChange={(on) => setFeature(f.key, on)} />
+                  )}
                 </div>
                 {f.key === "packRoulette" && s.features.packRoulette && <RouletteSound />}
               </Fragment>

@@ -20,6 +20,7 @@ import {suspense, startSuspense, releaseSuspense, endSuspense, holdsLegendarySou
 import {auctionById, auctionVersion, nextBid, msLeft} from "./market";
 import {resolveCard} from "./card-lookup";
 import {collectionView, setCollectionView} from "./collection-view";
+import {ensureCollectionOrder} from "./collection-order";
 import {stonksPage, isStonksOpen, openStonks, closeStonks} from "./stonks";
 import {mountPackRecap} from "../ui/PackRecap";
 import {mountDropRates} from "../ui/DropRates";
@@ -74,6 +75,11 @@ const SEL = {
   revealLoading: "[aria-busy]",
   pageTitle: "main h1",
   collectionSearch: 'main input[placeholder^="Rechercher par titre"]',
+  // Menu d'ordre de la collection : bouton au libellé de l'ordre affiché, liste d'options (aria-controls)
+  collectionOrderButton: 'main button[aria-label="Trier la collection"]',
+  collectionOrderOption: '[role="option"]',
+  // Libellés des options du menu, par choix du réglage collectionOrder ("rarity", l'ordre du site, n'en a pas : rien à choisir)
+  collectionOrderText: {name: "Nom", favorites: "Favoris", added: "Date d'ajout"},
   // Fenêtre d'une carte : voile plein écran, titre en h2, carte en grand (classe glow-<rareté>)
   modal: "div.fixed.inset-0",
   modalTitle: "h2",
@@ -816,6 +822,17 @@ function ensureCollectionBar() {
   if (hidden) hidden.dataset.wmtHidden = "";
 }
 
+// Collection : ordre choisi dans les réglages, posé dans le menu du site (features/collection-order.js)
+function applyCollectionOrder() {
+  const onPage = currentPath() === "/collection";
+  ensureCollectionOrder({
+    onPage,
+    button: onPage ? document.querySelector(SEL.collectionOrderButton) : null,
+    wanted: SEL.collectionOrderText[settings.get().collectionOrder] || null,
+    optionSelector: SEL.collectionOrderOption,
+  }).catch((e) => console.warn("[WikiMasters Toolbox] ordre de la collection", e));
+}
+
 // Fenêtre d'une carte du site, ouverte depuis une liste de la barre de la Collection (clic du joueur
 // sur une carte) : la recherche du site affiche la carte, qui est cliquée dans la grille (même
 // masquée) ; la recherche reprend ensuite sa valeur, la fenêtre du site restant ouverte.
@@ -1060,6 +1077,7 @@ function run() {
   attempt("bouton Tout ouvrir", ensureOpenAllButton);
   attempt("page Paquets", ensurePullsWidgets);
   attempt("barre de la collection", ensureCollectionBar);
+  attempt("ordre de la collection", applyCollectionOrder);
   attempt("fiche d'une carte", ensureCardInsight);
   attempt("analyse d'enchère", ensureAuctionInsight);
   attempt("échanges sur un profil", ensureFriendTrades);
