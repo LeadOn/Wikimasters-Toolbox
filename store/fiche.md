@@ -79,6 +79,8 @@ STONKS : VOTRE HISTORIQUE DE TRADING
 ÉCHANGES
 • Profils d'intérêts : décrivez ce que vous collectionnez, vos amis importent votre profil avec un code.
 • Sur le profil d'un ami : ses cartes qui vous intéressent, les vôtres qui l'intéressent, et une proposition équilibrée en prix du marché.
+• Dans la fenêtre « Échanger avec … » : filtres sur toute la collection de l'ami (ou la vôtre), et pas seulement la page affichée : prix, nom, thème, rareté, cartes que vous n'avez pas, hors favoris, doublons. Les cartes trouvées s'ajoutent à l'offre en un clic.
+• Bilan de l'offre en cours de composition : valeur au prix du marché de ce que vous donnez, de ce que vous recevez, et la différence.
 • Valeur de chaque côté des échanges en cours.
 
 PAQUETS
@@ -86,10 +88,11 @@ PAQUETS
 • Roulette pour la dernière carte (option) : la dernière carte du paquet se révèle comme une caisse qu'on ouvre, une bande de dos de cartes tirés selon vos taux de drop défile avec un cliquetis et s'arrête sur sa rareté. Cliquetis de la Toolbox ou votre propre son.
 • Étiquettes et favori en un clic à côté de chaque carte révélée.
 • Récapitulatif après chaque paquet : nouveautés, doublons, prix de chaque carte, valeur totale. Il reste affiché jusqu'au paquet suivant, même après un rechargement de la page.
+• Récapitulatif en lignes ou en cartes, comme sur le site ; un clic sur une carte ouvre sa fiche détaillée (résumé, attaque, défense, Q-Score, vues, prix du marché).
 • Vente ou défausse sur place, carte par carte ou en lot ; « Ouvrir le prochain » pour enchaîner.
 • Récapitulatif et taux de drop à placer à gauche, dessous ou à droite.
-• Taux de drop par rareté.
-• « Tout ouvrir » : seulement sur votre clic, après confirmation. Aucune ouverture automatique.
+• Taux de drop par rareté, depuis le début ou pour la seule journée.
+• « Tout ouvrir » : seulement sur votre clic, après confirmation. Les cartes de chaque paquet sont distribuées face cachée puis retournées une à une, avec leur prix du marché, la valeur cumulée et vos meilleures cartes à la fin. « Arrêter » termine le paquet en cours. Aucune ouverture automatique.
 
 FAMILLES
 • Groupes de cartes à compléter, choisies une à une ou remplies par une recherche. Partageables par code.
@@ -102,10 +105,15 @@ SUCCÈS
 • « Tout réclamer » : toutes les récompenses disponibles en un clic.
 • En option : réclamation automatique dès qu'un succès est débloqué.
 
+NOUVEAUTÉS ET AIDE
+• Après chaque mise à jour, l'onglet Nouveautés explique ce qui a changé, avec un bouton pour activer chaque nouvelle option.
+• Recherche dans les réglages, et bouton « Guide » qui ouvre l'explication de l'onglet affiché.
+
 VOS DONNÉES
 • Tout reste dans votre navigateur : aucun serveur, aucun compte, aucune publicité, aucune statistique d'usage.
 • L'extension utilise votre session WikiMasters pour lire votre collection et les prix, uniquement auprès de WikiMasters.
 • Rien n'est écrit sur votre compte sans un clic de votre part, sauf les options automatiques que vous activez vous-même (tri des cartes tirées, réclamation des succès).
+• Si WikiMasters demande une vérification anti-robot, la Toolbox arrête aussitôt de lire le site jusqu'au rechargement de la page.
 • Chaque fonction se désactive dans les réglages.
 
 Guide complet, code source et politique de confidentialité : https://github.com/LeadOn/Wikimasters-Toolbox
@@ -165,6 +173,8 @@ STONKS: YOUR TRADING HISTORY
 TRADES
 • Interest profiles: describe what you collect, and friends import your profile with a code.
 • On a friend's profile: their cards you want, your cards they want, and a balanced offer at market prices.
+• In the "Échanger avec …" window: filters across your friend's whole collection (or yours), not just the page shown: price, name, theme, rarity, cards you don't have, non-favorites, duplicates. Matching cards are added to the offer in one click.
+• Summary of the offer you are building: market value of what you give, of what you get, and the difference.
 • Value of each side of your pending trades.
 
 PACKS
@@ -172,10 +182,11 @@ PACKS
 • Roulette for the last card (option): the pack's last card is revealed like a case being opened, a strip of card backs drawn from your drop rates scrolls by with a clicking sound and stops on its rarity. Toolbox click or your own sound.
 • Tags and favorite in one click next to each revealed card.
 • A recap after each pack: new cards, duplicates, price of each card, total value. It stays on screen until the next pack, even after reloading the page.
+• The recap shows rows or cards, like on the site; clicking a card opens its details (summary, attack, defense, Q-Score, views, market price).
 • Sell or discard in place, card by card or in bulk; "Open next" to keep going.
 • Place the recap and drop rates on the left, below or on the right.
-• Drop rates by rarity.
-• "Open all": only on your click, after confirmation. Packs are never opened automatically.
+• Drop rates by rarity, overall or for today only.
+• "Open all": only on your click, after confirmation. Each pack's cards are dealt face down, then flipped one by one, with their market price, the running value and your best cards at the end. "Stop" finishes the current pack. Packs are never opened automatically.
 
 FAMILIES
 • Sets of cards to complete, hand-picked or filled from a search. Shareable by code.
@@ -188,10 +199,15 @@ ACHIEVEMENTS
 • "Claim all": every available reward in one click.
 • Optional: claim automatically as soon as an achievement is unlocked.
 
+WHAT'S NEW AND HELP
+• After each update, the "What's new" tab explains what changed, with a button to turn each new option on.
+• Search in the settings, and a "Guide" button that opens the explanation of the current tab.
+
 YOUR DATA
 • Everything stays in your browser: no server, no account, no ads, no usage statistics.
 • The extension uses your WikiMasters session to read your collection and prices, only from WikiMasters.
 • Nothing is written to your account without a click from you, except the automatic options you turn on yourself (sorting pulled cards, claiming achievements).
+• If WikiMasters asks for a bot check, the Toolbox stops reading the site right away until the page is reloaded.
 • Every feature can be turned off in the settings.
 
 Full guide (in French), source code and privacy policy: https://github.com/LeadOn/Wikimasters-Toolbox
