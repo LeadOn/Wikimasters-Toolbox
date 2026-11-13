@@ -19,7 +19,7 @@ Extension de navigateur **non officielle** pour [WikiMasters](https://www.wiki-m
 - **Familles** : groupes de cartes à compléter, choisies une à une ou remplies par une recherche, rangées à votre goût (glisser-déposer) ou triées par nom, complétion ou date, comme les cartes de chaque famille (nom, rareté, prix), avec les cartes manquantes en vente ou ajoutées en un clic à votre liste de souhaits.
 - **Succès** : vos succès, leur progression et leurs récompenses, toutes réclamées en un clic, ou automatiquement dès qu'un succès est débloqué (option).
 - **Images** : n'afficher que vos cartes sans image, ou celles dont l'image est un GIF, sur toute la collection (onglet Images et page Collection).
-- **Sur les cartes** : un nouvel affichage, avec l'image sur toute la carte et un cadre aux couleurs de la rareté ; les images manquantes cherchées sur Wikimedia (Wikipédia, Wikidata et ses éléments liés), sinon la carte sans image du site ; thème, prix, possédée ou nouvelle, lien vers l'article Wikipédia.
+- **Sur les cartes** : un nouvel affichage, avec l'image sur toute la carte et un cadre aux couleurs de la rareté ; les images manquantes cherchées sur Wikimedia (Wikipédia, Wikidata et ses éléments liés), sinon la carte sans image du site ; thème, prix, possédée ou nouvelle, lien vers l'article Wikipédia ; la page Collection dans l'ordre de votre choix à chaque visite (date d'ajout, nom…).
 - **Nouveautés** : après chaque mise à jour, ce qui a changé, avec un bouton pour activer chaque nouvelle option ; recherche dans les réglages et lien vers la section du guide de chaque onglet.
 
 L'interface s'adapte aux petits écrans (navigateur mobile qui accepte les extensions, fenêtre étroite) : panneau en plein écran, fenêtres ouvertes depuis le bas, boutons à la taille du doigt. Elle est en français ou en anglais, selon la langue du navigateur.
@@ -90,7 +90,7 @@ WikiMasters Toolbox is an **unofficial** browser extension for [WikiMasters](htt
 - **Packs**: a recap after each pack (new cards, duplicates, prices, total value) where each card can be put up for auction or discarded for 1 WikiBidou, drop rates, and "Open all" on your click.
 - **Families**: sets of cards to complete, hand-picked or filled from a search; missing cards can be added to your wishlist in one click.
 - **Achievements**: your achievements, their progress and rewards, all claimed in one click, or automatically as soon as one is unlocked (option).
-- **Cards**: a new card layout with a full-bleed image and a rarity-colored frame; missing images looked up on Wikimedia (Wikipedia, Wikidata and its linked items).
+- **Cards**: a new card layout with a full-bleed image and a rarity-colored frame; missing images looked up on Wikimedia (Wikipedia, Wikidata and its linked items); the Collection page in the order of your choice on every visit (date added, name…).
 - **What's new**: after each update, what changed, with a button to turn each new option on; search in the settings and a link to the guide section of each tab.
 
 The interface adapts to small screens (mobile browsers that support extensions, narrow windows).
