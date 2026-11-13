@@ -1,41 +1,43 @@
 // Recherche d'échanges avec un ami (équivalent de scripts/trade_finder.js) et échanges en cours.
-import {site} from "../api/site";
-import {rest} from "../api/supabase";
-import {runAll} from "../lib/http";
-import {createStore} from "../lib/store";
-import {load, save} from "../lib/storage";
-import {ensureSession} from "../lib/session";
-import {on} from "../lib/bus";
-import {loadMyCollection} from "../state/collection";
-import {activeProfiles, profileFor} from "../state/profiles";
-import {priceOptions, priceMap} from "../state/prices";
-import {themeSet} from "../state/themes";
-import {L, LOCALE} from "../../shared/i18n";
-import {findTrades, tagForProfile} from "../../../../core";
+import { site } from "../api/site";
+import { rest } from "../api/supabase";
+import { runAll, sleep } from "../lib/http";
+import { createStore } from "../lib/store";
+import { load, save } from "../lib/storage";
+import { ensureSession } from "../lib/session";
+import { on } from "../lib/bus";
+import { loadMyCollection } from "../state/collection";
+import { activeProfiles, profileFor } from "../state/profiles";
+import { priceOptions, priceMap } from "../state/prices";
+import { themeSet } from "../state/themes";
+import { L, LOCALE } from "../../shared/i18n";
+import { findTrades, tagForProfile } from "../../../../core";
 
 const MAX_AGE_H = 12;
-const CONCURRENCY = 6;
+// Pages lues par 2 avec un court délai : évite les rafales de 6 requêtes simultanées (429 ou 403).
+const CONCURRENCY = 2;
+export const PAGE_DELAY = 150;
 
-export const friendsState = createStore({list: null, loading: false, error: null});
-export const tradeState = createStore({friend: null, running: false, step: "", progress: null, result: null, error: null});
+export const friendsState = createStore({ list: null, loading: false, error: null });
+export const tradeState = createStore({ friend: null, running: false, step: "", progress: null, result: null, error: null });
 
 export async function loadFriends() {
-  friendsState.set({loading: true, error: null});
+  friendsState.set({ loading: true, error: null });
   try {
     const session = await ensureSession();
-    const {friendships = []} = await site.friends();
+    const { friendships = [] } = await site.friends();
     const list = friendships
       .filter((f) => f.status === "accepted")
       .map((f) => (f.requester?.id === session.userId ? f.addressee : f.requester))
       .filter(Boolean)
       .sort((a, b) => a.username.localeCompare(b.username));
-    friendsState.set({list});
+    friendsState.set({ list });
     return list;
   } catch (e) {
-    friendsState.set({error: e.message});
+    friendsState.set({ error: e.message });
     throw e;
   } finally {
-    friendsState.set({loading: false});
+    friendsState.set({ loading: false });
   }
 }
 
@@ -58,15 +60,19 @@ const compact = (it) => ({
   },
 });
 
-// Collection d'un ami, mise en cache page par page (reprise possible après une interruption)
-async function friendCollection(username, {rarities, refresh, signal}) {
+// Collection d'un ami, mise en cache page par page (reprise possible après une interruption).
+// Partagée avec le filtre de prix de la fenêtre d'échange (features/trade-filter.js).
+// report(step, progress) : avancement de la lecture ({done, total} en pages, ou null)
+const reportTrade = (step, progress) => tradeState.set({ step, progress });
+export async function friendCollection(username, { rarities = [], refresh = false, signal, report = reportTrade, pageDelay = PAGE_DELAY } = {}) {
   const key = cacheKey(username, rarities);
   let cache = refresh ? null : await load(key, null);
   const usable = cache && typeof cache.pages === "object" && Number.isInteger(cache.pageCount) && cache.summaries && typeof cache.summaries === "object";
   if (!usable || (Date.now() - new Date(cache.fetched_at)) / 3.6e6 > MAX_AGE_H) cache = null;
+  let fetchedFirst = false;
   if (!cache) {
-    tradeState.set({step: L(`Lecture de la collection de ${username}`, `Reading ${username}'s collection`), progress: null});
-    const first = await site.profileCollection(username, 0, {rarities, stats: true, signal});
+    report(L(`Lecture de la collection de ${username}`, `Reading ${username}'s collection`), null);
+    const first = await site.profileCollection(username, 0, { rarities, stats: true, signal });
     if (!Array.isArray(first?.collection)) throw new Error(L(`Collection de ${username} : réponse inattendue du site.`, `${username}'s collection: unexpected response from the site.`));
     const pageSize = first.collection.length || 50;
     const total = Number(first.total) || 0;
@@ -75,10 +81,11 @@ async function friendCollection(username, {rarities, refresh, signal}) {
       total,
       pageCount: Math.ceil(total / pageSize),
       pendingTradeCardIds: first.pendingTradeCardIds || [],
-      pages: {0: first.collection.map(compact)},
+      pages: { 0: first.collection.map(compact) },
       summaries: {},
     };
-    await save(key, cache).catch(() => {});
+    fetchedFirst = true;
+    await save(key, cache).catch(() => { });
   }
   const missing = [];
   for (let p = 0; p < cache.pageCount; p++) if (!cache.pages[p]) missing.push(p);
@@ -88,33 +95,34 @@ async function friendCollection(username, {rarities, refresh, signal}) {
   const persist = () => {
     saveTimer ||= setTimeout(() => {
       saveTimer = null;
-      save(key, cache).catch(() => {});
+      save(key, cache).catch(() => { });
     }, 1500);
   };
-  const progress = () => tradeState.set({step: L(`Collection de ${username} : ${cache.total.toLocaleString(LOCALE)} cartes`, `${username}'s collection: ${cache.total.toLocaleString(LOCALE)} cards`), progress: {done, total: cache.pageCount}});
+  const progress = () => report(L(`Collection de ${username} : ${cache.total.toLocaleString(LOCALE)} cartes`, `${username}'s collection: ${cache.total.toLocaleString(LOCALE)} cards`), { done, total: cache.pageCount });
   progress();
   try {
+    if (fetchedFirst && missing.length && pageDelay > 0) await sleep(pageDelay, signal);
     // À la première page en échec (après réessais), plus aucune page n'est demandée
     await runAll(
       missing,
       async (p) => {
-        const res = await site.profileCollection(username, p, {rarities, signal});
+        const res = await site.profileCollection(username, p, { rarities, signal });
         if (!Array.isArray(res?.collection)) throw new Error(L(`Collection de ${username} : réponse inattendue du site (page ${p + 1}).`, `${username}'s collection: unexpected response from the site (page ${p + 1}).`));
         cache.pages[p] = res.collection.map(compact);
         done++;
         progress();
         persist();
       },
-      {concurrency: CONCURRENCY, signal},
+      { concurrency: CONCURRENCY, delay: pageDelay, signal },
     );
   } finally {
     clearTimeout(saveTimer);
-    await save(key, cache).catch(() => {});
+    await save(key, cache).catch(() => { });
   }
   // La pagination par décalage peut renvoyer deux fois une carte si la collection bouge pendant la lecture
   const items = new Map();
   for (const page of Object.values(cache.pages)) for (const it of page) items.set(it.id, it);
-  return {cache, key, items: [...items.values()]};
+  return { cache, key, items: [...items.values()] };
 }
 
 // Résumés Wikipédia (absents de la route du site), lus dans la table `cards`, tronqués
@@ -129,22 +137,22 @@ async function loadSummaries(cardIds, cache, key, signal) {
     batches,
     async (ids) => {
       try {
-        const rows = await rest(`cards?select=id,summary&id=in.(${ids.join(",")})`, {retries: 4, signal});
+        const rows = await rest(`cards?select=id,summary&id=in.(${ids.join(",")})`, { retries: 4, signal });
         for (const r of rows) cache.summaries[r.id] = (r.summary || "").slice(0, 1000);
       } catch (e) {
         if (e.name === "AbortError") throw e;
       }
       done += ids.length;
-      tradeState.set({step: L("Lecture des résumés des cartes", "Reading card summaries"), progress: {done, total: todo.length}});
+      tradeState.set({ step: L("Lecture des résumés des cartes", "Reading card summaries"), progress: { done, total: todo.length } });
     },
-    {concurrency: 4, signal},
+    { concurrency: 3, delay: 80, signal },
   );
-  await save(key, cache).catch(() => {});
+  await save(key, cache).catch(() => { });
 }
 
 // themes : null → mon tag « Pour : <moi> » ; sinon liste de thèmes génériques recherchés
-export async function findTradesWith(friend, {themes = null, rarities = [], refresh = false, signal} = {}) {
-  tradeState.set({friend: friend.username, running: true, result: null, error: null, step: L("Préparation", "Preparing"), progress: null});
+export async function findTradesWith(friend, { themes = null, rarities = [], refresh = false, signal } = {}) {
+  tradeState.set({ friend: friend.username, running: true, result: null, error: null, step: L("Préparation", "Preparing"), progress: null });
   try {
     const session = await ensureSession();
     const profiles = activeProfiles();
@@ -154,14 +162,14 @@ export async function findTradesWith(friend, {themes = null, rarities = [], refr
     const friendProfile = profileFor(friend.username);
     const friendTag = friendProfile ? tagForProfile(friendProfile) : null;
 
-    tradeState.set({step: L("Lecture de ma collection et de ma liste de souhaits", "Reading my collection and wishlist")});
-    const [copies, wishlist] = await Promise.all([loadMyCollection({withSummary: true}), rest("wishlist_items?select=card_id").catch(() => [])]);
-    const mine = copies.map((c) => ({id: c.id, card_id: c.card_id, count: c.count, is_shiny: c.is_shiny, cards: c.card}));
-    const {cache, key, items} = await friendCollection(friend.username, {rarities, refresh, signal});
+    tradeState.set({ step: L("Lecture de ma collection et de ma liste de souhaits", "Reading my collection and wishlist") });
+    const [copies, wishlist] = await Promise.all([loadMyCollection({ withSummary: true }), rest("wishlist_items?select=card_id").catch(() => [])]);
+    const mine = copies.map((c) => ({ id: c.id, card_id: c.card_id, count: c.count, is_shiny: c.is_shiny, cards: c.card }));
+    const { cache, key, items } = await friendCollection(friend.username, { rarities, refresh, signal });
     const myIds = new Set(mine.map((m) => m.card_id));
     await loadSummaries(items.filter((it) => !myIds.has(it.card_id)).map((it) => it.card_id), cache, key, signal);
 
-    tradeState.set({step: L("Analyse", "Analyzing"), progress: null});
+    tradeState.set({ step: L("Analyse", "Analyzing"), progress: null });
     const result = findTrades({
       mine,
       friendItems: items,
@@ -176,26 +184,26 @@ export async function findTradesWith(friend, {themes = null, rarities = [], refr
       prices: priceMap(),
       priceOptions: priceOptions(),
     });
-    const full = {...result, wanted, friendTag, friend: friend.username, fetchedAt: cache.fetched_at, total: cache.total, rarities};
-    tradeState.set({result: full, step: "", progress: null});
+    const full = { ...result, wanted, friendTag, friend: friend.username, fetchedAt: cache.fetched_at, total: cache.total, rarities };
+    tradeState.set({ result: full, step: "", progress: null });
     return full;
   } catch (e) {
-    if (e.name !== "AbortError") tradeState.set({error: e.message});
+    if (e.name !== "AbortError") tradeState.set({ error: e.message });
     throw e;
   } finally {
-    tradeState.set({running: false});
+    tradeState.set({ running: false });
   }
 }
 
 // --- Échanges en cours (valeur de chaque côté)
-export const activeTrades = createStore({list: null, at: 0});
+export const activeTrades = createStore({ list: null, at: 0 });
 // `/api/trades?active=1` (compteurs du site) n'a ni la rareté ni la carte : seule la liste complète compte
-on("trades", ({data, path}) => {
-  if (!path.includes("active=1") && Array.isArray(data?.trades)) activeTrades.set({list: data.trades, at: Date.now()});
+on("trades", ({ data, path }) => {
+  if (!path.includes("active=1") && Array.isArray(data?.trades)) activeTrades.set({ list: data.trades, at: Date.now() });
 });
 export async function refreshTrades() {
   const res = await site.trades();
   if (!Array.isArray(res?.trades)) throw new Error(L("Échanges : réponse inattendue du site.", "Trades: unexpected response from the site."));
-  activeTrades.set({list: res.trades, at: Date.now()});
+  activeTrades.set({ list: res.trades, at: Date.now() });
   return res.trades;
 }

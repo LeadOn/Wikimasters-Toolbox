@@ -73,6 +73,12 @@ function Popup() {
               <Icon name="families" size={16} /> {L("Familles", "Families")}
             </button>
           </div>
+          {status.news && (
+            <button onClick={() => send({type: "open-panel", tab: "news"})}>
+              <Icon name="news" size={16} /> {L("Nouveautés de la Toolbox", "What's new in the Toolbox")}
+              <span class="dot" aria-label={L("non lues", "unread")} />
+            </button>
+          )}
           <button onClick={() => send({type: "open-all"})}>
             <Icon name="packs" size={16} /> {L("Tout ouvrir", "Open all")}
             {status.packs != null && <span class="n">{status.packs}</span>}

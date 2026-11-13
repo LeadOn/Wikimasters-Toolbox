@@ -1,12 +1,14 @@
 // Taux de drop par rareté, sur l'écran « Ouvrir un paquet ».
 // Deux sources : mes tirages comptés par l'extension, ou la répartition de toute ma collection
 // (proche des taux de drop, la plupart des cartes venant des paquets) en attendant assez de tirages.
+// L'interrupteur « Aujourd'hui » (gardé d'une visite à l'autre) montre les seuls tirages du jour.
 // Barres aux couleurs de rareté du site ; la rareté est aussi portée par son libellé.
 import {useState} from "preact/hooks";
 import {useStore} from "../lib/store";
-import {pullStats, collectionRarity, MIN_PULLED} from "../features/packs";
+import {pullStats, collectionRarity, MIN_PULLED, todayPulls} from "../features/packs";
+import {persistentStore} from "../lib/storage";
 import {RARITIES, RARITY_LABEL} from "../../../../core";
-import {Mark, fmt, plural} from "./components";
+import {Mark, Toggle, fmt, plural} from "./components";
 import {mountIsland} from "./islands/mount";
 import {DockPicker} from "./DockPicker";
 import {L, LOCALE} from "../../shared/i18n";
@@ -19,16 +21,24 @@ const pct = (n, total) => {
   return L(`${v} %`, `${v}%`);
 };
 
+export const dailyRates = persistentStore("dropRatesDaily", {on: false});
+
 export function DropRatesView() {
   const stats = useStore(pullStats);
   const coll = useStore(collectionRarity);
+  const daily = useStore(dailyRates).on;
   const [choice, setChoice] = useState(null);
-  const source = choice || (stats.cards >= MIN_PULLED || !coll.total ? "pulls" : "collection");
-  const counts = source === "pulls" ? stats.byRarity : coll.counts;
+  const today = todayPulls(stats);
+  const source = daily ? "today" : choice || (stats.cards >= MIN_PULLED || !coll.total ? "pulls" : "collection");
+  const counts = source === "today" ? today.byRarity : source === "pulls" ? stats.byRarity : coll.counts;
   const total = RARITIES.reduce((n, r) => n + (Number(counts[r]) || 0), 0);
   const max = Math.max(1, ...RARITIES.map((r) => Number(counts[r]) || 0));
   const caption =
-    source === "pulls"
+    source === "today"
+      ? today.cards
+        ? L(`Aujourd'hui : ${plural(today.packs, "paquet")} · ${plural(today.cards, "carte")}`, `Today: ${plural(today.packs, "pack")} · ${plural(today.cards, "card")}`)
+        : L("Aucun paquet ouvert aujourd'hui.", "No pack opened today.")
+      : source === "pulls"
       ? stats.cards
         ? L(
             `${fmt(stats.packs)} paquet${stats.packs > 1 ? "s" : ""} · ${fmt(stats.cards)} cartes depuis le ${new Date(stats.since).toLocaleDateString(LOCALE)}`,
@@ -42,7 +52,11 @@ export function DropRatesView() {
       <header class="rates-head">
         <Mark size={18} />
         <span class="rates-title">{L("Taux de drop", "Drop rates")}</span>
-        <div class="seg" role="tablist">
+        <label class="rates-daily" title={L("Taux de drop des seuls paquets ouverts aujourd'hui", "Drop rates of the packs opened today only")}>
+          <Toggle checked={daily} onChange={(on) => dailyRates.set({on})} label={L("Taux de drop du jour", "Today's drop rates")} />
+          <span aria-hidden="true">{L("Aujourd'hui", "Today")}</span>
+        </label>
+        <div class="seg" role="tablist" hidden={daily}>
           <button role="tab" aria-selected={source === "pulls"} class={source === "pulls" ? "on" : ""} onClick={() => setChoice("pulls")}>
             {L("Mes paquets", "My packs")}
           </button>
@@ -70,7 +84,7 @@ export function DropRatesView() {
           })}
         </ul>
       ) : (
-        <p class="rates-empty">{source === "pulls" ? L("Aucun tirage compté pour l'instant.", "No pulls counted yet.") : L("Répartition indisponible.", "Breakdown unavailable.")}</p>
+        <p class="rates-empty">{source === "today" ? L("Aucun tirage compté aujourd'hui.", "No pulls counted today.") : source === "pulls" ? L("Aucun tirage compté pour l'instant.", "No pulls counted yet.") : L("Répartition indisponible.", "Breakdown unavailable.")}</p>
       )}
       <p class="rates-caption">{caption}</p>
     </section>

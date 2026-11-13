@@ -49,6 +49,8 @@ core/                          moteur partagé (CommonJS, sans dépendance)
 extension/
   build.mjs                    build esbuild → dist/chrome, dist/firefox (+ .zip), manifeste et description traduite (_locales) générés
   make-icons.mjs               icônes PNG de la barre d'outils et du store, depuis la marque
+  changelog.json               nouveautés de chaque version, écrites pour les joueurs (FR / EN) : onglet Nouveautés, notes de version de Firefox
+  release-notes.mjs            notes de version de Firefox tirées de changelog.json (npm run release-notes)
   static/                      popup.html et icônes, copiés tels quels
   dev/                         banc d'essai : injecter l'extension dans une page sans l'installer
   src/
@@ -70,7 +72,8 @@ extension/
         supabase.js            API REST Supabase (pagination stable, filtres in.() par lots)
         site.js                routes /api du site (voir docs/site-api.md)
       state/                   données gardées en mémoire et en cache
-        settings.js            réglages : interrupteurs, délais, thèmes de tri, couleur de Doublon
+        settings.js            réglages : interrupteurs, délais, thèmes de tri, couleur de Doublon ; option à montrer à l'ouverture des Réglages
+        news.js                nouveautés : versions pas encore vues, options récentes (« Nouveau »), premier lancement, liens vers le guide
         themes.js              thèmes de tri du joueur : liste compilée, classement d'une carte, couleur d'une étiquette
         profiles.js            mon profil et ceux de mes amis
         collection.js          ma collection, ids des cartes possédées, défausse d'un exemplaire
@@ -79,6 +82,7 @@ extension/
         sorter.js              tri : aperçu (planSort) puis application (applySort)
         autosort.js            tri des cartes tirées à l'ouverture d'un paquet (option)
         trades.js              recherche d'échanges, échanges en cours
+        trade-filter.js        filtre par prix de la fenêtre « Échanger avec … » : collection entière de l'onglet ouvert (cache de trades.js), prix, cartes qui passent le filtre
         market.js              enchères, surenchère, alerte de fin, enchères en cours d'une carte, vente et défausse des doublons
         achievements.js        succès : liste et progression, réclamation des récompenses (un clic ou automatique, option)
         auction-tab.js         titre de l'onglet sur la page d'une enchère : temps restant, en tête ou surenchéri, relecture régulière
@@ -104,8 +108,10 @@ extension/
         feedback.js            toasts et confirmations
         panel.css              styles du panneau et des blocs intégrés
         site.css               styles injectés dans les pages du site : badges, nouvel affichage des cartes
-        PackRecap.jsx          récapitulatif de paquet, avec vente et défausse de chaque carte
-        OpenAllStage.jsx       scène de « Tout ouvrir » : paquets distribués et retournés, compteurs par rareté, pile, meilleures cartes
+        PackRecap.jsx          récapitulatif de paquet, en lignes ou en cartes, avec vente et défausse de chaque carte
+        SiteCard.jsx           carte dessinée comme sur le site (image, texture de rareté, titre, résumé, attaque, défense, prix)
+        CardDetail.jsx         détail d'une carte tirée, sur le modèle de la fenêtre d'une carte du site
+        OpenAllStage.jsx       scène de « Tout ouvrir » : paquets distribués et retournés, compteurs par rareté, pile, meilleures cartes, prix et valeur
         QuickTags.jsx          choix des étiquettes et étoile d'une carte tirée (panneau de la révélation, lignes du récapitulatif)
         DockPicker.jsx         emplacement d'un bloc de la page Paquets : gauche, dessous, droite
         SellDialog.jsx         fenêtre de mise aux enchères, d'une carte ou de plusieurs (Marché, récapitulatif de paquet, jamais vendues)
@@ -116,8 +122,8 @@ extension/
         ImageCards.jsx         filtre Sans image / GIF et liste des cartes (onglet Images)
         ThemeEditor.jsx        éditeur des thèmes de tri (onglet Réglages) : noms, couleurs, mots-clés, essai sur une description, import / export JSON
         CollectionCards.jsx    filtres de la collection et liste des cartes, à cocher, vendre ou défausser (onglet Prix, barre de la collection)
-        tabs/                  un fichier par onglet du panneau
-        islands/               blocs intégrés aux pages du site (collection, carte, enchère, profil, bilan d'une offre d'échange, révélation d'un paquet : RevealSide, Suspense, Roulette) et page Stonks
+        tabs/                  un fichier par onglet du panneau (NewsTab.jsx : Nouveautés, accueil d'une installation, message après une mise à jour)
+        islands/               blocs intégrés aux pages du site (collection, carte, enchère, profil, bilan et filtre par prix d'une offre d'échange, révélation d'un paquet : RevealSide, Suspense, Roulette) et page Stonks
 
 scripts/
   categorize_cards.js          CLI de tri (token requis)
@@ -230,6 +236,7 @@ Les modules de l'extension sont chargés dans Node par `tests/helpers/extension.
 | `npm run build` | `dist/chrome` et `dist/firefox` |
 | `npm run watch` | build continu |
 | `npm run package` | `.zip` Chrome et Firefox dans `dist/` |
+| `npm run release-notes [-- <version>]` | notes de version de Firefox (anglais, français) tirées de `extension/changelog.json` |
 | `node extension/make-icons.mjs` | régénère les icônes PNG depuis la marque |
 | `node extension/dev/make-inject.mjs` | `dist/dev-inject.js`, à injecter dans une page pour tester sans installer |
 

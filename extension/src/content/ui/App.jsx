@@ -21,6 +21,8 @@ import {FamiliesTab} from "./tabs/FamiliesTab";
 import {ImagesTab} from "./tabs/ImagesTab";
 import {AchievementsTab, claimedMessage} from "./tabs/AchievementsTab";
 import {SettingsTab} from "./tabs/SettingsTab";
+import {NewsTab} from "./tabs/NewsTab";
+import {news, hasNews, guideUrl} from "../state/news";
 import {SellDialogHost} from "./SellDialog";
 import {OpenAllStage, openAllStage, showOpenAllStage} from "./OpenAllStage";
 import {CardAuctionsHost} from "./CardAuctions";
@@ -37,6 +39,7 @@ const TABS = [
   {id: "families", label: L("Familles", "Families"), Comp: FamiliesTab},
   {id: "images", label: L("Images", "Images"), Comp: ImagesTab},
   {id: "achievements", label: L("Succès", "Achievements"), Comp: AchievementsTab},
+  {id: "news", label: L("Nouveautés", "What's new"), Comp: NewsTab},
   {id: "settings", label: L("Réglages", "Settings"), Comp: SettingsTab},
 ];
 
@@ -45,6 +48,7 @@ export const openPanel = (tab) => panel.set((s) => ({open: true, tab: tab || s.t
 
 function Panel() {
   const {tab} = useStore(panel);
+  const unread = hasNews(useStore(news));
   const session = readSession();
   const Current = (TABS.find((t) => t.id === tab) || TABS[0]).Comp;
   useEffect(() => {
@@ -62,15 +66,19 @@ function Panel() {
             <div class="panel-sub">{session ? L(`connecté · ${session.username || "joueur"}`, `signed in · ${session.username || "player"}`) : L("non connecté", "signed out")}</div>
           </div>
           <span class="spacer" />
+          <a class="btn sm ghost" href={guideUrl(tab)} target="_blank" rel="noopener noreferrer" title={L("Ce que fait cet onglet, dans le guide de l'utilisateur", "What this tab does, in the user guide (in French)")}>
+            <Icon name="help" size={14} /> {L("Guide", "Guide")}
+          </a>
           <button class="icon-btn" aria-label={L("Fermer", "Close")} onClick={() => panel.set({open: false})}>
             <Icon name="close" size={16} />
           </button>
         </div>
         <nav class="nav">
           {TABS.map((t) => (
-            <button key={t.id} class={`${t.id === tab ? "on" : ""}${t.id === "settings" ? " push" : ""}`} aria-current={t.id === tab ? "page" : undefined} onClick={() => panel.set({tab: t.id})}>
+            <button key={t.id} class={`${t.id === tab ? "on" : ""}${t.id === "news" ? " push" : ""}`} aria-current={t.id === tab ? "page" : undefined} onClick={() => panel.set({tab: t.id})}>
               <Icon name={t.id} size={18} />
               <span class="label">{t.label}</span>
+              {t.id === "news" && unread && t.id !== tab && <span class="nav-dot" aria-label={L("non lues", "unread")} />}
             </button>
           ))}
           <span class="nav-version">v{__VERSION__}</span>
@@ -209,6 +217,13 @@ export function App() {
       }),
       on("extension-stale", () =>
         toast(L("La Toolbox a été mise à jour : rechargez la page WikiMasters pour qu'elle continue d'enregistrer vos données.", "The Toolbox has been updated: reload the WikiMasters page so it keeps recording your data."), {
+          type: "error",
+          duration: 0,
+          action: {label: L("Recharger", "Reload"), run: () => location.reload()},
+        }),
+      ),
+      on("site-blocked", ({message}) =>
+        toast(message, {
           type: "error",
           duration: 0,
           action: {label: L("Recharger", "Reload"), run: () => location.reload()},

@@ -9,7 +9,7 @@ Ce guide décrit tout ce que fait l'extension, page par page puis onglet par ong
 - [Le panneau Toolbox](#le-panneau-toolbox)
 - [La popup de l'extension](#la-popup-de-lextension)
 - [Comment une carte est triée](#comment-une-carte-est-triée)
-- [Réglages](#réglages)
+- [Réglages](#réglages-1)
 - [Sécurité et vie privée](#sécurité-et-vie-privée)
 - [Questions fréquentes](#questions-fréquentes)
 
@@ -127,6 +127,7 @@ Vous pouvez limiter la lecture à certaines raretés : c'est bien plus rapide, c
   - les cartes de chaque paquet sont distribuées face cachée, puis se retournent l'une après l'autre ;
   - à partir de Super Rare, le dos se charge à la couleur de la rareté (aura, tremblement) avant de se retourner ; la carte arrive avec un éclair et des ondes, et une Ultra Rare ou une Légendaire se soulève dans un halo (des rayons pour la Légendaire). Une shiny garde son reflet irisé, une carte jamais possédée porte la mention *Nouvelle* ;
   - les compteurs par rareté et le nombre de nouvelles cartes avancent à chaque carte retournée ; les cartes des paquets précédents s'empilent en bas, la plus récente en premier ;
+  - chaque carte retournée affiche son **prix du marché** sous son titre (« ≈ » pour un prix indicatif, rien pour une carte jamais vendue dans sa rareté), et la **valeur** des cartes retournées (prix fiables seulement) s'ajoute au bout des compteurs ; les prix sont lus dès l'arrivée de chaque paquet. Au survol, une vignette de la pile donne aussi son prix ;
   - un clic sur la table retourne tout le paquet d'un coup ; si la scène prend du retard sur les paquets reçus, elle accélère ;
   - **Arrêter** termine le paquet en cours sans en ouvrir d'autre ; la croix (ou Échap) réduit la scène sans arrêter l'ouverture, et le bouton *Tout ouvrir* (qui affiche la progression) la rouvre ;
   - à la fin : vos meilleures cartes (rareté, puis shiny, puis nouvelles), toutes les cartes tirées, et **Voir le récapitulatif** (le récapitulatif habituel, dans la page Paquets ou l'onglet *Paquets* de la Toolbox).
@@ -136,6 +137,8 @@ Vous pouvez limiter la lecture à certaines raretés : c'est bien plus rapide, c
 - **Roulette pour la dernière carte** (option *Roulette pour la dernière carte*, onglet *Réglages* ; désactivée par défaut) : la dernière carte d'un paquet est révélée comme une caisse qu'on ouvre. La lumière de la page baisse et une bande de dos de cartes (texture de rareté et logo du site, liseré de la couleur de la rareté en bas) défile à toute vitesse sous un repère vertical, avec un cliquetis à chaque dos qui passe, puis ralentit pendant environ 5 secondes et s'arrête sur le dos de la rareté de la carte, n'importe où sur ce dos et le plus souvent loin de son centre, parfois à un cheveu du dos d'avant ou d'après ; la bande reste un instant immobile à cet endroit, puis se recentre sur le dos. Les dos de la bande sont tirés au hasard selon vos taux de drop (vos tirages comptés par l'extension, ou la répartition de votre collection tant que moins de 50 cartes ont été tirées, comme le bloc *Taux de drop*) : une Légendaire passe rarement. Une fois sur deux, le dos juste après celui de la carte est plus rare qu'elle (il s'en est fallu de peu). À l'arrêt, le dos de la carte s'allume, les autres s'effacent et il grandit à la place de la carte en affichant le nom de sa rareté (irisé pour une shiny), puis se révèle comme avec le suspense : il se retourne et la carte enchaîne (jusqu'à Super Rare), ou se dissout dans un flash d'où sort la carte (Ultra Rare et Légendaire), avec ondes de choc à partir de Rare. Environ 7 secondes en tout, quelle que soit la rareté. Elle remplace le suspense pour la dernière carte seulement (les autres gardent le suspense s'il est activé, sinon l'animation du site) ; elle se joue aussi pour un paquet d'une seule carte. Un clic (ou Entrée) passe le défilement, un deuxième la révélation ; une carte revue avec les flèches ne repasse pas par la roulette. Le cliquetis est par défaut un clic mécanique synthétisé par l'extension (attaque sèche, petite résonance, hauteur qui varie légèrement d'un cran à l'autre). Sous l'option, *Son du cliquetis* permet de l'écouter et d'importer votre propre son à la place : un fichier audio court (300 Ko au plus, tout format lu par le navigateur), joué à chaque dos qui passe et coupé au-delà de 0,6 s. Il est gardé dans votre navigateur uniquement ; *Son par défaut* revient au clic de la Toolbox. Le navigateur peut couper le son si la page n'a pas reçu de clic récent. Le son de la Légendaire du site attend la révélation, comme avec le suspense ; les autres sons du site ne changent pas. Rien ne se joue si votre système demande de réduire les animations.
 - **Étiquettes et favori à côté de la carte** (option *Étiquettes et favori à côté de la carte*) : pendant la révélation, un panneau à droite de la carte (dessous sur un petit écran) montre si elle est nouvelle, son prix, l'étoile des favoris et ses étiquettes. Un clic sur une étiquette proposée l'ajoute (le thème calculé par le moteur, puis vos dernières étiquettes utilisées) ; un clic sur une étiquette posée la retire ; *Ajouter…* cherche parmi toutes vos étiquettes et les thèmes, ou crée une nouvelle étiquette. Une carte n'a qu'un thème : en choisir un autre retire l'ancien. L'étoile est celle du site (verrouille la carte : ni défausse, ni vente, ni échange). Les mêmes boutons sont dans chaque ligne du récapitulatif (étoile, et bouton étiquette qui ouvre le choix sous la ligne).
 - **Récapitulatif du paquet**, sous la carte une fois la dernière révélée (avec le suspense ou la roulette, seulement à la fin de sa révélation, pour ne pas dévoiler la carte) : nouveautés et doublons, cartes shiny, étiquettes posées, prix du marché de chaque carte et valeur totale du paquet (prix fiables seulement ; un prix indicatif est précédé de « ≈ »). Les cartes peuvent y être traitées sur place :
+  - **Affichage** : les deux boutons de l'en-tête montrent les cartes **en lignes** (par défaut) ou **en cartes, comme sur le site** : image en haut, texture de la rareté du site, lettre de rareté, titre et résumé de l'article, attaque et défense en bas avec le prix du marché entre les deux, et les pastilles *Nouvelle*, *Doublon*, *Shiny*. Sous chaque carte : la case à cocher pour la défausse, l'étoile des favoris (option *Étiquettes et favori*) et *Vendre*. Le choix est gardé d'une visite à l'autre, aussi dans l'onglet *Paquets* de la Toolbox ;
+  - **Détail d'une carte** : un clic sur l'image ou le nom d'une carte (sur la carte elle-même en affichage en cartes) ouvre sa fenêtre de détail, sur le modèle de celle du site : la carte en grand avec tout son résumé, et à côté sa rareté, ses pastilles, sa description, ses étiquettes, son attaque et sa défense, son Q-Score, ses vues sur 30 jours, son prix du marché (nombre de ventes prises en compte, dernière vente) et le lien vers l'article Wikipédia. *Défausser* et *Vendre* y font la même chose que dans la ligne, avec les mêmes confirmations. Pour un récapitulatif gardé par une version précédente, l'attaque, la défense, le Q-Score et les vues sont relus à l'ouverture du détail ;
   - **Défausser** : cochez les cartes à défausser (case de la ligne ou clic sur la ligne ; *Tout* coche toutes les cartes, *Doublons* les doublons sauf les shiny), puis un seul clic sur *Défausser*. Chaque exemplaire rapporte 1 WikiBidou, après une confirmation qui précise combien sont vos seuls exemplaires, lesquelles sont shiny et ce qu'elles vaudraient aux enchères. Les cartes sont défaussées l'une après l'autre ; au premier refus du site, la défausse s'arrête et indique combien de cartes ont été défaussées. Le solde affiché par le site se met à jour.
   - **Vendre** ouvre, carte par carte, la fenêtre de mise aux enchères (mise de départ préremplie avec le prix du marché s'il est fiable, durée de 10 minutes à 12 heures, nombre de ventes en cours).
 
@@ -143,7 +146,7 @@ Vous pouvez limiter la lecture à certaines raretés : c'est bien plus rapide, c
 
   Après *Continuer*, le récapitulatif reste sur l'écran d'ouverture sous le titre *Paquet précédent*, jusqu'à l'ouverture du paquet suivant ou jusqu'à ce que vous le fermiez (croix). Il est gardé par l'extension : il revient aussi après un rechargement de la page ou un redémarrage du navigateur (avec ce que vous en avez fait : cartes défaussées, mises en vente). Un récapitulatif fermé ne revient pas.
 - **Ouvrir le prochain**, en bas du récapitulatif quand il vous reste des paquets : passe l'écran de fin (*Continuer*) et ouvre le paquet suivant avec le bouton *Ouvrir* du site, animation comprise. Si le site demande une vérification anti-robot, sa fenêtre de vérification s'affiche comme d'habitude.
-- **Taux de drop** par rareté sur l'écran d'ouverture : d'après vos tirages comptés par l'extension, ou d'après toute votre collection tant que moins de 50 cartes ont été tirées.
+- **Taux de drop** par rareté sur l'écran d'ouverture : d'après vos tirages comptés par l'extension, ou d'après toute votre collection tant que moins de 50 cartes ont été tirées. L'interrupteur **Aujourd'hui** du bloc montre les taux de drop des seuls paquets ouverts aujourd'hui (jour du navigateur, remis à zéro à minuit) ; il est gardé d'une visite à l'autre et partagé avec l'onglet *Paquets* de la Toolbox. Les paquets ouverts avant cette version ne comptent pas dans le jour.
 - **Emplacement des blocs** : les trois boutons de l'en-tête du récapitulatif et des taux de drop placent chaque bloc à gauche, dessous (par défaut) ou à droite. À gauche ou à droite, le bloc reste fixe dans la marge à côté du contenu de la page : plus besoin de faire défiler après chaque paquet. S'il n'y a pas assez de place à côté du contenu (petit écran, mobile), le bloc revient dessous et le bouton du côté trop étroit est désactivé.
 
 ### Page Stonks
@@ -167,6 +170,18 @@ Un encart flottant donne la **valeur de chaque côté** de vos échanges en atte
 
 Quand vous composez une offre (*Proposer un échange*, fenêtre « Échanger avec … »), un bloc **Bilan** sous le nombre de cartes de chaque côté se met à jour à chaque carte ajoutée ou retirée : ce que vous donnez, ce que vous recevez (cartes au prix du marché fiable, plus les WikiBidous ajoutés) et la **différence** en votre faveur ou non, en ₩ et en pourcentage de ce que vous donnez. Une carte sans prix fiable n'est pas comptée : le bloc le signale et les montants passent en « ≈ ». Le site n'affiche que les cartes choisies de l'onglet ouvert : des cartes déjà choisies à l'ouverture de la fenêtre sont estimées dès que vous ouvrez leur onglet. Le bloc ne fait que lire : l'offre part toujours avec le bouton du site.
 
+Dans la même fenêtre, sous la recherche du site, le bloc de la Toolbox filtre **toute la collection** de l'onglet ouvert (*Cartes de …* : celle de l'ami ; *Mes cartes* : la vôtre), et pas seulement la page de cartes affichée par le site. Critères cumulables :
+
+- **Prix** : comme la ligne *Ventes* des filtres de la collection, *Tous les prix*, *Jamais vendues* (dans la rareté de l'exemplaire) ou *Vendues entre …* (de … à … ₩, bornes incluses, ou une des tranches proposées ; prix du marché fiable dans la rareté de l'exemplaire, celui des shiny pour une shiny) ;
+- **Cartes** : mots du nom ou de la description (tous exigés, `-mot` pour en exclure un ; majuscules et accents ignorés, une partie de mot suffit), **thème** (avec le nombre de cartes de chacun), **raretés**, *Je ne l'ai pas* (onglet de l'ami), *Hors favoris*, *Doublons* (exemplaires en plusieurs exemplaires).
+
+Dès qu'un critère est choisi :
+
+- *Mes cartes* : votre collection est lue d'office, puis ses prix ;
+- *Cartes de …* : la collection de l'ami est lue sur un clic (*Lire sa collection*), par la même route et avec le même cache (12 heures) que la recherche d'échanges : le site met jusqu'à 30 secondes par page de 50 cartes, choisir des raretés avant la lecture l'accélère beaucoup. *Arrêter* interrompt la lecture, qui reprend là où elle s'était arrêtée ; ses prix sont lus ensuite. Si WikiMasters refuse des requêtes qu'il juge automatisées, la Toolbox arrête toutes ses lectures du site jusqu'au rechargement de la page.
+
+La liste des cartes qui passent les critères remplace alors la grille du site, masquée, dans l'ordre choisi (prix décroissant par défaut, prix croissant, ou rareté) ; le décompte (« 12 cartes sur 340 ») et les nombres des choix portent sur toute la collection lue. Chaque carte indique son prix, si elle est **en favori** (exemplaire verrouillé : le site ne permet pas de l'échanger, *Ajouter* est désactivé), si vous la **possédez déjà** (*Possédée*) ou non (*Nouvelle*) pour les cartes de l'ami, ses exemplaires, si elle est shiny ou déjà engagée dans un échange. **Ajouter** la choisit dans l'offre en passant par la grille du site : la recherche de la fenêtre affiche la carte, qui est cliquée comme le ferait le joueur, puis la recherche reprend sa valeur ; l'ajout n'est tenu pour fait que si la carte apparaît dans les cartes choisies (ou si le nombre de cartes de ce côté augmente), sinon la raison s'affiche sous le bouton. Une carte déjà choisie est marquée *Choisie*. Les cartes en favori et la possession viennent du site : pour une collection lue par une version précédente de la Toolbox, *Actualiser* les relit. *Tous les prix* sans autre critère fait revenir la grille du site ; fermer la fenêtre remet les filtres à zéro. Rien n'est envoyé : l'offre part toujours avec le bouton du site. Désactivable dans les réglages (*Filtre par prix dans la fenêtre d'échange*).
+
 ### Alertes
 
 - **Fin d'enchère** : un message et un son vous préviennent quand une enchère sur laquelle vous êtes dépassé se termine dans moins de 2 minutes (délai réglable). La vérification se fait tant qu'un onglet WikiMasters est ouvert et visible.
@@ -176,7 +191,7 @@ Quand vous composez une offre (*Proposer un échange*, fenêtre « Échanger ave
 
 ## Le panneau Toolbox
 
-Le panneau s'ouvre par l'entrée **Toolbox** du menu du site ou depuis la popup. Il se ferme avec la croix, la touche Échap ou un clic à côté.
+Le panneau s'ouvre par l'entrée **Toolbox** du menu du site ou depuis la popup. Il se ferme avec la croix, la touche Échap ou un clic à côté. Le bouton **Guide** de son en-tête ouvre la section de ce guide qui décrit l'onglet affiché.
 
 ### Tri
 
@@ -305,9 +320,18 @@ Les succès du site (*Posséder 1000 cartes*, *Conclure 5 échanges*…) et leur
 
 Avec l'option **Réclamer les succès automatiquement** (désactivée par défaut), les récompenses sont réclamées sans clic : au chargement d'une page WikiMasters, toutes les 15 minutes tant que l'onglet est visible, et quelques secondes après l'ouverture d'un paquet ou un échange. Un message indique ce qui a été reçu.
 
+### Nouveautés
+
+Ce qui change à chaque version de la Toolbox, rubrique par rubrique (Paquets, Échanges…). Les versions installées depuis votre dernière visite portent la mention *Nouveau pour vous* ; les plus anciennes sont repliées sous *Versions précédentes*.
+
+- **Activer** : allume l'option dont parle la nouveauté, quand elle est désactivée (une nouvelle option l'est souvent au départ) ;
+- **Voir** : ouvre l'onglet concerné, ou les réglages sur l'option, soulignée un instant.
+
+Après une mise à jour, un message annonce la nouvelle version (une seule fois) et un point vert signale les nouveautés pas encore lues : sur l'entrée **Toolbox** du menu du site, sur l'onglet *Nouveautés* et dans la popup. Le point disparaît à l'ouverture de l'onglet. Après une première installation, l'onglet commence par un bloc d'accueil (l'essentiel de la Toolbox, lien vers ce guide), à masquer quand vous le souhaitez.
+
 ### Réglages
 
-Voir [Réglages](#réglages) ci-dessous.
+Voir [Réglages](#réglages-1) ci-dessous.
 
 ---
 
@@ -317,6 +341,7 @@ L'icône de l'extension dans la barre du navigateur ouvre des raccourcis :
 
 - **Trier mes nouvelles cartes** : ouvre la Toolbox et lance l'aperçu ;
 - **Ouvrir la Toolbox**, ou directement l'onglet *Échanges*, *Enchères*, *Prix* ou *Familles* ;
+- **Nouveautés de la Toolbox**, après une mise à jour, tant que l'onglet *Nouveautés* n'a pas été ouvert ;
 - **Tout ouvrir**, avec le nombre de paquets disponibles.
 
 Hors de wiki-masters.com, elle propose d'ouvrir le site. Si elle demande de recharger la page, c'est que l'extension a été installée ou mise à jour après l'ouverture de l'onglet.
@@ -373,6 +398,8 @@ Les profils d'intérêts et les familles qui citent un thème par son nom d'orig
 ## Réglages
 
 Chaque fonction se coupe indépendamment, dans l'onglet *Réglages* de la Toolbox. Les réglages restent dans votre navigateur.
+
+Le champ de recherche en haut de l'onglet retrouve une option par un mot de son nom ou de son explication (majuscules et accents ignorés). Une option citée par les deux dernières versions de la Toolbox porte la mention *Nouveau*.
 
 | Groupe | Fonction | Par défaut |
 |---|---|---|

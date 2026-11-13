@@ -1,17 +1,21 @@
 // Onglet « Paquets » : statistiques de tirage, « Tout ouvrir », dernier récapitulatif.
 import {useStore} from "../../lib/store";
-import {pullStats, resetPullStats, packsStatus, openAllState} from "../../features/packs";
+import {pullStats, resetPullStats, packsStatus, openAllState, todayPulls} from "../../features/packs";
 import {PackRecapView} from "../PackRecap";
+import {dailyRates} from "../DropRates";
 import {emit} from "../../lib/bus";
-import {Notice, Rarity, fmt, plural, timeAgo} from "../components";
+import {Notice, Rarity, Toggle, fmt, plural, timeAgo} from "../components";
 import {confirmAction} from "../feedback";
 import {RARITIES, RARITY_LABEL} from "../../../../../core";
 import {L, LOCALE} from "../../../shared/i18n";
 
 export function PacksTab() {
-  const stats = useStore(pullStats);
+  const all = useStore(pullStats);
+  const daily = useStore(dailyRates).on;
   const status = useStore(packsStatus);
   const openAll = useStore(openAllState);
+  // Interrupteur « Aujourd'hui », le même que celui du bloc Taux de drop de la page Paquets
+  const stats = daily ? todayPulls(all) : all;
   const max = Math.max(1, ...RARITIES.map((r) => stats.byRarity[r] || 0));
 
   return (
@@ -44,6 +48,10 @@ export function PacksTab() {
         <div class="box stack">
           <div class="row">
             <h3 style={{flex: 1}}>{L("Statistiques de tirage", "Pull statistics")}</h3>
+            <label class="rates-daily" title={L("Seulement les paquets ouverts aujourd'hui", "Only the packs opened today")}>
+              <Toggle checked={daily} onChange={(on) => dailyRates.set({on})} label={L("Statistiques du jour", "Today's statistics")} />
+              <span aria-hidden="true">{L("Aujourd'hui", "Today")}</span>
+            </label>
             <button
               class="btn sm ghost"
               onClick={async () => (await confirmAction({title: L("Réinitialiser les statistiques ?", "Reset the statistics?"), confirm: L("Réinitialiser", "Reset"), danger: true})) && resetPullStats()}
@@ -52,7 +60,7 @@ export function PacksTab() {
             </button>
           </div>
           <p class="small muted">
-            {L("Depuis le", "Since")} {new Date(stats.since).toLocaleDateString(LOCALE)} · {plural(stats.packs, L("paquet", "pack"))} · {plural(stats.cards, L("carte", "card"))}
+            {daily ? L("Aujourd'hui", "Today") : `${L("Depuis le", "Since")} ${new Date(all.since).toLocaleDateString(LOCALE)}`} · {plural(stats.packs, L("paquet", "pack"))} · {plural(stats.cards, L("carte", "card"))}
           </p>
           <table class="list">
             <tbody>

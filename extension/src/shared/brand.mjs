@@ -49,6 +49,8 @@ export const ICONS = {
   images: `<path d="M2.75 3.75h14.5v12.5H2.75z"/><path d="M2.75 14l4.5-4.5 3.25 3.25 2-2 4.75 4.75"/><path ${F} d="M12.5 6h2.25v2.25H12.5z"/>`,
   achievements: '<path d="M6.25 3.25h7.5v4.5a3.75 3.75 0 0 1-7.5 0z"/><path d="M6.25 5H3.25v1.25a3 3 0 0 0 3.25 3M13.75 5h3v1.25a3 3 0 0 1-3.25 3"/><path d="M10 11.5v3.25M6.5 16.75h7"/>',
   settings: '<path d="M2.75 6.5h3.5M10.25 6.5h7M2.75 13.5h8.5M15.25 13.5h2"/><path d="M6.25 4.5h4v4h-4zM11.25 11.5h4v4h-4z"/>',
+  // Nouveautés : une fiche et son coin « nouveau »
+  news: `<path d="M2.75 4.75h10.5v11.5H2.75z"/><path d="M5.5 8.25h5M5.5 11h5M5.5 13.75h3"/><path ${F} d="M14.5 2.75h2.75v2.75H14.5z"/>`,
   // Actions et états
   close: '<path d="M5 5l10 10M15 5 5 15"/>',
   back: '<path d="M16.5 10H4M8.5 5.5 4 10l4.5 4.5"/>',
@@ -59,6 +61,7 @@ export const ICONS = {
   heart: '<path d="M10 16.5 3.6 10.1a3.6 3.6 0 0 1 5.1-5.1L10 6.3l1.3-1.3a3.6 3.6 0 0 1 5.1 5.1z"/>',
   shine: '<path d="M10 2.75 11.6 8.4l5.65 1.6-5.65 1.6L10 17.25 8.4 11.6 2.75 10l5.65-1.6z"/>',
   alert: `<path d="M10 2.75 17.75 16.5H2.25z"/><path d="M10 7.75v4"/><path ${F} d="M9.25 13.25h1.5v1.5h-1.5z"/>`,
+  help: `<circle cx="10" cy="10" r="7.25"/><path d="M7.75 8a2.25 2.25 0 1 1 3.25 2c-.6.3-1 .8-1 1.5v.5"/><path ${F} d="M9.25 13.5h1.5V15h-1.5z"/>`,
   info: `<circle cx="10" cy="10" r="7.25"/><path d="M10 9v4.75"/><path ${F} d="M9.25 5.75h1.5v1.5h-1.5z"/>`,
   refresh: '<path d="M16.25 10a6.25 6.25 0 1 1-1.83-4.42"/><path d="M15.25 2.5v3.75H11.5"/>',
   discard: '<path d="M3.5 5.5h13M8 5.5V3.25h4V5.5"/><path d="M5 5.5l.9 11.25h8.2L15 5.5"/><path d="M8.5 8.75v5M11.5 8.75v5"/>',
@@ -69,6 +72,12 @@ export const ICONS = {
   "dock-left": `<path d="M2.75 3.75h14.5v12.5H2.75z"/><path ${F} d="M2.75 3.75h5.5v12.5h-5.5z"/>`,
   "dock-below": `<path d="M2.75 3.75h14.5v12.5H2.75z"/><path ${F} d="M2.75 11h14.5v5.25H2.75z"/>`,
   "dock-right": `<path d="M2.75 3.75h14.5v12.5H2.75z"/><path ${F} d="M11.75 3.75h5.5v12.5h-5.5z"/>`,
+  // Attaque et défense d'une carte (épées croisées, bouclier), comme sur les cartes du site
+  atk: '<path d="M3.25 3.25 13.5 13.5M16.75 3.25 6.5 13.5"/><path d="M11.5 15.5l4-4M8.5 15.5l-4-4M14.75 14.75l2 2M5.25 14.75l-2 2"/>',
+  def: '<path d="M10 2.75 16.25 5v4.75c0 3.75-2.6 6.4-6.25 7.5-3.65-1.1-6.25-3.75-6.25-7.5V5z"/>',
+  // Affichage d'une liste de cartes : en lignes, ou en cartes comme sur le site
+  "view-list": `<path d="M8 5h9.25M8 10h9.25M8 15h9.25"/><path ${F} d="M2.75 3.75h2.5v2.5h-2.5zM2.75 8.75h2.5v2.5h-2.5zM2.75 13.75h2.5v2.5h-2.5z"/>`,
+  "view-cards": `<path d="M2.75 3.25h6v13.5h-6zM11.25 3.25h6v13.5h-6z"/><path ${F} d="M2.75 3.25h6v5.5h-6zM11.25 3.25h6v5.5h-6z"/>`,
 };
 
 // Épaisseur du trait selon la taille d'affichage : 1,5 sur la grille, jamais moins de 1,25 px à l'écran

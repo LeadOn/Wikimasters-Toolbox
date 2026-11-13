@@ -147,6 +147,8 @@
 [data-wmt-card] > .wmt-tile-badges.wmt-below-controls { top: calc(var(--wmt-frame) + 36px); }
 /* Grille de la collection masquée pendant un filtre de la barre Toolbox ; contenu de la page sous la page Stonks */
 [data-wmt-hidden], [data-wmt-covered] { display: none !important; }
+/* Grille de la fenêtre « Échanger avec … », remplacée par la liste du filtre de prix de la Toolbox */
+[data-wmt-trade-out] { display: none !important; }
 .wmt-open-all {
   display: inline-flex;
   align-items: center;
@@ -239,3 +241,8 @@
 .wmt-island-auction { margin-top: 4px; }
 /* Fenêtre « Échanger avec … » : sous la barre des nombres de cartes, hors de la zone qui défile */
 .wmt-island-trade { flex-shrink: 0; padding: 10px 16px 0; }
+
+/* Entrée « Toolbox » du menu du site : nouveautés pas encore lues */
+.wmt-nav-toolbox[data-wmt-news] { position: relative; }
+/* À droite de l'entrée, comme la pastille du site sur ses propres entrées */
+.wmt-nav-toolbox[data-wmt-news]::after { content: ""; position: absolute; top: 50%; right: 18px; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 2px; background: #c5ef55; }

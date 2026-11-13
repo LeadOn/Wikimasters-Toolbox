@@ -4,8 +4,97 @@ Une section par version, la plus récente en premier. Pour chaque version :
 
 - **Note complète** : message du commit de version (`vX.Y.Z : …`) et description de la release GitHub.
 - **Firefox Add-ons** : à coller dans *Notes de version* au dépôt du paquet (texte brut, une langue par
-  champ : anglais par défaut, puis français).
+  champ : anglais par défaut, puis français). Depuis la 2.5.0, générées par `npm run release-notes` à
+  partir de `extension/changelog.json`, qui alimente aussi l'onglet Nouveautés de l'extension.
 - Le Chrome Web Store n'a pas de champ de notes de version : rien à saisir.
+
+## 2.5.0
+
+### Note complète
+
+```
+v2.5.0 : onglet Nouveautés, filtres dans la fenêtre d'échange, récapitulatif en cartes, taux de drop du jour
+
+Nouveautés
+- Journal des versions écrit pour les joueurs, en français et en anglais (extension/changelog.json) :
+  onglet Nouveautés (ui/tabs/NewsTab.jsx), notes de version de Firefox (npm run release-notes,
+  extension/release-notes.mjs). « Activer » allume l'option citée (champ feature), « Voir » ouvre
+  l'onglet concerné (tab) ou les réglages sur l'option, soulignée un instant (settingsFocus).
+- Après une mise à jour : message une fois par version et point vert sur l'entrée Toolbox du menu du
+  site, l'onglet Nouveautés et la popup, jusqu'à l'ouverture de l'onglet. Nouvelle installation :
+  bloc d'accueil, sans historique. Mise à jour depuis une version sans Nouveautés : seule la version
+  installée est signalée (state/news.js : initNews, unseenReleases).
+- Réglages : recherche (majuscules et accents ignorés), mention « Nouveau » sur les options citées par
+  les deux dernières versions mineures (recentFeatures) ; les autres blocs sont masqués pendant une
+  recherche, pas retirés (une modification en cours de l'éditeur de thèmes est gardée).
+- Bouton « Guide » dans l'en-tête du panneau : section du guide de l'onglet affiché (GUIDE_ANCHORS).
+- useStore rattrape un changement survenu entre le premier rendu et l'abonnement : un message envoyé
+  au démarrage n'apparaissait jamais.
+
+Échanges
+- Filtres dans la fenêtre « Échanger avec … » du site (features/trade-filter.js,
+  ui/islands/TradeFilter.jsx) sur toute la collection de l'onglet ouvert : prix (comme la ligne
+  « Ventes » des filtres de la collection), mots du nom ou de la description, thème, raretés, cartes
+  que je n'ai pas, hors favoris, doublons, ordre. La liste remplace la grille du site ; ajout à
+  l'offre sur clic. Collection de l'ami lue par la même route et le même cache que la recherche
+  d'échanges (friendCollection exportée, avancement et délai entre pages).
+
+Paquets
+- Récapitulatif en lignes ou en cartes comme sur le site (ui/SiteCard.jsx), fenêtre de détail d'une
+  carte (ui/CardDetail.jsx : attaque, défense, Q-Score, vues, prix, relus dans cards si absents).
+- « Tout ouvrir » : prix du marché de chaque carte retournée et valeur cumulée, prix lus dès
+  l'arrivée du paquet.
+- Taux de drop du jour (interrupteur « Aujourd'hui ») : pullStats.today, remis à zéro au premier
+  paquet d'un autre jour local.
+
+Réseau
+- Refus du site pour automatisation (AutomationBlockedError) : aucun réessai, plus aucune lecture
+  du site jusqu'au rechargement de la page, joueur prévenu une fois. Lectures du site espacées
+  (délai entre départs du limiteur, pages lues par 2) ; les lots de prix n'utilisent plus la route
+  du site carte par carte.
+
+Tests (188), guide, README, architecture, AGENTS.md, publication (store) et notes de version mis à jour.
+```
+
+### Firefox Add-ons : notes de version (anglais)
+
+```
+What's new in 2.5.0
+
+Trades
+- Filters in the site's "Échanger avec …" window: search your friend's whole collection (or yours) by price, name, theme, rarity, cards you don't have, non-favorites or duplicates, then add the cards found to the offer in one click.
+
+Packs
+- The pack recap can be shown as rows or as cards, like on the site. Clicking a card opens its details: summary, attack, defense, Q-Score, views and market price.
+- "Open all" shows the market price of each flipped card and the running value of the cards pulled.
+- Today's drop rates: the "Today" switch only counts the packs opened today.
+
+Toolbox
+- New "What's new" tab: after each update, the Toolbox tells you what changed, with a link to each new feature and a button to turn new options on.
+- Search in the settings: type a word to find an option. Recently added options are marked "New".
+- "Guide" button at the top of the panel: opens the part of the guide that explains the current tab.
+- If WikiMasters asks for a bot check, the Toolbox stops reading the site and offers to reload the page.
+```
+
+### Firefox Add-ons : notes de version (français)
+
+```
+Nouveautés de la 2.5.0
+
+Échanges
+- Filtres dans la fenêtre « Échanger avec … » du site : cherchez dans toute la collection de l'ami (ou la vôtre) par prix, nom, thème, rareté, cartes que vous n'avez pas, hors favoris ou doublons, puis ajoutez les cartes trouvées à l'offre en un clic.
+
+Paquets
+- Le récapitulatif d'un paquet s'affiche en lignes ou en cartes, comme sur le site. Un clic sur une carte ouvre sa fiche détaillée : résumé, attaque, défense, Q-Score, vues et prix du marché.
+- « Tout ouvrir » affiche le prix du marché de chaque carte retournée et la valeur cumulée des cartes tirées.
+- Taux de drop du jour : l'interrupteur « Aujourd'hui » ne compte que les paquets ouverts aujourd'hui.
+
+Toolbox
+- Nouvel onglet Nouveautés : après chaque mise à jour, la Toolbox vous signale ce qui a changé, avec un lien vers chaque nouveauté et un bouton pour activer les nouvelles options.
+- Recherche dans les réglages : tapez un mot pour retrouver une option. Les options apparues récemment portent la mention « Nouveau ».
+- Bouton « Guide » en haut du panneau : ouvre la partie du guide qui explique l'onglet affiché.
+- Si WikiMasters demande une vérification anti-robot, la Toolbox arrête de lire le site et vous propose de recharger la page.
+```
 
 ## 2.3.0
 

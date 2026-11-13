@@ -19,6 +19,13 @@ export function createStore(initial) {
 
 export function useStore(store, selector = (s) => s) {
   const [, rerender] = useReducer((n) => n + 1, 0);
-  useEffect(() => store.subscribe(rerender), [store]);
-  return selector(store.get());
+  const rendered = store.get();
+  useEffect(() => {
+    const off = store.subscribe(rerender);
+    // Modifié entre le premier rendu et l'abonnement (les effets passent après l'affichage) : sans
+    // ce rattrapage, un message envoyé au démarrage n'apparaîtrait jamais
+    if (store.get() !== rendered) rerender();
+    return off;
+  }, [store]);
+  return selector(rendered);
 }

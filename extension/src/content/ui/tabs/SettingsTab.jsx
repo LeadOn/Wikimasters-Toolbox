@@ -1,10 +1,12 @@
 // Onglet « Réglages » : fonctionnalités, thèmes de tri, caches.
 import {Fragment} from "preact";
+import {useState, useEffect, useRef} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {keysWithPrefix, remove} from "../../lib/storage";
-import {settings, FEATURES, DEFAULT_SETTINGS} from "../../state/settings";
+import {settings, settingsFocus, FEATURES, DEFAULT_SETTINGS} from "../../state/settings";
+import {recentFeatures} from "../../state/news";
 import {clearPrices} from "../../state/prices";
-import {Toggle, FileButton} from "../components";
+import {Toggle, FileButton, plural} from "../components";
 import {confirmAction, toast} from "../feedback";
 import {ThemeEditor} from "../ThemeEditor";
 import {defaultThemeList, storeThemes} from "../../../../../core";
@@ -17,28 +19,56 @@ const count = (value, min, max, fallback) => {
   return value === "" || !Number.isFinite(n) ? fallback : Math.min(max, Math.max(min, n));
 };
 
+// Recherche : majuscules et accents ignorés, tous les mots exigés
+const fold = (t) => t.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+const matches = (f, words) => words.every((w) => fold(`${f.label} ${f.help} ${f.group}`).includes(w));
+
 export function SettingsTab() {
   const s = useStore(settings);
-  const groups = [...new Set(FEATURES.map((f) => f.group))];
+  const {key: focus} = useStore(settingsFocus);
+  const [query, setQuery] = useState("");
+  const root = useRef(null);
+  const recent = recentFeatures();
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  // Pendant une recherche, seules les options qui correspondent restent ; les autres blocs sont
+  // masqués (pas retirés : une modification en cours de l'éditeur de thèmes est gardée)
+  const shown = words.length ? FEATURES.filter((f) => matches(f, words)) : FEATURES;
+  const searching = words.length > 0;
+  const groups = [...new Set(shown.map((f) => f.group))];
   const setFeature = (key, on) => settings.set((st) => ({...st, features: {...st.features, [key]: on}}));
+  // Option montrée par une nouveauté : amenée à l'écran et soulignée un instant
+  useEffect(() => {
+    if (!focus) return;
+    setQuery("");
+    requestAnimationFrame(() => root.current?.querySelector(`[data-key="${focus}"]`)?.scrollIntoView({block: "center"}));
+    const t = setTimeout(() => settingsFocus.set({key: null}), 1600);
+    return () => clearTimeout(t);
+  }, [focus]);
 
   return (
-    <div class="stack">
+    <div class="stack" ref={root}>
       <div class="page-head">
         <div>
           <h2>{L("Réglages", "Settings")}</h2>
           <p>{L("Activez seulement ce qui vous sert. Les réglages sont enregistrés dans votre navigateur.", "Turn on only what you need. Settings are stored in your browser.")}</p>
         </div>
       </div>
+      <div class="settings-search">
+        <input type="search" value={query} placeholder={L("Chercher une option (prix, paquet, favori…)", "Search for an option (price, pack, favorite…)")} aria-label={L("Chercher une option", "Search for an option")} onInput={(e) => setQuery(e.currentTarget.value)} />
+        {searching && <span class="small muted">{shown.length ? plural(shown.length, "option") : L("Aucune option ne correspond.", "No option matches.")}</span>}
+      </div>
       <div class="grid-2">
         {groups.map((g) => (
           <div class="box" key={g}>
             <h3>{g}</h3>
-            {FEATURES.filter((f) => f.group === g).map((f) => (
+            {shown.filter((f) => f.group === g).map((f) => (
               <Fragment key={f.key}>
-                <div class="setting">
+                <div class={`setting${focus === f.key ? " focus" : ""}`} data-key={f.key}>
                   <div class="txt">
-                    <strong>{f.label}</strong>
+                    <strong>
+                      {f.label}
+                      {recent.has(f.key) && <span class="chip accent">{L("Nouveau", "New")}</span>}
+                    </strong>
                     <span>{f.help}</span>
                   </div>
                   <Toggle checked={s.features[f.key] !== false} label={f.label} onChange={(on) => setFeature(f.key, on)} />
@@ -48,7 +78,7 @@ export function SettingsTab() {
             ))}
           </div>
         ))}
-        <div class="box stack">
+        <div class="box stack" hidden={searching}>
           <h3>{L("Prix et délais", "Prices and timing")}</h3>
           <label class="field">
             <span>{L("Durée de validité d'un prix (heures)", "How long a price stays valid (hours)")}</span>
@@ -75,9 +105,11 @@ export function SettingsTab() {
         </div>
       </div>
 
-      <ThemeEditor />
+      <div hidden={searching}>
+        <ThemeEditor />
+      </div>
 
-      <div class="box stack">
+      <div class="box stack" hidden={searching}>
         <h3>{L("Données", "Data")}</h3>
         <div class="row">
           <button

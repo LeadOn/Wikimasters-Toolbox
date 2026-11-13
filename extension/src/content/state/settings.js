@@ -1,5 +1,6 @@
 // Réglages de la Toolbox : un interrupteur par fonctionnalité, thèmes de tri, couleur de Doublon.
 import {persistentStore} from "../lib/storage";
+import {createStore} from "../lib/store";
 import {PRICE_DEFAULTS} from "../../../../core/prices";
 import {DOUBLON} from "../../../../core/themes";
 import {resolveThemes, storeThemes, applyTagColors} from "../../../../core/theme-set";
@@ -30,6 +31,7 @@ export const FEATURES = [
   {key: "autoSortPulls", group: L("Paquets", "Packs"), label: L("Trier automatiquement les cartes tirées", "Auto-sort pulled cards"), help: L("Dès l'ouverture d'un paquet, ajoute aux cartes tirées leur thème, les étiquettes « Pour : … » et Doublon. Seuls les nouveaux exemplaires sont touchés, rien n'est supprimé.", "As soon as a pack is opened, adds their theme, the \"Pour : …\" tags and Doublon to the pulled cards. Only the new copies are touched; nothing is removed.")},
   {key: "sortAfterPack", group: L("Paquets", "Packs"), label: L("Proposer de trier après un paquet", "Offer to sort after a pack"), help: L("Sans tri automatique : bouton pour classer les nouvelles cartes depuis le récapitulatif.", "Without auto-sort: a button to sort the new cards from the recap.")},
   {key: "tradeRecap", group: L("Échanges", "Trades"), label: L("Bilan dans la fenêtre d'échange", "Summary in the trade window"), help: L("Dans la fenêtre « Échanger avec … » du site : valeur au prix du marché de ce que vous donnez et de ce que vous recevez (WikiBidous compris), et la différence.", "In the site's \"Échanger avec …\" window: market value of what you give and what you get (WikiBidous included), and the difference.")},
+  {key: "tradeFilter", group: L("Échanges", "Trades"), label: L("Filtre par prix dans la fenêtre d'échange", "Price filter in the trade window"), help: L("Dans la fenêtre « Échanger avec … » du site : filtre toute la collection de l'onglet ouvert (celle de l'ami ou la vôtre) par prix, comme les filtres de la collection, et ajoute les cartes trouvées à l'offre en un clic.", "In the site's \"Échanger avec …\" window: filters the whole collection of the open tab (your friend's or yours) by price, like the collection filters, and adds the cards found to the offer in one click.")},
   {key: "tradeValues", group: L("Échanges", "Trades"), label: L("Valeur des échanges", "Trade values"), help: L("Prix du marché de chaque carte et total de chaque côté des échanges en cours.", "Market price of each card and total for each side of ongoing trades.")},
   {key: "bidAlerts", group: L("Marché", "Market"), label: L("Alerte de fin d'enchère", "Auction ending alert"), help: L("Prévient quand une enchère où vous êtes dépassé se termine bientôt.", "Warns you when an auction where you have been outbid is ending soon.")},
   {key: "stonks", group: L("Marché", "Market"), label: L("Page Stonks", "Stonks page"), help: L("Entrée « Stonks » dans le menu du site : vos achats et ventes au marché par jour, semaine ou mois, et la plus-value de l'achat-revente. Historique seulement.", "\"Stonks\" entry in the site menu: your market purchases and sales by day, week or month, and the profit from flipping. History only.")},
@@ -79,3 +81,6 @@ export const settings = persistentStore("settings", DEFAULT_SETTINGS, {
 });
 
 export const isOn = (key) => settings.get().features[key] !== false;
+
+// Option à montrer à l'ouverture de l'onglet Réglages (lien « Voir » d'une nouveauté)
+export const settingsFocus = createStore({key: null});

@@ -43,6 +43,7 @@ button {
 button:hover { background: var(--surface-2); border-color: #4a4a44; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button .i { flex: none; color: var(--muted); }
+button .dot { margin-left: auto; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); flex: none; }
 button .n { margin-left: auto; color: var(--faint); font: 500 11.5px var(--mono); }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }

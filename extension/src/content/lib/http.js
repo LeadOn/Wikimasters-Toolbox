@@ -1,10 +1,10 @@
 // Requêtes réseau prudentes : délai maximal, réessais avec délai croissant pour les lectures,
 // respect des 429 (Retry-After), et jamais de réessai automatique d'une écriture non idempotente.
-import {L} from "../../shared/i18n";
+import { L } from "../../shared/i18n";
 export class HttpError extends Error {
   // code : code d'erreur du serveur (PostgREST, site), ou "timeout" / "network" / "bad_response"
   // uncertain : écriture restée sans réponse, peut-être prise en compte par le serveur
-  constructor(message, {status = 0, code = null, data = null, uncertain = false} = {}) {
+  constructor(message, { status = 0, code = null, data = null, uncertain = false } = {}) {
     super(message);
     this.name = "HttpError";
     this.status = status;
@@ -26,6 +26,26 @@ export class HumanCheckError extends HttpError {
   }
 }
 
+// Le site refuse des requêtes qu'il juge automatisées (« Trop de requêtes automatisées.
+// L'automatisation n'est pas autorisée… ») : aucun réessai, et api/site.js n'envoie plus aucune
+// lecture jusqu'au rechargement de la page. Ce refus est respecté, jamais contourné.
+export class AutomationBlockedError extends HttpError {
+  constructor(status, data) {
+    const said = typeof data === "object" && data ? data.error || data.message : typeof data === "string" && data.length < 300 ? data : null;
+    super(
+      L(
+        `WikiMasters refuse les requêtes de la Toolbox${said ? ` (« ${said} »)` : ""}. La Toolbox a arrêté ses lectures du site jusqu'au rechargement de la page.`,
+        `WikiMasters is refusing the Toolbox's requests${said ? ` ("${said}")` : ""}. The Toolbox stopped reading from the site until the page is reloaded.`,
+      ),
+      { status, code: "automation_blocked", data },
+    );
+    this.name = "AutomationBlockedError";
+  }
+}
+const AUTOMATION = /automatis|automation|automated/i;
+export const isAutomationBlock = (status, data) =>
+  status >= 400 && AUTOMATION.test(typeof data === "string" ? data.slice(0, 2000) : String(data?.error || data?.message || data?.code || ""));
+
 export const abortError = () => new DOMException(L("Annulé", "Cancelled"), "AbortError");
 
 export const sleep = (ms, signal) =>
@@ -39,19 +59,32 @@ export const sleep = (ms, signal) =>
       signal?.removeEventListener("abort", onAbort);
       resolve();
     }, ms);
-    signal?.addEventListener("abort", onAbort, {once: true});
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 
 export const backoff = (attempt) => Math.min(30000, 1500 * 2 ** (attempt - 1)) * (0.75 + Math.random() * 0.5);
 
-// Nombre maximal de tâches simultanées
-export function createLimiter(max) {
+// Nombre maximal de tâches simultanées ; delay : écart minimal (ms) entre deux départs
+export function createLimiter(max, delay = 0) {
   let active = 0;
+  let nextAt = 0;
+  let timer = null;
   const queue = [];
   const next = () => {
     if (active >= max || !queue.length) return;
+    if (delay > 0) {
+      const wait = nextAt - Date.now();
+      if (wait > 0) {
+        timer ||= setTimeout(() => {
+          timer = null;
+          next();
+        }, wait);
+        return;
+      }
+      nextAt = Date.now() + delay;
+    }
     active++;
-    const {fn, resolve, reject} = queue.shift();
+    const { fn, resolve, reject } = queue.shift();
     Promise.resolve()
       .then(fn)
       .then(resolve, reject)
@@ -62,28 +95,38 @@ export function createLimiter(max) {
   };
   return (fn) =>
     new Promise((resolve, reject) => {
-      queue.push({fn, resolve, reject});
+      queue.push({ fn, resolve, reject });
       next();
     });
 }
 
-// fn(item) pour chaque élément, `concurrency` à la fois. À la première erreur, plus aucune tâche
-// n'est lancée et l'erreur est renvoyée une fois les tâches en cours terminées (rien ne continue
-// en arrière-plan après l'échec).
-export async function runAll(items, fn, {concurrency = 4, signal} = {}) {
+// fn(item) pour chaque élément, `concurrency` à la fois ; `delay` : latence minimale (ms) entre deux
+// appels. À la première erreur, plus aucune tâche n'est lancée et l'erreur est renvoyée une fois les
+// tâches en cours terminées (rien ne continue en arrière-plan après l'échec).
+export async function runAll(items, fn, { concurrency = 4, delay = 0, signal } = {}) {
   const queue = [...items];
   let error = null;
+  let nextAt = 0;
   const worker = async () => {
+    let first = true;
     while (queue.length && !error && !signal?.aborted) {
       const item = queue.shift();
       try {
+        if (delay > 0) {
+          const now = Date.now();
+          const startAt = Math.max(first ? now : now + delay, nextAt);
+          nextAt = startAt + delay;
+          if (startAt > now) await sleep(startAt - now, signal);
+          if (error) break;
+        }
+        first = false;
         await fn(item);
       } catch (e) {
         error ||= e;
       }
     }
   };
-  await Promise.all(Array.from({length: Math.min(concurrency, queue.length)}, worker));
+  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker));
   if (error) throw error;
   if (signal?.aborted) throw abortError();
 }
@@ -102,7 +145,7 @@ const isHumanCheck = (data) => data && typeof data === "object" && (data.code ==
 // écriture idempotente — suppression par filtre, ajout ignorant les doublons — peut en demander plus).
 // Toutes les réponses attendues sont du JSON : une page HTML (vérification Cloudflare, maintenance)
 // reçue à la place est une erreur, pas des données.
-export async function request(url, {method = "GET", headers = {}, body, timeout = 45000, retries, credentials = "include", signal, retryDelay = backoff} = {}) {
+export async function request(url, { method = "GET", headers = {}, body, timeout = 45000, retries, credentials = "include", signal, retryDelay = backoff } = {}) {
   const write = method !== "GET";
   const attempts = retries ?? (write ? 1 : 6);
   for (let attempt = 1; ; attempt++) {
@@ -135,9 +178,9 @@ export async function request(url, {method = "GET", headers = {}, body, timeout 
             attempts === 1
               ? L("Pas de réponse du site : l'action a peut-être été prise en compte. Vérifiez sur WikiMasters avant de réessayer.", "No response from the site: the action may have gone through. Check on WikiMasters before trying again.")
               : L("Pas de réponse du site : l'opération est restée inachevée, vous pouvez la relancer.", "No response from the site: the operation did not finish, you can run it again."),
-            {status: 0, code, uncertain: true},
+            { status: 0, code, uncertain: true },
           );
-        throw new HttpError(timedOut ? L("Le site met trop de temps à répondre.", "The site is taking too long to respond.") : L("Le site ne répond pas (connexion interrompue ?).", "The site is not responding (connection lost?)."), {status: 0, code});
+        throw new HttpError(timedOut ? L("Le site met trop de temps à répondre.", "The site is taking too long to respond.") : L("Le site ne répond pas (connexion interrompue ?).", "The site is not responding (connection lost?)."), { status: 0, code });
       }
       await sleep(retryDelay(attempt), signal);
       continue;
@@ -156,6 +199,7 @@ export async function request(url, {method = "GET", headers = {}, body, timeout 
       }
     }
     if (isHumanCheck(data) && !res.ok) throw new HumanCheckError(data);
+    if (!res.ok && isAutomationBlock(res.status, data)) throw new AutomationBlockedError(res.status, data);
     if (res.ok && json) return data;
     const unexpected = res.ok; // 2xx mais pas du JSON
     const retryable = unexpected || res.status === 408 || res.status === 425 || res.status === 429 || res.status >= 500;
@@ -166,7 +210,7 @@ export async function request(url, {method = "GET", headers = {}, body, timeout 
           code: "bad_response",
           uncertain: write,
         });
-      throw new HttpError(describe(res.status, data), {status: res.status, code: data?.code ?? null, data});
+      throw new HttpError(describe(res.status, data), { status: res.status, code: data?.code ?? null, data });
     }
     const retryAfter = Number(res.headers.get("retry-after"));
     await sleep(retryAfter > 0 ? Math.min(120, retryAfter) * 1000 : retryDelay(attempt), signal);

@@ -39,7 +39,7 @@ const loadPacks = async () => {
 const flush = () => new Promise((r) => setTimeout(r, 450)); // écritures regroupées du stockage
 
 const cards = [
-  {id: "c1", wikipedia_title: "Gears", category: "jeu vidéo", summary: "x".repeat(2000), rarity: "SR", user_card_id: "uc-1", isNew: true, atk: 12, pageviews: 999},
+  {id: "c1", wikipedia_title: "Gears", category: "jeu vidéo", summary: "x".repeat(2000), rarity: "SR", user_card_id: "uc-1", isNew: true, atk: 12, pageviews: 999, created_at: "2026-04-01"},
   {id: "c2", wikipedia_title: "Macka B", rarity: "PC", user_card_id: "uc-2", isNew: false, action: {kind: "discarded"}},
 ];
 
@@ -48,8 +48,10 @@ test("le récapitulatif gardé ne contient que l'utile, sans tri en cours", asyn
   const {recapSnapshot} = await loadPacks();
   const snap = recapSnapshot({cards, packs: 1, at: 5, source: "reveal", phase: "revealing", pricesLoading: true, sort: {status: "running"}});
   assert.equal(snap.cards[0].summary.length, 600);
-  assert.equal(snap.cards[0].atk, undefined);
-  assert.equal(snap.cards[0].pageviews, undefined);
+  // Attaque, défense, Q-Score et vues sont montrés dans le détail d'une carte : gardés
+  assert.equal(snap.cards[0].atk, 12);
+  assert.equal(snap.cards[0].pageviews, 999);
+  assert.equal(snap.cards[0].created_at, undefined);
   assert.equal(snap.cards[0].category, "jeu vidéo");
   assert.deepEqual(snap.cards[1].action, {kind: "discarded"});
   assert.equal(snap.sort, null);

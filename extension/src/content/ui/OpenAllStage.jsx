@@ -6,6 +6,8 @@
 // rejoignent la pile du bas ; les compteurs par rareté ne comptent que les cartes retournées.
 // Les paquets arrivent au rythme imposé par le site (features/packs.js) : la scène les montre l'un
 // après l'autre, plus vite si elle a du retard. Un clic sur la table retourne tout le paquet.
+// Le prix du marché de chaque carte s'affiche une fois retournée, et la valeur des cartes retournées
+// s'ajoute aux compteurs (prix fiables seulement, comme le récapitulatif).
 // À la fin : les meilleures cartes, puis le récapitulatif habituel (page Paquets ou onglet Paquets).
 // La scène peut être réduite à tout moment, l'ouverture continue (le bouton « Tout ouvrir » la rouvre).
 // Exception à la charte, comme la révélation d'un paquet : lueurs et dégradés aux couleurs des raretés.
@@ -16,7 +18,8 @@ import {openAllState, stopOpenAll} from "../features/packs";
 import {reducedMotion} from "../features/suspense";
 import {rarityTexture, siteLogo} from "../features/site-assets";
 import {isOn} from "../state/settings";
-import {CardArt, Icon, Mark, Notice, Rarity, fmt, plural} from "./components";
+import {priceInfo, priceOf, priceStatus, priceVersion} from "../state/prices";
+import {CardArt, Icon, Mark, Money, Notice, Rarity, fmt, plural} from "./components";
 import {packTimeline, bestCards, cardRank as rank, FAST} from "../features/open-all";
 import {RARITIES, RARITY_LABEL} from "../../../../core";
 import {L} from "../../shared/i18n";
@@ -26,6 +29,20 @@ export const showOpenAllStage = () => openAllStage.set({open: true});
 const hideStage = () => openAllStage.set({open: false});
 
 const art = (card) => ({...card, image_url: card.hide_image ? null : card.image_url});
+const shinyOf = (card) => ({shiny: Boolean(card.is_shiny)});
+
+// Prix du marché d'une carte de la scène : fiable, indicatif (« ≈ »), en cours de lecture, ou rien
+function StagePrice({card}) {
+  const status = priceStatus(card.id, card.rarity, shinyOf(card));
+  if (status === "unknown") return <span class="oa-price wait" aria-label={L("Chargement du prix", "Loading price")}>…</span>;
+  const info = priceInfo(card.id, card.rarity, shinyOf(card));
+  if (info?.price == null) return null;
+  return <Money v={info.price} approx={!info.reliable} class="oa-price" />;
+}
+const priceText = (card) => {
+  const info = priceInfo(card.id, card.rarity, shinyOf(card));
+  return info?.price == null ? "" : ` · ${info.reliable ? "" : "≈ "}${fmt(info.price)} ₩`;
+};
 
 // Face d'une carte : image, rareté, nouvelle, titre ; reflet irisé pour une shiny
 function Face({card}) {
@@ -42,7 +59,10 @@ function Face({card}) {
         )}
         {card.isNew === true && <span class="oa-badge new">{L("Nouvelle", "New")}</span>}
       </div>
-      <div class="oa-name" title={card.wikipedia_title}>{card.wikipedia_title}</div>
+      <div class="oa-caption">
+        <div class="oa-name" title={card.wikipedia_title}>{card.wikipedia_title}</div>
+        <StagePrice card={card} />
+      </div>
       <div class="oa-flash" />
       <div class="oa-sheen" />
     </div>
@@ -101,7 +121,7 @@ const SealedPack = () => (
 
 // Vignette de la pile ; i : place dans son paquet (apparition décalée)
 const Mini = ({card, i}) => (
-  <li class="oa-mini" style={{"--rc": `var(--r-${card.rarity || "C"})`, "--i": i}} title={`${card.wikipedia_title} · ${RARITY_LABEL[card.rarity] || card.rarity}`}>
+  <li class="oa-mini" style={{"--rc": `var(--r-${card.rarity || "C"})`, "--i": i}} title={`${card.wikipedia_title} · ${RARITY_LABEL[card.rarity] || card.rarity}${priceText(card)}`}>
     <CardArt card={art(card)} rarity={card.rarity} class="oa-mini-art" />
     {card.is_shiny && <span class="oa-mini-dot" />}
   </li>
@@ -110,6 +130,7 @@ const Mini = ({card, i}) => (
 export function OpenAllStage() {
   const {open} = useStore(openAllStage);
   const state = useStore(openAllState);
+  useStore(priceVersion);
   const {running, batches, opened, total, stopping, error} = state;
   // shown : paquet sur la table ; done : ses cartes sont toutes retournées ; skip : retourné d'un clic
   const [view, setView] = useState({shown: -1, done: true, skip: false, speed: 1});
@@ -150,6 +171,9 @@ export function OpenAllStage() {
   const counts = {};
   for (const c of revealed) counts[c.rarity] = (counts[c.rarity] || 0) + 1;
   const fresh = revealed.filter((c) => c.isNew === true).length;
+  // Valeur des cartes retournées : prix fiables seulement ; lecture en cours tant qu'un prix manque
+  const value = revealed.reduce((n, c) => n + (priceOf(c.id, c.rarity, shinyOf(c)) || 0), 0);
+  const reading = revealed.some((c) => priceStatus(c.id, c.rarity, shinyOf(c)) === "unknown");
   const known = revealed.some((c) => c.isNew != null);
   const packNo = view.shown + 1;
   const waiting = running && view.done && view.shown >= batches.length - 1;
@@ -212,6 +236,13 @@ export function OpenAllStage() {
               <span class="n" key={counts[r] || 0}>{fmt(counts[r] || 0)}</span>
             </span>
           ))}
+          {revealed.length > 0 && (
+            <span class="oa-value" title={L("Valeur des cartes retournées au prix du marché (prix fiables seulement)", "Value of the flipped cards at market price (reliable prices only)")}>
+              <span class="k">{L("Valeur", "Value")}</span>
+              <Money v={value} class="v" />
+              {reading && <span class="spinner sm" aria-label={L("Lecture des prix", "Reading prices")} />}
+            </span>
+          )}
         </div>
 
         <div

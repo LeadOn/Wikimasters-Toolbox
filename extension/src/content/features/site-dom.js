@@ -4,12 +4,14 @@
 // proposition d'échange, et la page Stonks à la place du contenu de la page.
 // Tous les sélecteurs du site sont ici : si le site change, c'est le seul fichier à adapter.
 import {emit, on, tellHook} from "../lib/bus";
-import {sleep} from "../lib/http";
+import {sleep, createLimiter} from "../lib/http";
 import {ext} from "../lib/ext";
 import {lookupTitle, registryVersion, normTitle} from "../lib/registry";
 import {settings, isOn} from "../state/settings";
+import {news, hasNews} from "../state/news";
 import {owned} from "../state/collection";
 import {priceOf, priceInfo, uncertainNote, requestPrice, priceVersion} from "../state/prices";
+import {tradeFilter, tradeSide, resetTradeFilter, isActive} from "./trade-filter";
 import {wikiImage} from "./wiki-images";
 import {recapState, openAllState, markRevealed, pullStats, collectionRarity, refreshCollectionRarity} from "./packs";
 import {placeBlocks, clearBlocks} from "./pack-dock";
@@ -27,6 +29,7 @@ import {CardInsight} from "../ui/islands/CardInsight";
 import {AuctionInsight} from "../ui/islands/AuctionInsight";
 import {FriendTrades} from "../ui/islands/FriendTrades";
 import {TradeRecap} from "../ui/islands/TradeRecap";
+import {TradeFilter} from "../ui/islands/TradeFilter";
 import {StonksPage} from "../ui/islands/StonksPage";
 import {RevealSide} from "../ui/islands/RevealSide";
 import {SuspenseLadder} from "../ui/islands/Suspense";
@@ -86,6 +89,8 @@ const SEL = {
   tradeMineTab: /^Mes cartes/,
   tradeActiveTab: "border-b-2",
   tradeSelected: /^Sélectionnées\s*\(/,
+  // Recherche de la fenêtre d'échange (« Rechercher... »), au-dessus de la grille des cartes de l'onglet ouvert
+  tradeSearch: 'input[placeholder^="Rechercher"]',
 };
 // « Bonne affaire » : seulement dans les dernières minutes d'une enchère
 const DEAL_WINDOW = 15 * 60 * 1000;
@@ -179,6 +184,7 @@ function addNavEntries(nav, popup) {
     const link = navEntry(model, {cls: "wmt-nav-toolbox", href: "#toolbox", label: "Toolbox", icon: markOutlineSvg(), onClick: then(() => emit("open-panel", {}))});
     model.parentElement.insertBefore(link, model.nextSibling);
   }
+  nav.querySelector(".wmt-nav-toolbox")?.toggleAttribute("data-wmt-news", hasNews());
   // « Stonks » juste après le Marché quand il est dans le même bloc que le modèle (pas dans la barre
   // du bas, sur mobile), sinon après « Toolbox »
   let stonks = nav.querySelector(".wmt-nav-stonks");
@@ -898,25 +904,32 @@ function ensureFriendTrades() {
 // onglet est ouvert, et gardées tant que la fenêtre reste ouverte.
 let tradeDraft = null; // {modal, friend, mine, theirs}
 const countOf = (text) => Number(String(text || "").replace(/\D/g, "")) || 0;
-function ensureTradeRecap() {
-  const mineLabel = isOn("tradeRecap")
-    ? [...document.querySelectorAll(SEL.modal)].flatMap((m) => [...m.querySelectorAll("span")]).find((el) => SEL.tradeMine.test(el.textContent.trim()))
-    : null;
+// Fenêtre « Échanger avec … » ouverte : {modal, bar, mineLabel, theirLabel, mineTab, active, friend,
+// selected (bloc des cartes choisies de l'onglet ouvert, s'il y en a)}, sinon null
+function tradeWindow() {
+  const mineLabel = [...document.querySelectorAll(SEL.modal)].flatMap((m) => [...m.querySelectorAll("span")]).find((el) => SEL.tradeMine.test(el.textContent.trim()));
   const bar = mineLabel?.parentElement;
   const theirLabel = bar && [...bar.children].find((el) => el !== mineLabel && el.tagName === "SPAN" && SEL.tradeCounts.test(el.textContent));
   const modal = theirLabel && bar.closest(SEL.modal);
   const mineTab = modal && [...modal.querySelectorAll("button")].find((b) => SEL.tradeMineTab.test(b.textContent.trim()));
-  if (!mineTab) {
+  if (!mineTab) return null;
+  const friend = theirLabel.textContent.split(":")[0].trim();
+  const active = [...mineTab.parentElement.children].find((b) => b.tagName === "BUTTON" && b.className.includes(SEL.tradeActiveTab)) || null;
+  const heading = [...modal.querySelectorAll("p")].find((p) => SEL.tradeSelected.test(p.textContent.trim()));
+  return {modal, bar, mineLabel, theirLabel, mineTab, active, friend, selected: heading?.parentElement || null};
+}
+
+function ensureTradeRecap() {
+  const w = isOn("tradeRecap") ? tradeWindow() : null;
+  if (!w) {
     tradeDraft = null;
     return hideIsland("trade");
   }
-  const friend = theirLabel.textContent.split(":")[0].trim();
+  const {modal, bar, mineLabel, theirLabel, mineTab, active, friend} = w;
   if (tradeDraft?.modal !== modal || tradeDraft.friend !== friend) tradeDraft = {modal, friend, mine: [], theirs: []};
   // Onglet ouvert : ses cartes choisies remplacent celles relevées pour ce côté
-  const active = [...mineTab.parentElement.children].find((b) => b.tagName === "BUTTON" && b.className.includes(SEL.tradeActiveTab));
   if (active) {
-    const heading = [...modal.querySelectorAll("p")].find((p) => SEL.tradeSelected.test(p.textContent.trim()));
-    const cards = [...(heading?.parentElement.querySelectorAll(SEL.tile) || [])].map((tile) => {
+    const cards = [...(w.selected?.querySelectorAll(SEL.tile) || [])].map((tile) => {
       const title = normTitle(tile.querySelector(SEL.tileTitle)?.textContent);
       const info = lookupTitle(title);
       if (!info?.id) resolveCard(title);
@@ -929,6 +942,93 @@ function ensureTradeRecap() {
     return {cards, count: countOf(count), wb: countOf(wb)};
   };
   showIsland("trade", TradeRecap, {friend, give: side(mineLabel, tradeDraft.mine), get: side(theirLabel, tradeDraft.theirs)}, after(bar));
+}
+
+// Fenêtre « Échanger avec … » : filtre par prix sous la recherche du site (ui/islands/TradeFilter.jsx),
+// sur la collection entière de l'onglet ouvert. Dès qu'un filtre est choisi, sa liste remplace la
+// grille du site (une page de cartes), masquée ; les cartes choisies restent visibles. Changer
+// d'onglet garde le filtre ; fermer la fenêtre le remet à « Tous les prix ».
+let filterModal = null;
+let adding = false; // « Ajouter » en cours : la grille du site reste visible le temps de l'ajout
+// Bloc des cartes choisies, s'il ne contient pas aussi la recherche et la grille (structure inattendue)
+const selectedBlock = (w) => (w?.selected && !w.selected.querySelector(SEL.tradeSearch) ? w.selected : null);
+const tradeTiles = (w) => [...w.modal.querySelectorAll(SEL.tile)].filter((t) => !selectedBlock(w)?.contains(t));
+const tileTitle = (tile) => normTitle(tile.querySelector(SEL.tileTitle)?.textContent || "");
+// Carte de la liste dans des cartes du site : même titre, de préférence même rareté
+function pickTile(tiles, wanted, rarity) {
+  const same = tiles.filter((t) => tileTitle(t) === wanted);
+  return same.find((t) => tileRarity(t) === rarity) || (same.length === 1 ? same[0] : null);
+}
+function ensureTradeFilter() {
+  const w = isOn("tradeFilter") ? tradeWindow() : null;
+  const search = w?.modal.querySelector(SEL.tradeSearch);
+  if (w?.modal !== filterModal) {
+    filterModal = w?.modal || null;
+    resetTradeFilter();
+  }
+  const tiles = search ? tradeTiles(w) : [];
+  const row = search && (tiles.length ? sectionOf(search, tiles[0]) : search.parentElement);
+  // Grille du site : le bloc voisin de la recherche qui contient les cartes, jamais celui des cartes choisies
+  const grid = tiles.length && isActive(tradeFilter.get()) && !adding ? sectionOf(tiles[0], search) : null;
+  const sel = selectedBlock(w);
+  const hidden = grid && !grid.contains(search) && !(sel && grid.contains(sel)) ? grid : null;
+  for (const el of document.querySelectorAll("[data-wmt-trade-out]")) if (el !== hidden) delete el.dataset.wmtTradeOut;
+  if (hidden) hidden.dataset.wmtTradeOut = "";
+  if (!row) return hideIsland("trade-filter");
+  const selected = [...(selectedBlock(w)?.querySelectorAll(SEL.tile) || [])].map((tile) => ({title: tileTitle(tile), rarity: tileRarity(tile)}));
+  showIsland("trade-filter", TradeFilter, {friend: w.friend, theirs: Boolean(w.active && w.active !== w.mineTab), selected, onAdd: addToOffer}, after(row));
+}
+
+// « Ajouter » de la liste du filtre (clic du joueur) : la recherche de la fenêtre affiche la carte,
+// qui est cliquée dans la grille du site, comme le ferait le joueur ; la recherche reprend ensuite sa
+// valeur. L'ajout n'est annoncé que si la carte apparaît dans les cartes choisies. Rien n'est envoyé :
+// l'offre part avec le bouton du site.
+async function addToOffer({title, rarity}) {
+  const w = tradeWindow();
+  const input = w?.modal.querySelector(SEL.tradeSearch);
+  if (!input) throw new Error(L("La fenêtre d'échange est fermée.", "The trade window is closed."));
+  const wanted = normTitle(title);
+  const chosen = () => {
+    const now = tradeWindow();
+    return now ? pickTile([...(selectedBlock(now)?.querySelectorAll(SEL.tile) || [])], wanted, rarity) : null;
+  };
+  if (chosen()) return;
+  const find = () => {
+    const now = tradeWindow();
+    return now ? pickTile(tradeTiles(now), wanted, rarity) : null;
+  };
+  const previous = input.value;
+  adding = true;
+  schedule();
+  try {
+    let tile = find();
+    if (!tile) {
+      typeInto(input, title);
+      for (let waited = 0; !tile && waited < 15000; waited += 200) {
+        await sleep(200);
+        tile = find();
+      }
+    }
+    if (!tile) throw new Error(L(`Introuvable dans la recherche de la fenêtre d'échange (« ${title} »).`, `Not found by the trade window's search ("${title}").`));
+    // Le clic est porté par la carte ou par son bouton dans la grille
+    const target = tile.closest("button") && w.modal.contains(tile.closest("button")) ? tile.closest("button") : tile;
+    // Ajout constaté par la carte dans les cartes choisies, ou par le nombre de cartes de ce côté
+    // (barre « Moi : 2 cartes ⇆ <ami> : 1 carte »)
+    const sideCount = () => {
+      const now = tradeWindow();
+      const label = now && (now.active && now.active !== now.mineTab ? now.theirLabel : now.mineLabel);
+      return countOf(SEL.tradeCounts.exec(label?.textContent || "")?.[1]);
+    };
+    const before = sideCount();
+    const added = () => chosen() || sideCount() > before;
+    target.click();
+    for (let waited = 0; !added() && waited < 3000; waited += 150) await sleep(150);
+    if (!added()) throw new Error(L("Le site n'a pas pris la carte dans l'offre (exemplaire verrouillé ou déjà engagé ?).", "The site did not add the card to the offer (locked copy or already in a trade?)."));
+  } finally {
+    if (input.isConnected && input.value !== previous) typeInto(input, previous);
+    adding = false;
+    schedule();
+  }
 }
 
 // --- Boucle de rafraîchissement (regroupée par image)
@@ -964,6 +1064,7 @@ function run() {
   attempt("analyse d'enchère", ensureAuctionInsight);
   attempt("échanges sur un profil", ensureFriendTrades);
   attempt("bilan d'un échange", ensureTradeRecap);
+  attempt("filtre de prix d'un échange", ensureTradeFilter);
   attempt("page Stonks", ensureStonksPage);
   for (const tile of document.querySelectorAll(SEL.tile)) attempt("badges des cartes", () => decorateTile(tile, version));
   forgetDetached();
@@ -991,6 +1092,7 @@ export function startSiteDom() {
   registryVersion.subscribe(bump);
   priceVersion.subscribe(bump);
   settings.subscribe(bump);
+  news.subscribe(bump);
   owned.subscribe(bump);
   auctionVersion.subscribe(bump);
   // Les pastilles « bonne affaire » dépendent du temps restant
@@ -1006,6 +1108,8 @@ export function startSiteDom() {
   pullStats.subscribe(schedule);
   collectionRarity.subscribe(schedule);
   collectionView.subscribe(schedule);
+  tradeFilter.subscribe(schedule);
+  tradeSide.subscribe(schedule);
   stonksPage.subscribe(schedule);
   // Page Stonks ouverte : un lien du site (menu, logo) la ferme, même vers la page en cours
   document.addEventListener(

@@ -22,8 +22,8 @@ const themes = themeMemo();
 const themeOf = (card) => themes(card.id, card);
 
 // Tranches de prix proposées pour « Vendues entre … » (WikiBidous, bornes incluses ; les prix
-// moyens sont arrondis à l'unité)
-const RANGES = [
+// moyens sont arrondis à l'unité) ; reprises par le filtre de la fenêtre d'échange (ui/islands/TradeFilter.jsx)
+export const RANGES = [
   {min: null, max: 5, label: "≤ 5 ₩"},
   {min: 6, max: 10, label: "6–10 ₩"},
   {min: 11, max: 25, label: "11–25 ₩"},
@@ -43,7 +43,7 @@ const toPrice = (text) => {
 const asText = (n) => (n == null ? "" : String(n));
 
 // Champ d'une borne de prix : suit la valeur du filtre, sauf pendant la saisie
-function PriceInput({value, onValue, label, placeholder}) {
+export function PriceInput({value, onValue, label, placeholder}) {
   const [text, setText] = useState(asText(value));
   const editing = useRef(false);
   useEffect(() => {

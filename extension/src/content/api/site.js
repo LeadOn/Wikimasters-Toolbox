@@ -1,19 +1,38 @@
 // Routes /api du site WikiMasters (authentifiées par les cookies de session, même origine).
 // Voir docs/site-api.md. Les lectures sont réessayées ; les écritures jamais automatiquement.
-import {request, createLimiter} from "../lib/http";
-import {L} from "../../shared/i18n";
+import { request, createLimiter, AutomationBlockedError } from "../lib/http";
+import { emit } from "../lib/bus";
+import { L } from "../../shared/i18n";
 
-const limit = createLimiter(6);
+export const SITE_DELAY = 120;
+const limit = createLimiter(3, SITE_DELAY);
 
-export const siteGet = (path, opts = {}) => limit(() => request(path, {...opts, credentials: "include"}));
+// Refus du site pour automatisation (lib/http.js) : plus aucune lecture n'est envoyée jusqu'au
+// rechargement de la page (les lectures en attente échouent sans requête), et le joueur est prévenu
+// une fois. Ses propres actions (écritures, sur clic) restent possibles : le site en reste juge.
+let blocked = null;
+export const siteBlocked = () => blocked;
+const noteBlock = (e) => {
+  if (e instanceof AutomationBlockedError && !blocked) {
+    blocked = e;
+    emit("site-blocked", { message: e.message });
+  }
+  throw e;
+};
+
+export const siteGet = (path, opts = {}) =>
+  limit(() => {
+    if (blocked) throw blocked;
+    return request(path, { ...opts, credentials: "include" });
+  }).catch(noteBlock);
 
 const sitePost = (path, body, opts = {}) =>
   request(path, {
     method: "POST",
     credentials: "include",
-    ...(body !== undefined && {body, headers: {"content-type": "application/json"}}),
+    ...(body !== undefined && { body, headers: { "content-type": "application/json" } }),
     ...opts,
-  });
+  }).catch(noteBlock);
 
 const qs = (params) => {
   const q = new URLSearchParams();
@@ -28,16 +47,16 @@ export const site = {
   friends: () => siteGet("/api/friends"),
   profile: (username) => siteGet(`/api/profile/${encodeURIComponent(username)}`),
   // 50 cartes par page ; souvent lente (jusqu'à 30 s)
-  profileCollection: (username, page, {rarities = [], stats = false, signal} = {}) =>
+  profileCollection: (username, page, { rarities = [], stats = false, signal } = {}) =>
     siteGet(
-      `/api/profile/${encodeURIComponent(username)}/collection?${qs({page, sort: "rarity", stats: stats ? 1 : 0, pending: 1, rarity: rarities})}`,
-      {timeout: 90000, retries: 8, signal},
+      `/api/profile/${encodeURIComponent(username)}/collection?${qs({ page, sort: "rarity", stats: stats ? 1 : 0, pending: 1, rarity: rarities })}`,
+      { timeout: 90000, retries: 8, signal },
     ),
   myCollectionStats: () => siteGet("/api/my-collection/stats?sort=rarity"),
-  searchCards: ({q, page = 0, rarities = [], sort = "rarity", signal} = {}) =>
-    siteGet(`/api/cards?${qs({page, q, sort, rarity: rarities})}`, {signal}),
-  salesSummary: (cardId, {signal} = {}) => siteGet(`/api/marketplace/cards/${cardId}/sales?scope=summary`, {retries: 3, signal}),
-  marketplaceSearch: ({q, page = 1, rarities = [], sort} = {}) => siteGet(`/api/marketplace?${qs({page, limit: 50, q, sort, rarity: rarities})}`),
+  searchCards: ({ q, page = 0, rarities = [], sort = "rarity", signal } = {}) =>
+    siteGet(`/api/cards?${qs({ page, q, sort, rarity: rarities })}`, { signal }),
+  salesSummary: (cardId, { signal } = {}) => siteGet(`/api/marketplace/cards/${cardId}/sales?scope=summary`, { retries: 3, signal }),
+  marketplaceSearch: ({ q, page = 1, rarities = [], sort } = {}) => siteGet(`/api/marketplace?${qs({ page, limit: 50, q, sort, rarity: rarities })}`),
   marketplaceMine: () => siteGet("/api/marketplace?page=1&limit=50&mine=1"),
   marketplaceQuota: () => siteGet("/api/marketplace/mine"),
   auction: (id) => siteGet(`/api/marketplace/${id}`),
@@ -45,24 +64,24 @@ export const site = {
   trades: () => siteGet("/api/trades"),
   // Synchronisation des succès (appelée par la page Succès du site à chaque visite) : débloque les
   // succès atteints, renvoie {unlocked, progress: [{code, current, target}]}
-  achievementsCheck: () => sitePost("/api/achievements/check", {event: "achievements_sync"}),
+  achievementsCheck: () => sitePost("/api/achievements/check", { event: "achievements_sync" }),
   // Écritures : chacune est déclenchée par un clic du joueur
   // Malgré son nom, card_id attend l'id de l'EXEMPLAIRE (user_cards.id), comme le formulaire du site
-  createAuction: ({userCardId, baseAmount, durationMinutes}) =>
-    sitePost("/api/marketplace", {card_id: userCardId, base_amount: baseAmount, duration_minutes: durationMinutes}),
-  bid: (auctionId, amount) => sitePost(`/api/marketplace/${auctionId}/bid`, {amount}),
+  createAuction: ({ userCardId, baseAmount, durationMinutes }) =>
+    sitePost("/api/marketplace", { card_id: userCardId, base_amount: baseAmount, duration_minutes: durationMinutes }),
+  bid: (auctionId, amount) => sitePost(`/api/marketplace/${auctionId}/bid`, { amount }),
   // Défausse d'un exemplaire (id de user_cards) contre 1 WikiBidou ; refusée pour un favori ou une carte en échange
   discard: (userCardId) => sitePost(`/api/user-cards/${encodeURIComponent(userCardId)}/discard`),
   // Récompense d'un succès débloqué : {claimed_at, amount} ou {already_claimed}
-  claimAchievement: (achievementId) => sitePost("/api/achievements/claim", {achievement_id: achievementId}),
-  openPack: () => sitePost("/api/packs/open", undefined, {timeout: 60000}),
+  claimAchievement: (achievementId) => sitePost("/api/achievements/claim", { achievement_id: achievementId }),
+  openPack: () => sitePost("/api/packs/open", undefined, { timeout: 60000 }),
 };
 
 export const AUCTION_DURATIONS = [
-  {minutes: 10, label: "10 min"},
-  {minutes: 30, label: "30 min"},
-  {minutes: 60, label: L("1 h", "1 hour")},
-  {minutes: 180, label: L("3 h", "3 hours")},
-  {minutes: 360, label: L("6 h", "6 hours")},
-  {minutes: 720, label: L("12 h", "12 hours")},
+  { minutes: 10, label: "10 min" },
+  { minutes: 30, label: "30 min" },
+  { minutes: 60, label: L("1 h", "1 hour") },
+  { minutes: 180, label: L("3 h", "3 hours") },
+  { minutes: 360, label: L("6 h", "6 hours") },
+  { minutes: 720, label: L("12 h", "12 hours") },
 ];

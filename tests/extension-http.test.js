@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {loadExtensionModule, fakeJwt, sessionCookie, response} = require("./helpers/extension");
 
-const {request, runAll, sleep} = loadExtensionModule("extension/src/content/lib/http.js");
+const {request, runAll, createLimiter, sleep} = loadExtensionModule("extension/src/content/lib/http.js");
 const fast = {retryDelay: () => 0};
 
 // Faux fetch : chaque appel consomme la réponse suivante (fonction, réponse ou erreur)
@@ -87,6 +87,57 @@ test("runAll : plus aucune tâche lancée après la première erreur", async () 
     /page 2/,
   );
   assert.ok(started.length <= 3, `tâches lancées : ${started.length}`);
+});
+
+test("latence entre appels : createLimiter et runAll espacent les requêtes et s'arrêtent à l'annulation", async () => {
+  const limit = createLimiter(1, 35);
+  const times = [];
+  await Promise.all(
+    [0, 1, 2].map(() =>
+      limit(async () => {
+        times.push(Date.now());
+      }),
+    ),
+  );
+  assert.ok(times[1] - times[0] >= 25, `écart 1→2 : ${times[1] - times[0]} ms`);
+  assert.ok(times[2] - times[1] >= 25, `écart 2→3 : ${times[2] - times[1]} ms`);
+
+  const runTimes = [];
+  await runAll(
+    [0, 1, 2],
+    async () => {
+      runTimes.push(Date.now());
+    },
+    {concurrency: 1, delay: 35},
+  );
+  assert.ok(runTimes[1] - runTimes[0] >= 25);
+  assert.ok(runTimes[2] - runTimes[1] >= 25);
+
+  // Annulation pendant la latence : l'appel suivant n'est pas envoyé
+  const ctrl = new AbortController();
+  const seen = [];
+  await assert.rejects(
+    runAll(
+      [1, 2, 3],
+      async (n) => {
+        seen.push(n);
+        setTimeout(() => ctrl.abort(), 10);
+      },
+      {concurrency: 1, delay: 200, signal: ctrl.signal},
+    ),
+    (e) => e.name === "AbortError",
+  );
+  assert.deepEqual(seen, [1]);
+});
+
+test("refus du site pour automatisation : aucun réessai, lectures suivantes coupées", async () => {
+  const {site, siteBlocked} = loadExtensionModule("extension/src/content/api/site.js");
+  const calls = scriptedFetch([response(403, {error: "Trop de requêtes automatisées. L'automatisation n'est pas autorisée."}), response(200, {friendships: []})]);
+  await assert.rejects(site.friends(), (e) => e.name === "AutomationBlockedError" && e.status === 403);
+  assert.equal(calls.length, 1, "aucun réessai");
+  assert.ok(siteBlocked());
+  await assert.rejects(site.friends(), (e) => e.name === "AutomationBlockedError");
+  assert.equal(calls.length, 1, "aucune nouvelle requête envoyée après le refus");
 });
 
 // --- Supabase : session lue au moment d'envoyer, renouvelée une fois après un 401

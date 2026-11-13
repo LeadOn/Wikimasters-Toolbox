@@ -28,7 +28,7 @@ export const recapState = createStore({cards: [], packs: 0, at: 0, phase: null, 
 // (ou du navigateur), il revient sur l'écran d'ouverture (« Paquet précédent ») jusqu'au paquet
 // suivant ou à sa fermeture. Seuls les champs affichés ou utiles au classement sont gardés (résumé
 // tronqué), pour qu'un « Tout ouvrir » de centaines de cartes reste léger.
-const KEPT_FIELDS = ["id", "user_card_id", "wikipedia_title", "wikipedia_url", "category", "image_url", "hide_image", "rarity", "is_shiny", "lang", "isNew", "action"];
+const KEPT_FIELDS = ["id", "user_card_id", "wikipedia_title", "wikipedia_url", "category", "image_url", "hide_image", "rarity", "is_shiny", "lang", "atk", "def", "q_score", "pageviews", "isNew", "action"];
 const SUMMARY_MAX = 600;
 export const lastRecap = persistentStore("lastRecap", {cards: [], packs: 0, at: 0, source: null, dismissed: false, sort: null});
 
@@ -88,7 +88,26 @@ export async function refreshCollectionRarity() {
 // collection en mémoire, affinée ensuite par le récapitulatif), stopping = arrêt demandé par le joueur
 // après le paquet en cours. Montré pendant l'ouverture par ui/OpenAllStage.jsx.
 export const openAllState = createStore({running: false, opened: 0, total: null, batches: [], stopping: false, error: null});
-export const pullStats = persistentStore("pullStats", {since: Date.now(), packs: 0, cards: 0, byRarity: {}});
+// today : tirages du jour (date locale du navigateur), remis à zéro au premier paquet d'un autre jour
+export const pullStats = persistentStore("pullStats", {since: Date.now(), packs: 0, cards: 0, byRarity: {}, today: null});
+
+// Jour local d'une date, « AAAA-MM-JJ »
+export const dayKey = (date = new Date()) => {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const NO_PULLS = {packs: 0, cards: 0, byRarity: {}};
+// Tirages du jour de `now` : ceux gardés s'ils datent de ce jour, sinon aucun
+export const todayPulls = (stats, now = Date.now()) => (stats?.today?.day === dayKey(now) ? stats.today : {day: dayKey(now), ...NO_PULLS});
+// Statistiques après un paquet (ou un « Tout ouvrir ») : depuis le début et pour le jour de `now`
+export function addPulls(stats, cards, packs = 1, now = Date.now()) {
+  const add = (s) => {
+    const byRarity = {...s.byRarity};
+    for (const c of cards) byRarity[c.rarity] = (byRarity[c.rarity] || 0) + 1;
+    return {packs: s.packs + packs, cards: s.cards + cards.length, byRarity};
+  };
+  return {...stats, ...add(stats), today: {day: dayKey(now), ...add(todayPulls(stats, now))}};
+}
 // En dessous de ce nombre de cartes tirées, la répartition de la collection estime mieux les taux de drop
 export const MIN_PULLED = 50;
 // Nombre de cartes par rareté qui estime le mieux les taux de drop (mes tirages, sinon ma collection)
@@ -102,13 +121,7 @@ on("packs-status", ({data}) => typeof data?.packs_remaining === "number" && pack
 
 // Cartes d'un paquet → statistiques, récapitulatif, proposition de tri
 function handleOpened(cards, {packs = 1, wasOwned, revealing = false}) {
-  if (isOn("pullStats")) {
-    pullStats.set((s) => {
-      const byRarity = {...s.byRarity};
-      for (const c of cards) byRarity[c.rarity] = (byRarity[c.rarity] || 0) + 1;
-      return {...s, packs: s.packs + packs, cards: s.cards + cards.length, byRarity};
-    });
-  }
+  if (isOn("pullStats")) pullStats.set((s) => addPulls(s, cards, packs));
   // Sans collection connue (jamais chargée), on ne sait pas quelles cartes sont nouvelles
   const known = owned.get().loadedAt > 0;
   const enriched = cards.map((c) => ({...c, isNew: known ? !wasOwned.has(c.id) : null}));
@@ -263,6 +276,8 @@ export async function openAllPacks() {
         });
         const total = typeof res.packs_remaining === "number" ? packs + res.packs_remaining : openAllState.get().total;
         openAllState.set((s) => ({...s, opened: packs, total, batches: [...s.batches, batch]}));
+        // Prix lus dès l'arrivée du paquet, pour les montrer sur la scène pendant la révélation
+        loadPrices(res.cards.map((c) => ({id: c.id, rarity: c.rarity}))).catch(() => {});
         if (typeof res.packs_remaining === "number") packsStatus.set({remaining: res.packs_remaining, at: Date.now()});
         if (!res.packs_remaining) break;
         await sleep(PACK_INTERVAL);
@@ -302,4 +317,4 @@ lastRecap.ready.then(() => {
   recapState.subscribe(saveRecap);
 });
 
-export const resetPullStats = () => pullStats.set({since: Date.now(), packs: 0, cards: 0, byRarity: {}});
+export const resetPullStats = () => pullStats.set({since: Date.now(), packs: 0, cards: 0, byRarity: {}, today: null});

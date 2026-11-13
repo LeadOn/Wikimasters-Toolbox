@@ -4,8 +4,13 @@
 // ensemble, chacune peut être mise aux enchères, toujours après confirmation. Dans la page, un
 // bouton enchaîne sur le paquet suivant. Avec l'option « revealTags », chaque ligne montre les
 // étiquettes réelles de l'exemplaire, son étoile et un bouton pour l'étiqueter (ui/QuickTags.jsx).
+// Deux affichages, au choix du joueur (gardé d'une visite à l'autre) : en lignes, ou en cartes
+// dessinées comme sur le site (ui/SiteCard.jsx), avec leur prix. Un clic sur l'image ou le nom d'une
+// carte (sur la carte, en affichage en cartes) ouvre son détail, comme la fenêtre d'une carte du site
+// (ui/CardDetail.jsx) ; la case à cocher sert à la défausse.
 import {useState} from "preact/hooks";
 import {useStore} from "../lib/store";
+import {persistentStore} from "../lib/storage";
 import {recapState, dismissRecap, discardPulledMany, markListed, packsStatus} from "../features/packs";
 import {planSort} from "../features/sorter";
 import {priceOf, priceInfo, priceStatus, priceVersion, uncertainNote} from "../state/prices";
@@ -21,7 +26,12 @@ import {mountIsland} from "./islands/mount";
 import {pulledTags, tagColorOf} from "../features/quick-tags";
 import {StarButton, TagPicker} from "./QuickTags";
 import {DockPicker} from "./DockPicker";
+import {SiteCard} from "./SiteCard";
+import {CardDetail} from "./CardDetail";
 import {L} from "../../shared/i18n";
+
+// Affichage du récapitulatif : "list" (lignes) ou "cards" (cartes comme sur le site)
+export const recapView = persistentStore("recapView", {view: "list"});
 
 export function Price({card, loading}) {
   const shiny = {shiny: card.is_shiny};
@@ -44,8 +54,9 @@ const Thumb = ({card}) => <CardArt card={{...card, image_url: card.hide_image ? 
 // Exemplaire encore entre les mains du joueur : il peut être défaussé ou mis aux enchères
 const available = (c) => Boolean(c.user_card_id) && !c.action;
 
-// Mise aux enchères, un exemplaire à la fois ; une fois fait, ce qu'il est advenu de la carte
-function CardActions({card, index, at, locked}) {
+// Mise aux enchères, un exemplaire à la fois ; une fois fait, ce qu'il est advenu de la carte.
+// before : appelé avant d'ouvrir la fenêtre de vente (ferme la fenêtre de détail)
+function CardActions({card, index, at, locked, before}) {
   const done = card.action;
   if (done?.kind === "discarded") return <span class="chip">{L("Défaussée · +1 ₩", "Discarded · +1 ₩")}</span>;
   if (done?.kind === "listed") return <span class="chip accent">{L("En vente", "For sale")} · {fmt(done.baseAmount)} ₩</span>;
@@ -57,6 +68,7 @@ function CardActions({card, index, at, locked}) {
     );
 
   const sell = async () => {
+    before?.();
     const sale = await askSell({
       card,
       userCardId: card.user_card_id,
@@ -120,6 +132,29 @@ function CopyTags({names}) {
     );
 }
 
+function ViewPicker({view}) {
+  const opts = [
+    {id: "list", icon: "view-list", label: L("Afficher en lignes", "Show as rows")},
+    {id: "cards", icon: "view-cards", label: L("Afficher les cartes comme sur le site", "Show the cards as on the site")},
+  ];
+  return (
+    <div class="seg view-picker" role="group" aria-label={L("Affichage des cartes", "Card display")}>
+      {opts.map((o) => (
+        <button key={o.id} class={view === o.id ? "on" : ""} aria-pressed={view === o.id} title={o.label} aria-label={o.label} onClick={() => recapView.set({view: o.id})}>
+          <Icon name={o.icon} size={14} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Pastilles d'une carte tirée (fenêtre de détail, affichage en cartes)
+const cardBadges = (c) => [
+  c.isNew === true && {label: L("Nouvelle", "New"), type: "ok"},
+  c.isNew === false && {label: L("Doublon", "Duplicate"), type: "danger"},
+  c.is_shiny && {label: "Shiny", type: "warn", icon: "shine"},
+];
+
 // Paquet suivant, sans passer par « Continuer » puis « Ouvrir » (seulement dans la page, quand il en reste)
 function NextPack({onNext, disabled}) {
   const {remaining} = useStore(packsStatus);
@@ -149,11 +184,13 @@ function NextPack({onNext, disabled}) {
 export function PackRecapView({onClose, onNext, compact = false, dock = false, previous = false}) {
   const recap = useStore(recapState);
   const tagged = useStore(pulledTags);
+  const {view} = useStore(recapView);
   useStore(priceVersion);
   const [tagging, setTagging] = useState({at: 0, index: -1}); // ligne dont les étiquettes sont ouvertes
   // Cartes cochées pour la défausse (index dans le paquet), propres à ce récapitulatif
   const [picks, setPicks] = useState({at: 0, set: new Set()});
   const [discarding, setDiscarding] = useState(null); // {done, total} pendant la défausse
+  const [detail, setDetail] = useState({at: 0, index: -1}); // carte dont le détail est ouvert
   if (!recap.cards.length) return null;
   const loading = recap.pricesLoading;
   const prices = recap.cards.map((c) => priceOf(c.id, c.rarity, {shiny: c.is_shiny}));
@@ -175,13 +212,18 @@ export function PackRecapView({onClose, onNext, compact = false, dock = false, p
   const pick = (indexes) => setPicks({at: recap.at, set: new Set(indexes)});
   const toggle = (i) => pick(checked.has(i) ? picked.filter((j) => j !== i) : [...picked, i]);
 
-  const discardPicked = async () => {
+  const openDetail = (i) => setDetail({at: recap.at, index: i});
+  const closeDetail = () => setDetail({at: 0, index: -1});
+  const shown = detail.at === recap.at ? detail.index : -1;
+
+  // Défausse des cartes d'indexes (cochées, ou celle de la fenêtre de détail), après confirmation
+  const discardIndexes = async (indexes) => {
     const at = recap.at;
-    const cards = picked.map((i) => recap.cards[i]);
+    const cards = indexes.map((i) => recap.cards[i]);
     if (!(await confirmDiscardMany(cards.map((c) => ({card: c, rarity: c.rarity, shiny: c.is_shiny, only: c.isNew}))))) return;
-    setDiscarding({done: 0, total: picked.length});
+    setDiscarding({done: 0, total: indexes.length});
     try {
-      const n = await discardPulledMany(at, picked, (done) => setDiscarding({done, total: picked.length}));
+      const n = await discardPulledMany(at, indexes, (done) => setDiscarding({done, total: indexes.length}));
       toast(
         n === 1
           ? L(`${cards[0].wikipedia_title} défaussée : +1 WikiBidou.`, `${cards[0].wikipedia_title} discarded: +1 WikiBidou.`)
@@ -211,6 +253,7 @@ export function PackRecapView({onClose, onNext, compact = false, dock = false, p
           <span class="k">{L("Valeur", "Value")}</span>
           {loading && unpriced ? <span class="spinner" aria-label={L("Chargement des prix", "Loading prices")} /> : unpriced === prices.length ? <span class="v none">—</span> : <Money v={total} class="v" />}
         </div>
+        <ViewPicker view={view} />
         {dock && <DockPicker block="recap" />}
         {onClose && (
           <button class="icon-btn" aria-label={L("Masquer le récapitulatif", "Hide the summary")} onClick={onClose}>
@@ -236,13 +279,46 @@ export function PackRecapView({onClose, onNext, compact = false, dock = false, p
             </button>
           )}
           <span class={`recap-select-count${picked.length ? "" : " hint"}`}>{picked.length ? L(plural(picked.length, "carte cochée", "cartes cochées"), plural(picked.length, "card selected", "cards selected")) : L("Cochez les cartes à défausser", "Select the cards to discard")}</span>
-          <button class="btn sm" disabled={!picked.length || Boolean(discarding)} title={L("Défausser les cartes cochées contre 1 WikiBidou chacune", "Discard the selected cards for 1 WikiBidou each")} onClick={discardPicked}>
+          <button class="btn sm" disabled={!picked.length || Boolean(discarding)} title={L("Défausser les cartes cochées contre 1 WikiBidou chacune", "Discard the selected cards for 1 WikiBidou each")} onClick={() => discardIndexes(picked)}>
             {discarding ? <span class="spinner" aria-label={L("Défausse en cours", "Discarding")} /> : <Icon name="discard" size={14} />}
             {discarding ? L(`Défausse… ${discarding.done}/${discarding.total}`, `Discarding… ${discarding.done}/${discarding.total}`) : L("Défausser", "Discard")}
             {!discarding && picked.length > 0 && <span class="gain">+{picked.length}</span>}
           </button>
         </div>
       )}
+      {view === "cards" ? (
+        <ul class={`recap-grid${compact ? " compact" : ""}`}>
+          {recap.cards.map((c, i) => {
+            const choosableRow = available(c) && !discarding;
+            return (
+              <li
+                key={`${c.id}-${i}`}
+                class={`recap-tile${c.action?.kind === "discarded" ? " gone" : ""}${choosableRow ? " choosable" : ""}`}
+              >
+                <button type="button" class="recap-open" title={L("Voir le détail de la carte", "See the card's details")} aria-label={L(`Détail de ${c.wikipedia_title}`, `${c.wikipedia_title} details`)} onClick={() => openDetail(i)}>
+                  <SiteCard card={c} selected={checked.has(i) && available(c)} badges={cardBadges(c)} price={<Price card={c} loading={loading} />} />
+                </button>
+                <div class="recap-tile-foot">
+                  {available(c) ? (
+                    <input
+                      type="checkbox"
+                      class="recap-pick"
+                      checked={checked.has(i)}
+                      disabled={Boolean(discarding)}
+                      aria-label={L(`Défausser ${c.wikipedia_title}`, `Discard ${c.wikipedia_title}`)}
+                      onChange={() => toggle(i)}
+                    />
+                  ) : (
+                    <span class="recap-pick" />
+                  )}
+                  {quick && c.user_card_id && c.action?.kind !== "discarded" && <StarButton card={c} index={i} />}
+                  <CardActions card={c} index={i} at={recap.at} locked={Boolean(discarding) && checked.has(i)} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
       <ul class={`recap-list${compact ? " compact" : ""}`}>
         {recap.cards.map((c, i) => {
           const choosableRow = available(c) && !discarding;
@@ -265,9 +341,15 @@ export function PackRecapView({onClose, onNext, compact = false, dock = false, p
               ) : (
                 <span class="recap-pick" />
               )}
-              <Thumb card={c} />
+              <button type="button" class="recap-open" title={L("Voir le détail de la carte", "See the card's details")} aria-label={L(`Détail de ${c.wikipedia_title}`, `${c.wikipedia_title} details`)} onClick={() => openDetail(i)}>
+                <Thumb card={c} />
+              </button>
               <div class="recap-card">
-                <div class="recap-name" title={c.wikipedia_title}>{c.wikipedia_title}</div>
+                <div class="recap-name" title={c.wikipedia_title}>
+                  <button type="button" class="recap-open name" onClick={() => openDetail(i)}>
+                    {c.wikipedia_title}
+                  </button>
+                </div>
                 <div class="recap-meta">
                   <Rarity r={c.rarity} />
                   {c.isNew === true && <span class="chip ok">{L("Nouvelle", "New")}</span>}
@@ -310,6 +392,34 @@ export function PackRecapView({onClose, onNext, compact = false, dock = false, p
           );
         })}
       </ul>
+      )}
+      {shown >= 0 && recap.cards[shown] && (() => {
+        const c = recap.cards[shown];
+        return (
+          <CardDetail
+            card={c}
+            badges={cardBadges(c)}
+            tags={quick && c.user_card_id in tagged.links ? <CopyTags names={tagged.links[c.user_card_id]} /> : <SortTags card={c} sort={recap.sort} index={shown} />}
+            onClose={closeDetail}
+            actions={
+              <>
+                {available(c) && !discarding && (
+                  <button
+                    class="btn sm"
+                    onClick={() => {
+                      closeDetail();
+                      discardIndexes([shown]);
+                    }}
+                  >
+                    <Icon name="discard" size={14} /> {L("Défausser", "Discard")} <span class="gain">+1</span>
+                  </button>
+                )}
+                <CardActions card={c} index={shown} at={recap.at} locked={Boolean(discarding)} before={closeDetail} />
+              </>
+            }
+          />
+        );
+      })()}
       <footer class="recap-foot">
         <span class="small muted">
           {loading

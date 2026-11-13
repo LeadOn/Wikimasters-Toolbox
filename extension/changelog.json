@@ -1,0 +1,221 @@
+{
+  "_doc": [
+    "Nouveautés de la Toolbox, écrites pour les joueurs : onglet Nouveautés de l'extension et notes de version de Firefox (npm run release-notes).",
+    "Une entrée par version, la plus récente en premier. Chaque nouveauté dit ce que le joueur voit ou peut faire, et où, sans aucun terme technique (fichier, fonction, route).",
+    "area : rubrique (clé de areas) ; les rubriques d'une version s'affichent dans l'ordre de leur première nouveauté, la plus importante en tête. feature : réglage concerné (clé de FEATURES), pour les boutons Activer et Voir et la mention Nouveau des réglages. tab : onglet du panneau ouvert par Voir."
+  ],
+  "areas": {
+    "toolbox": {
+      "fr": "Toolbox",
+      "en": "Toolbox"
+    },
+    "cards": {
+      "fr": "Cartes",
+      "en": "Cards"
+    },
+    "sort": {
+      "fr": "Tri",
+      "en": "Sorting"
+    },
+    "packs": {
+      "fr": "Paquets",
+      "en": "Packs"
+    },
+    "trades": {
+      "fr": "Échanges",
+      "en": "Trades"
+    },
+    "market": {
+      "fr": "Marché",
+      "en": "Market"
+    },
+    "prices": {
+      "fr": "Prix",
+      "en": "Prices"
+    },
+    "families": {
+      "fr": "Familles",
+      "en": "Families"
+    },
+    "images": {
+      "fr": "Images",
+      "en": "Images"
+    },
+    "achievements": {
+      "fr": "Succès",
+      "en": "Achievements"
+    },
+    "profiles": {
+      "fr": "Profils",
+      "en": "Profiles"
+    }
+  },
+  "releases": [
+    {
+      "version": "2.5.0",
+      "date": "2026-11-13",
+      "items": [
+        {
+          "area": "trades",
+          "feature": "tradeFilter",
+          "fr": "Filtres dans la fenêtre « Échanger avec … » du site : cherchez dans toute la collection de l'ami (ou la vôtre) par prix, nom, thème, rareté, cartes que vous n'avez pas, hors favoris ou doublons, puis ajoutez les cartes trouvées à l'offre en un clic.",
+          "en": "Filters in the site's \"Échanger avec …\" window: search your friend's whole collection (or yours) by price, name, theme, rarity, cards you don't have, non-favorites or duplicates, then add the cards found to the offer in one click."
+        },
+        {
+          "area": "packs",
+          "feature": "packRecap",
+          "fr": "Le récapitulatif d'un paquet s'affiche en lignes ou en cartes, comme sur le site. Un clic sur une carte ouvre sa fiche détaillée : résumé, attaque, défense, Q-Score, vues et prix du marché.",
+          "en": "The pack recap can be shown as rows or as cards, like on the site. Clicking a card opens its details: summary, attack, defense, Q-Score, views and market price."
+        },
+        {
+          "area": "packs",
+          "feature": "openAll",
+          "fr": "« Tout ouvrir » affiche le prix du marché de chaque carte retournée et la valeur cumulée des cartes tirées.",
+          "en": "\"Open all\" shows the market price of each flipped card and the running value of the cards pulled."
+        },
+        {
+          "area": "packs",
+          "feature": "pullStats",
+          "fr": "Taux de drop du jour : l'interrupteur « Aujourd'hui » ne compte que les paquets ouverts aujourd'hui.",
+          "en": "Today's drop rates: the \"Today\" switch only counts the packs opened today."
+        },
+        {
+          "area": "toolbox",
+          "tab": "news",
+          "fr": "Nouvel onglet Nouveautés : après chaque mise à jour, la Toolbox vous signale ce qui a changé, avec un lien vers chaque nouveauté et un bouton pour activer les nouvelles options.",
+          "en": "New \"What's new\" tab: after each update, the Toolbox tells you what changed, with a link to each new feature and a button to turn new options on."
+        },
+        {
+          "area": "toolbox",
+          "tab": "settings",
+          "fr": "Recherche dans les réglages : tapez un mot pour retrouver une option. Les options apparues récemment portent la mention « Nouveau ».",
+          "en": "Search in the settings: type a word to find an option. Recently added options are marked \"New\"."
+        },
+        {
+          "area": "toolbox",
+          "fr": "Bouton « Guide » en haut du panneau : ouvre la partie du guide qui explique l'onglet affiché.",
+          "en": "\"Guide\" button at the top of the panel: opens the part of the guide that explains the current tab."
+        },
+        {
+          "area": "toolbox",
+          "fr": "Si WikiMasters demande une vérification anti-robot, la Toolbox arrête de lire le site et vous propose de recharger la page.",
+          "en": "If WikiMasters asks for a bot check, the Toolbox stops reading the site and offers to reload the page."
+        }
+      ]
+    },
+    {
+      "version": "2.3.0",
+      "date": "2026-11-10",
+      "items": [
+        {
+          "area": "packs",
+          "feature": "openAll",
+          "fr": "« Tout ouvrir » montre l'ouverture : les cartes de chaque paquet sont distribuées face cachée, puis retournées une à une, avec des effets selon la rareté.",
+          "en": "\"Open all\" now shows the opening: each pack's cards are dealt face down, then flipped one by one, with effects based on rarity."
+        },
+        {
+          "area": "packs",
+          "fr": "Pendant « Tout ouvrir » : compteurs par rareté et nouvelles cartes en direct, pile des cartes déjà ouvertes, et un clic sur la table retourne tout le paquet.",
+          "en": "During \"Open all\": live counters by rarity and new cards, a pile of the cards already opened, and a click on the table flips the whole pack."
+        },
+        {
+          "area": "packs",
+          "fr": "« Arrêter » termine le paquet en cours sans en ouvrir d'autre ; la scène peut être réduite pendant que l'ouverture continue.",
+          "en": "\"Stop\" finishes the current pack and opens no more; the scene can be minimized while opening continues."
+        },
+        {
+          "area": "packs",
+          "fr": "À la fin de « Tout ouvrir » : vos meilleures cartes, toutes les cartes tirées et un lien vers le récapitulatif.",
+          "en": "At the end of \"Open all\": your best cards, all the cards pulled, and a link to the recap."
+        }
+      ]
+    },
+    {
+      "version": "2.2.2",
+      "date": "2026-11-10",
+      "items": [
+        {
+          "area": "packs",
+          "fr": "Le récapitulatif du paquet n'apparaît qu'une fois la dernière carte révélée, après la roulette ou le suspense.",
+          "en": "The pack recap now appears only once the last card has been revealed, after the roulette or the suspense."
+        },
+        {
+          "area": "packs",
+          "feature": "packRoulette",
+          "fr": "La roulette peut s'arrêter n'importe où sur le dos de la carte, souvent près d'un bord, et y reste un instant avant de se recentrer.",
+          "en": "The roulette can stop anywhere on the card back, often close to an edge, and pauses there for a moment before centering."
+        }
+      ]
+    },
+    {
+      "version": "2.2.1",
+      "date": "2026-11-10",
+      "items": [
+        {
+          "area": "packs",
+          "fr": "Le son de la Légendaire ne dévoile plus la carte pendant la roulette ou le suspense : il est joué à sa révélation.",
+          "en": "The Legendary sound no longer gives the card away during the roulette or the suspense: it now plays when the card is revealed."
+        }
+      ]
+    },
+    {
+      "version": "2.2.0",
+      "date": "2026-11-10",
+      "items": [
+        {
+          "area": "packs",
+          "feature": "packRoulette",
+          "fr": "Roulette pour la dernière carte (option) : la dernière carte d'un paquet se révèle comme une caisse qu'on ouvre. Une bande de dos de cartes défile avec un cliquetis, ralentit et s'arrête sur sa rareté. Un clic passe l'attente.",
+          "en": "Roulette for the last card (option): the last card of a pack is revealed like a case being opened. A strip of card backs scrolls with a clicking sound, slows down and stops on its rarity. One click skips the wait."
+        },
+        {
+          "area": "packs",
+          "tab": "settings",
+          "fr": "Son du cliquetis : le clic de la Toolbox, ou votre propre son court importé dans les réglages.",
+          "en": "Click sound: the Toolbox's click, or your own short sound imported in the settings."
+        }
+      ]
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-11-10",
+      "items": [
+        {
+          "area": "packs",
+          "feature": "packSuspense",
+          "fr": "Suspense à la révélation : chaque nouvelle carte reste face cachée et se charge de rareté en rareté, puis éclate avec un effet qui grandit avec sa rareté. Un clic passe l'attente.",
+          "en": "Suspense on reveal: each new card stays face down and charges up rarity by rarity, then bursts open with an effect that grows with its rarity. One click skips the wait."
+        },
+        {
+          "area": "packs",
+          "feature": "revealTags",
+          "fr": "Étiquettes et favori à côté de la carte révélée : classez une carte ou mettez-la en favori en un clic pendant la révélation, et depuis le récapitulatif.",
+          "en": "Tags and favorite next to the revealed card: tag a card or star it in one click while the pack is revealed, and from the recap."
+        },
+        {
+          "area": "packs",
+          "fr": "Le récapitulatif du paquet reste affiché après « Continuer », même après un rechargement de la page. Récapitulatif et taux de drop se placent à gauche, dessous ou à droite.",
+          "en": "The pack recap stays on screen after \"Continuer\", even after reloading the page. The recap and drop rates can be placed on the left, below or on the right."
+        },
+        {
+          "area": "market",
+          "feature": "auctionInsight",
+          "fr": "L'analyse d'une enchère prévient si vous misez déjà sur une autre enchère de la même carte, ou si vous en vendez déjà un exemplaire, et liste les prochaines enchères de cette carte.",
+          "en": "An auction's analysis warns you when you already bid on another auction of the same card, or already sell a copy of it, and lists the upcoming auctions for this card."
+        },
+        {
+          "area": "sort",
+          "feature": "favoriteTag",
+          "fr": "Étiquette « Favori » (option) sur vos cartes en favori, pour les filtrer dans votre collection.",
+          "en": "\"Favori\" tag (option) on your starred cards, to filter them in your collection."
+        },
+        {
+          "area": "families",
+          "tab": "families",
+          "fr": "Familles et cartes d'une famille rangées à votre goût (glisser-déposer) ou par nom, complétion, rareté ou prix.",
+          "en": "Order families and the cards in a family your way (drag and drop) or by name, completion, rarity or price."
+        }
+      ]
+    }
+  ]
+}

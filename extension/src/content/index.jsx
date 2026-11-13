@@ -15,6 +15,8 @@ import {startNotificationSound} from "./features/notify";
 import {startStonksRoute} from "./features/stonks";
 import {planSort} from "./features/sorter";
 import {App, openPanel} from "./ui/App";
+import {announceNews} from "./ui/tabs/NewsTab";
+import {hasNews} from "./state/news";
 import {toast, errorMessage} from "./ui/feedback";
 import panelCss from "./ui/panel.css";
 
@@ -48,6 +50,7 @@ if (!window.__wmtContent) {
     startBidAlerts();
     startAuctionTab();
     startAchievements();
+    announceNews().catch((e) => console.warn("[WikiMasters Toolbox] nouveautés", e));
   };
   // Après le chargement complet : le site (React) doit avoir fini d'hydrater la page avant
   // qu'on y ajoute quoi que ce soit, sinon React signale un décalage et re-rend tout.
@@ -60,7 +63,7 @@ if (!window.__wmtContent) {
     ext.runtime.onMessage.addListener((msg, _sender, reply) => {
       if (msg?.type === "status") {
         const s = readSession();
-        reply({connected: Boolean(s), username: s?.username || null, packs: packsStatus.get().remaining});
+        reply({connected: Boolean(s), username: s?.username || null, packs: packsStatus.get().remaining, news: hasNews()});
         return;
       }
       if (msg?.type === "open-panel") {

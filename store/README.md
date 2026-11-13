@@ -34,8 +34,10 @@ Tout ce que les tableaux de bord demandent est dans ce dossier (Firefox : `firef
 
 ## Mises à jour
 
-1. Augmenter `version` dans `package.json` (le Web Store refuse un numéro déjà publié) et ajouter la
-   section de la version à `notes-de-version.md`.
+1. Augmenter `version` dans `package.json` (le Web Store refuse un numéro déjà publié), décrire ses
+   nouveautés pour les joueurs dans `extension/changelog.json` (onglet Nouveautés de l'extension ;
+   `npm test` échoue sans elles) et ajouter la section de la version à `notes-de-version.md` (notes de
+   Firefox : `npm run release-notes`).
 2. `npm test && npm run package`.
 3. Tableau de bord → l'élément → *Paquet* → *Importer un nouveau paquet* ; si la description a changé,
    recoller `fiche.md` dans chaque langue ; *Envoyer pour examen*.
