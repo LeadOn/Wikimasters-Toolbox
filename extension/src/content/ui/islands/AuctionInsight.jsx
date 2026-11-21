@@ -24,13 +24,14 @@ function Gap({gap}) {
 
 // Enchères en cours de la carte et mes mises dessus (features/market.js, cardMarket), lues une fois
 // par page : null pendant la lecture, {error} si elle échoue
-function useCardMarket(cardId) {
+function useCardMarket(card) {
   const [state, setState] = useState(null);
+  const cardId = card?.id;
   useEffect(() => {
     if (!cardId) return undefined;
     let live = true;
     setState(null);
-    cardMarket(cardId)
+    cardMarket(card)
       .then((res) => live && setState(res))
       .catch(() => live && setState({error: true}));
     return () => {
@@ -118,7 +119,7 @@ export function AuctionInsight({auctionId}) {
   const {ids, loadedAt} = useStore(owned);
   const [failed, setFailed] = useState(false);
   const loaded = auctionById(auctionId);
-  const market = useCardMarket(loaded?.card ? loaded.card_id || loaded.card.id : null);
+  const market = useCardMarket(loaded?.card ? {...loaded.card, id: loaded.card_id || loaded.card.id} : null);
   useEffect(() => {
     setFailed(false);
     if (!auctionById(auctionId)?.card) loadAuction(auctionId).catch(() => setFailed(true));

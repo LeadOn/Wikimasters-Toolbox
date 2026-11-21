@@ -1,6 +1,6 @@
 // Marché : mes enchères (suivi, surenchère, alerte de fin) et vente ou défausse de mes doublons.
 import {site} from "../api/site";
-import {rest, restIn} from "../api/supabase";
+import {restIn} from "../api/supabase";
 import {createStore} from "../lib/store";
 import {readSession} from "../lib/session";
 import {on, emit} from "../lib/bus";
@@ -66,22 +66,29 @@ export function loadAuction(id) {
 export const refreshAuction = (id) => site.auction(id).then(rememberAuctionPage);
 
 // --- Enchères en cours d'une même carte (analyse d'une enchère, bouton « Prochaines enchères ») :
-// lues dans la table auctions par l'id de la carte (exact et en une requête, là où la recherche du
-// marché par titre peut en manquer), de la fin la plus proche à la plus lointaine. Une enchère encore
-// « active » dont la fin est passée attend d'être réglée par le site : écartée.
-const CARD_AUCTION_FIELDS = "id,card_id,snapshot_rarity,current_bid,base_amount,end_at,is_shiny,seller_id,current_bidder_id";
-export async function cardAuctions(cardId, {now = Date.now()} = {}) {
-  const rows = await rest(`auctions?select=${CARD_AUCTION_FIELDS}&card_id=eq.${encodeURIComponent(cardId)}&status=eq.active&order=end_at.asc,id.asc&limit=200`, {retries: 3});
-  if (!Array.isArray(rows)) throw new Error(L("Réponse inattendue de la base WikiMasters.", "Unexpected response from the WikiMasters database."));
-  return rows.filter((a) => new Date(a.end_at).getTime() > now);
+// recherche du marché par le titre exact (la table auctions n'est plus lisible depuis novembre 2026),
+// triée par fin la plus proche, gardée pour l'id de la carte. Au plus CARD_AUCTION_PAGES pages de 50.
+// Une enchère encore « active » dont la fin est passée attend d'être réglée par le site : écartée.
+// card : {id, wikipedia_title} (ou {id, title})
+const CARD_AUCTION_PAGES = 3;
+export async function cardAuctions(card, {now = Date.now()} = {}) {
+  const found = new Map();
+  for (let page = 1; page <= CARD_AUCTION_PAGES; page++) {
+    const res = await site.marketplaceSearch({q: card.wikipedia_title || card.title, page, sort: "ending_soon"});
+    if (!Array.isArray(res?.auctions)) throw new Error(L("Réponse inattendue du marché WikiMasters.", "Unexpected response from the WikiMasters market."));
+    rememberAuctions(res.auctions);
+    for (const a of res.auctions) if (a.card_id === card.id && (!a.status || a.status === "active")) found.set(a.id, a);
+    if (!res.hasMore) break;
+  }
+  return [...found.values()].filter((a) => new Date(a.end_at).getTime() > now).sort((a, b) => a.end_at.localeCompare(b.end_at) || a.id.localeCompare(b.id));
 }
 export const isMySale = (a) => Boolean(a.seller_id) && a.seller_id === readSession()?.userId;
 
 // Enchères en cours d'une carte et mes mises sur chacune : {auctions, myBids: Map(id d'enchère →
 // ma plus haute mise)}. Les mises viennent de la table auction_bids, où chaque joueur ne lit que
 // les siennes : exact, sans dépendre de la liste « mes enchères » du site (50 par page).
-export async function cardMarket(cardId, {now = Date.now()} = {}) {
-  const auctions = await cardAuctions(cardId, {now});
+export async function cardMarket(card, {now = Date.now()} = {}) {
+  const auctions = await cardAuctions(card, {now});
   const me = readSession()?.userId;
   const myBids = new Map();
   if (me && auctions.length) {

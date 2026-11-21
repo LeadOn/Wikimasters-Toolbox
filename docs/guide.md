@@ -10,6 +10,7 @@ Ce guide décrit tout ce que fait l'extension, page par page puis onglet par ong
 - [La popup de l'extension](#la-popup-de-lextension)
 - [Comment une carte est triée](#comment-une-carte-est-triée)
 - [Réglages](#réglages-1)
+- [Avertissement](#avertissement)
 - [Sécurité et vie privée](#sécurité-et-vie-privée)
 - [Questions fréquentes](#questions-fréquentes)
 
@@ -17,7 +18,7 @@ Ce guide décrit tout ce que fait l'extension, page par page puis onglet par ong
 
 ## En deux minutes
 
-1. **Installez l'extension** (voir le [README](../README.md#installation)) puis rechargez wiki-masters.com. Vous devez être connecté au site : l'extension utilise votre session, vous n'avez rien à saisir.
+1. **Installez l'extension** (voir le [README](../README.md#installation)) puis rechargez wiki-masters.com. Vous devez être connecté au site : l'extension utilise votre session, vous n'avez rien à saisir. Au premier lancement, **lisez et acceptez l'avertissement** (voir [Avertissement](#avertissement)) : tant qu'il n'est pas accepté, la Toolbox ne fait rien.
 2. **Ouvrez la Toolbox** par l'entrée **Toolbox** du menu du site (sur mobile, dans le menu *Plus*), ou par l'icône de l'extension dans la barre du navigateur. Sur un téléphone, elle occupe tout l'écran (onglets en icônes sous l'en-tête), ses fenêtres s'ouvrent depuis le bas avec leurs boutons toujours visibles, et ses notifications s'affichent au-dessus de la barre de navigation du site.
 3. **Triez votre collection** : onglet *Tri* → *Aperçu du tri* → *Appliquer*. Chaque carte reçoit une étiquette de thème (Sports, Histoire, Sciences…), et les cartes en plusieurs exemplaires l'étiquette `Doublon`. Vos étiquettes personnelles ne sont jamais touchées.
 4. **Décrivez ce que vous collectionnez** dans l'onglet *Profils*, et importez les profils de vos amis : la Toolbox saura quelles cartes leur proposer, et lesquelles leur demander.
@@ -93,7 +94,7 @@ Le site garde ses étiquettes en cache : après un tri, cliquez sur *Actualiser*
 
 Quand vous ouvrez une carte (dans votre collection, le catalogue ou le profil d'un joueur), un bloc Toolbox s'ajoute sous ses détails :
 
-- son **prix du marché** dans sa rareté (celui des shiny pour une carte shiny), le nombre de ventes (et combien de premières ventes sont ignorées), le prix de la dernière et la moyenne affichée par le site ; « indicatif » quand il y a trop peu de ventes ;
+- son **prix du marché** dans sa rareté (le prix moyen de la semaine, celui de l'onglet *Marché* de la fenêtre), le nombre de ventes sur 12 semaines, la fourchette sur 4 semaines et la variation de la semaine ; une semaine sans vente affiche le dernier prix connu avec sa date ; « indicatif » quand il y a trop peu de ventes ;
 - son **thème** ;
 - les **amis intéressés**, d'après leurs profils d'intérêts (« Vous » si elle correspond au vôtre) ;
 - les **familles** qui la contiennent, et un menu pour l'ajouter à l'une de vos familles manuelles ;
@@ -164,7 +165,9 @@ L'entrée **Stonks** du menu du site (juste après *Marché* ; sur mobile, dans 
 
 **Calcul de la plus-value.** Chaque vente est rapprochée du plus ancien achat encore en stock de la même carte, dans la même rareté et la même version (shiny ou non), acheté avant elle (« premier entré, premier sorti »). La plus-value est le prix de vente moins ce prix d'achat. Une vente sans achat correspondant (carte tirée d'un paquet, reçue par échange) n'entre pas dans la plus-value : elle compte dans les ventes et le flux net. Les montants sont ceux des enchères conclues (`final_price`) : le site ne prend pas de commission, le vendeur reçoit le prix final.
 
-*Actualiser* relit l'historique ; il est aussi relu à l'ouverture de la page quand il date de plus de 5 minutes.
+**D'où vient l'historique.** Le site ne donne plus accès à tout l'historique des enchères : la Toolbox le reconstitue à partir de vos enchères du marché (les 50 dernières ventes et les 50 derniers achats, avec leur rareté) et de vos notifications de vente et d'achat (qui ne remontent qu'à début octobre 2026, sans la rareté : celle de la carte est reprise). Tout ce qu'elle voit est gardé dans votre navigateur, même quand le site ne le montre plus : l'historique s'allonge à chaque visite.
+
+*Actualiser* relit vos dernières opérations ; elles sont aussi relues à l'ouverture de la page quand l'affichage date de plus de 5 minutes.
 
 ### Page Échanges
 
@@ -257,18 +260,20 @@ En bas de l'onglet, **Échanges en cours** détaille chaque échange en attente 
 ### Prix
 
 - **Valeur estimée** de votre collection, nombre d'exemplaires dont le prix est connu, valeur par rareté. Les exemplaires vendus trop peu de fois (*Prix incertain*) ne comptent pas dans la valeur.
-- **Charger les prix** : les ventes conclues sont lues par lots de cartes, toute une collection se charge en quelques minutes. Choisissez les raretés, et seulement les cartes sans prix récent pour aller plus vite.
+- **Indexer les prix de ma collection** (désactivé par défaut) : la Toolbox tient à jour, en arrière-plan, le prix de chaque carte de votre collection, tant qu'une page WikiMasters est ouverte. Elle lit une carte à la fois, toujours après les cartes affichées à l'écran : d'abord celles qui n'ont encore aucun prix, de la plus rare à la plus commune (vos doublons en premier), puis celles à relire. Une carte L ou UR est relue chaque jour, une SR tous les 3 jours, une R chaque semaine, une PC ou C et une carte jamais vendue chaque mois. *Vitesse* : normale (un sixième du quota, soit une lecture par minute et 1 440 par jour au quota par défaut de 60) ou rapide (un tiers du quota, soit une toutes les 30 secondes et 2 880 par jour par défaut). L'avancement s'affiche par rareté, avec le nombre de cartes à lire et la durée estimée. Un seul onglet WikiMasters indexe à la fois ; s'il est fermé, un autre prend le relais. Avec le quota par défaut, pour une collection de 15 000 cartes, la première indexation demande environ 250 heures d'onglet ouvert en vitesse normale, 125 en rapide (les cartes L, UR et SR, les premières lues, sont prêtes en 15 heures, 8 en rapide), puis environ 1 100 lectures par jour pour l'entretien.
+
+  **À savoir** : le site interdit l'automatisation dans son règlement, et des milliers de lectures par jour peuvent être prises par lui pour un robot. Au premier refus du site (vérification anti-robot, « requêtes automatisées »), l'indexation s'arrête et se désactive : vous la réactivez vous-même.
 - **Mes cartes les plus chères** : classement filtrable par thème, prix fiables seulement (une Commune vendue une fois très cher n'y apparaît pas).
 - **Filtrer ma collection** (bascule *Filtrer* à côté du classement ; mêmes filtres que sur la page Collection, *Jamais vendues* choisi d'office) : vos cartes les plus rares d'abord, filtrées par critères cumulables (doublons, sans image, GIF) et par vente. *Jamais vendues dans aucune rareté* ne garde que les cartes sans aucune vente conclue ; *dans la rareté de mon exemplaire*, celles qui ne se sont jamais vendues dans cette rareté (la pastille « vendue en … » indique les autres raretés vendues). *Vendues entre …* garde les cartes dont le prix du marché fiable dans leur rareté est dans l'intervalle choisi (bornes incluses). Seules les cartes dont les prix ont été chargés sont comptées : si certaines n'en ont pas encore, un bouton les charge.
   - **Une carte** : *Vendre* ouvre la fenêtre de mise aux enchères (sans prix de référence, la mise de départ est à choisir) ; la corbeille la défausse contre 1 WikiBidou, après confirmation.
   - **Plusieurs cartes** : cliquez sur les cartes pour les cocher, n'importe où sauf sur leur nom et leurs boutons (*Tout* coche la liste affichée), puis *Mettre aux enchères* (même mise de départ et même durée pour toutes, dans la limite des ventes simultanées autorisées par le site) ou *Défausser*, après une confirmation qui signale vos derniers exemplaires et les cartes shiny. Les cartes sont traitées une à une, *Arrêter* interrompt la série, et la première erreur l'arrête aussi : rien n'est jamais renvoyé automatiquement.
   - Un exemplaire par carte à chaque fois : jamais un favori (le site les verrouille), une carte shiny en dernier. La carte disparaît de la liste quand il ne vous en reste plus.
 
-Le **prix du marché** d'une carte est la **médiane de ses 30 dernières ventes dans sa rareté**, hors cartes shiny : une vente aberrante (une Commune vendue 15 000 ₩) ne le déplace pas, contrairement à la moyenne des 200 dernières ventes affichée par le site. Une carte **shiny** a son propre prix, calculé sur les seules ventes shiny.
+Le **prix du marché** d'une carte est le **prix moyen de la semaine dans sa rareté**, exactement celui que le site affiche dans l'onglet *Marché* de la fenêtre d'une carte : la moyenne des ventes de la semaine en cours (du lundi au dimanche, heure de Paris), ou le dernier prix moyen connu pour une semaine sans vente. Il suit donc le marché de près, mais une seule vente dans la semaine suffit à le faire bouger : la fourchette sur 4 semaines et le nombre de ventes, affichés au survol, aident à le relativiser. Le site ne distingue pas les ventes shiny : une carte shiny a le prix de sa rareté.
 
-Un prix n'est **fiable** qu'à partir de 3 ventes, sans compter la toute première vente de la carte dans cette rareté, souvent faite à un prix sans rapport avec le marché (les deux nombres se règlent dans l'onglet *Réglages*). En dessous, le prix est affiché « ≈ » à titre indicatif : il ne compte ni dans les totaux (collection, paquet, échanges), ni dans les mises de départ proposées, ni dans les bonnes affaires.
+Un prix n'est **fiable** qu'à partir de 3 ventes sur les 12 dernières semaines (réglable dans l'onglet *Réglages*). En dessous, le prix est affiché « ≈ » à titre indicatif : il ne compte ni dans les totaux (collection, paquet, échanges), ni dans les mises de départ proposées, ni dans les bonnes affaires.
 
-Les prix sont gardés 48 heures (réglable) et réutilisés partout : pastilles, récapitulatifs, échanges.
+Le site recalcule ses prix au fil de la journée. Un prix est relu quand il a plus de **10 minutes** dans une fiche ouverte (fenêtre d'une carte, page d'une enchère, mise aux enchères), comme l'onglet *Marché* du site, et plus de **3 heures** sur une carte simplement affichée (pastilles, listes). Les prix sont gardés dans votre navigateur et réutilisés partout (pastilles, récapitulatifs, échanges), y compris par vos autres onglets WikiMasters. **Limite du site.** Le site limite le nombre de lectures de prix par compte : au-delà d'un certain volume, il les refuse pendant un moment (« requêtes automatisées »). Par défaut, la Toolbox ne dépasse donc pas **60 lectures en 10 minutes** (et **10 en 30 secondes**), tous onglets compris — un quota réglable dans l'onglet *Réglages* (*Prix et délais*). La moitié est toujours gardée pour les cartes que vous venez de tirer, la carte ou l'enchère ouverte, la fenêtre d'échange et la mise aux enchères : leurs prix arrivent tout de suite, même après avoir parcouru votre collection. L'autre moitié sert aux cartes affichées à l'écran (dans votre collection ou non), puis aux longues listes (familles, filtres, fenêtre d'échange au-delà de 50 cartes) et à l'indexation (dont la cadence suit ce quota). Les cartes les plus rares sont lues en premier. Un prix en attente s'affiche comme en cours de chargement ; au survol, la Toolbox en donne la raison. Après « Tout ouvrir » sur beaucoup de paquets, les prix des cartes communes arrivent donc au fil des minutes. Si le site refuse malgré tout, les lectures de prix (et elles seules) sont mises en pause un quart d'heure, puis reprennent à un rythme réduit de moitié jusqu'au lendemain ; l'indexation, elle, se désactive.
 
 ### Marché
 
@@ -433,6 +438,8 @@ Le champ de recherche en haut de l'onglet retrouve une option par un mot de son 
 | Échanges | Bilan dans la fenêtre d'échange | activée |
 | Échanges | Valeur des échanges | activée |
 | Marché | Alerte de fin d'enchère | activée |
+| Marché | Indexer les prix de ma collection | désactivée |
+| Marché | Vitesse de l'indexation | normale |
 | Marché | Page Stonks | activée |
 | Succès | Réclamer les succès automatiquement | désactivée |
 | Confort | Son de notification | désactivée |
@@ -443,9 +450,19 @@ Le champ de recherche en haut de l'onglet retrouve une option par un mot de son 
 
 **Langue** : l'interface de la Toolbox (panneau, blocs intégrés aux pages, popup, messages) est en français si le navigateur est réglé en français, en anglais sinon. C'est la première langue de la liste du navigateur qui compte, parmi le français et l'anglais (un navigateur réglé « allemand, puis français » affiche le français). Les noms des étiquettes (thèmes, `Doublon`, « Pour : … ») restent ceux de votre liste de thèmes, quelle que soit la langue : un joueur anglophone peut les renommer dans **Thèmes de tri**.
 
-L'onglet règle aussi la **durée de validité d'un prix** (48 heures par défaut), le **nombre de ventes minimum pour un prix fiable** (3) et le **nombre de premières ventes ignorées** pour chaque carte et chaque rareté (1), le **délai de l'alerte de fin d'enchère** (2 minutes), les **thèmes de tri** (voir [Personnaliser les thèmes](#personnaliser-les-thèmes)) et la couleur de `Doublon`, et permet de vider le cache des prix, d'oublier les collections d'amis enregistrées ou de tout réinitialiser.
+L'onglet règle aussi le **nombre de ventes minimum sur 12 semaines pour un prix fiable** (3), le **quota de lectures de prix** (60 par 10 minutes et rafale de 10 par 30 secondes par défaut, partagé entre onglets), le **délai de l'alerte de fin d'enchère** (2 minutes), les **thèmes de tri** (voir [Personnaliser les thèmes](#personnaliser-les-thèmes)) et la couleur de `Doublon`, et permet de vider le cache des prix, d'oublier les collections d'amis enregistrées ou de tout réinitialiser.
 
 ---
+
+## Avertissement
+
+Au premier lancement (et si le texte change), la Toolbox affiche un avertissement à accepter avant de faire quoi que ce soit : tant qu'il n'est pas accepté, elle n'ajoute rien aux pages, ne lit rien sur le site et n'écrit rien sur votre compte.
+
+- Les règles de la communauté de WikiMasters interdisent les bots, scripts et outils qui jouent, ouvrent des paquets, échangent ou interagissent à votre place, ainsi que la modification ou l'interception du trafic du site. Ses conditions d'utilisation prévoient la suspension ou le bannissement d'un compte, notamment en cas d'utilisation d'automatisation, jusqu'à la perte définitive du compte et de son contenu.
+- Utiliser la Toolbox peut donc être considéré comme contraire à ces règles. En l'activant, vous choisissez de l'utiliser en connaissance de cause : **vous êtes seul responsable de son utilisation et de ses conséquences pour votre compte, y compris en cas de sanction ou de bannissement** ; le ou les développeurs de l'extension ne peuvent en être tenus responsables.
+- L'extension est fournie telle quelle, sans garantie.
+
+Pour accepter, cochez la case puis *Accepter et activer la Toolbox*. *Refuser* laisse la Toolbox inactive ; l'avertissement ne revient pas de lui-même, la popup de l'extension (*Lire l'avertissement*) permet de le rouvrir. Le choix est gardé dans votre navigateur.
 
 ## Sécurité et vie privée
 
@@ -490,10 +507,10 @@ Le site n'a pas répondu à temps : l'action a peut-être été faite. Vérifiez
 Aucune vente conclue n'existe pour cette carte dans cette rareté : il n'y a pas de prix à calculer.
 
 **Un prix est précédé de « ≈ », ou une carte affiche « indicatif ».**
-La carte s'est vendue trop peu de fois pour que son prix soit représentatif (3 ventes au minimum par défaut, sa toute première vente n'étant pas comptée). Le prix reste affiché pour information, mais n'entre dans aucun calcul. Le minimum se règle dans l'onglet *Réglages*.
+La carte s'est vendue trop peu de fois ces 12 dernières semaines pour que son prix soit représentatif (3 ventes au minimum par défaut). Le prix reste affiché pour information, mais n'entre dans aucun calcul. Le minimum se règle dans l'onglet *Réglages*.
 
 **Le prix de la Toolbox n'est pas celui du site.**
-Le site affiche la moyenne des 200 dernières ventes ; la Toolbox, la médiane des 30 dernières, qui résiste aux ventes aberrantes et suit mieux le marché. La moyenne du site reste indiquée dans la fiche de la carte.
+C'est le même calcul, sur les mêmes données : le prix moyen de la semaine de l'onglet *Marché*. Un écart vient d'un prix lu plus tôt : sur une pastille, il peut avoir jusqu'à 3 heures ; la fenêtre de la carte le relit s'il a plus de 10 minutes.
 
 **Comment tout effacer ?**
 Onglet *Réglages* → *Données*, ou désinstallez l'extension : tout ce qu'elle a enregistré est supprimé avec elle.

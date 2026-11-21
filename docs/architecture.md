@@ -40,7 +40,7 @@ core/                          moteur partagé (CommonJS, sans dépendance)
   tag-sync.js                  plan de synchronisation des étiquettes (fonctions pures)
   tag-writer.js                écriture d'un plan en base : ordre sûr, lots, reprise après panne
   trade.js                     recherche d'échanges, offre équilibrée, bilan d'une offre
-  prices.js                    raretés, prix du marché (médiane, ventes minimum, premières ventes ignorées, shiny à part), valeur d'une collection, doublons à vendre
+  prices.js                    raretés, prix du marché tiré de l'historique du site (prix moyen de la semaine, semaines de Paris, ventes minimum sur 12 semaines), âge maximal d'un prix (fiche ouverte, carte affichée) et cadence de l'indexation, valeur d'une collection, doublons à vendre
   families.js                  familles de cartes (manuelles ou par règle), progression
   share-code.js                codes de partage WMT-P1… / WMT-F1… (JSON compressé, base64url)
   stonks.js                    achats et ventes au marché : rapprochement vente → achat (premier entré, premier sorti), reventes seules, plus-value, périodes jour / semaine / mois
@@ -77,7 +77,9 @@ extension/
         themes.js              thèmes de tri du joueur : liste compilée, classement d'une carte, couleur d'une étiquette
         profiles.js            mon profil et ceux de mes amis
         collection.js          ma collection, ids des cartes possédées, défausse d'un exemplaire
-        prices.js              cache des prix, chargement groupé, prix fiable ou indicatif selon les réglages
+        prices.js              cache des prix (partagé entre onglets), file de lecture à budget commun aux onglets (60 lectures / 10 min, moitié réservée aux demandes prioritaires) et à priorités (cartes tirées et fiche ouverte, cartes affichées, voie lente avec plafond journalier), pause après un refus du site, lecture passive de l'onglet Marché, prix fiable ou indicatif
+        price-index.js         indexation des prix de toute la collection (option) : onglet meneur, ordre de lecture, avancement
+        disclaimer.js          avertissement à accepter une fois avant que la Toolbox ne démarre (version du texte, choix du joueur)
       features/                fonctionnalités, sans interface
         sorter.js              tri : aperçu (planSort) puis application (applySort)
         autosort.js            tri des cartes tirées à l'ouverture d'un paquet (option)
@@ -100,7 +102,7 @@ extension/
         collection-order.js    ordre par défaut de la page Collection, choisi dans le menu du site une fois par visite
         collection-view.js     collection filtrée (critères cumulables, prix de vente, mots-clés) : mise en vente et défausse, une à une ou par lot
         notify.js              sons de notification et d'alerte
-        stonks.js              page Stonks : historique de mes enchères conclues, cartes achetées en stock, ouverture par #stonks
+        stonks.js              page Stonks : journal local de mes achats et ventes (mes enchères du marché, mes notifications), cartes achetées en stock, ouverture par #stonks
         site-dom.js            intégration aux pages : tous les sélecteurs du site sont ici
         site-assets.js         fichiers du site repris pour la carte sans image : logo, textures de rareté
       ui/                      interface (Preact, dans un Shadow DOM)
@@ -134,6 +136,7 @@ scripts/
   manual_mapping_db.json       corrections manuelles, filet de sécurité des scripts
 
 tests/                         tests node --test (moteur, écriture des étiquettes, réseau, stockage)
+  fixtures/price-history.json  réponses réelles de l'historique des prix du site (21/11/2026), pour vérifier le calcul
 docs/                          guide, structure, routes du site, cahier des charges, scripts
 store/                         fiches, captures et vignettes du Chrome Web Store et de Firefox Add-ons, notes de version
 ```
@@ -213,7 +216,7 @@ Les scripts font la même chose que l'extension en ligne de commande, avec un to
 | `themes.test.js` | Thèmes personnalisés : classement identique par défaut, renommage, ajout, suppression, réglage enregistré (différences seulement), suivi des étiquettes renommées / supprimées, vérification, export / import JSON, plan du tri et écriture après un renommage ou une suppression, réglage de l'extension |
 | `tag-sync.test.js` | Plan de synchronisation, modes complet et incrémental |
 | `tag-writer.test.js` | Écriture des étiquettes : reprise après interruption, pas de doublon, erreurs |
-| `trade-prices-families.test.js` | Échanges (offre équilibrée, bilan d'une offre : WikiBidous, prix fiables seulement, cartes non vues), prix (médiane, ventes minimum, premières ventes ignorées, shiny à part, résumé des ventes), cartes jamais vendues, familles, codes de partage, couleurs des raretés |
+| `trade-prices-families.test.js` | Échanges (offre équilibrée, bilan d'une offre : WikiBidous, prix fiables seulement, cartes non vues), prix (identiques à l'onglet Marché du site sur des réponses réelles, semaines de Paris, prix reporté, fiabilité, relecture et cadence de l'indexation), cartes jamais vendues, familles, codes de partage, couleurs des raretés |
 | `extension-http.test.js` | Couche réseau : réessais, écritures jamais rejouées, session renouvelée, pagination |
 | `extension-storage.test.js` | Stockage : valeurs enregistrées jamais écrasées, plusieurs onglets |
 | `extension-locks.test.js` | Verrou entre onglets : résultat et erreur transmis, opération refusée ou mise en attente, sous Firefox, `navigator.locks` de la page (`wrappedJSObject`) avec un rappel exporté qui rend une promesse de la page |
@@ -221,8 +224,11 @@ Les scripts font la même chose que l'extension en ligne de commande, avec un to
 | `extension-card-images.test.js` | Filtre par image : GIF reconnu dans le chemin de l'URL (vignettes Wikimedia), image masquée comptée sans image, exemplaires cumulés par carte et rareté |
 | `extension-pack-actions.test.js` | Défausse et mise aux enchères d'un exemplaire : bon identifiant envoyé, une seule requête, refus du site, absence de réponse |
 | `stonks.test.js` | Page Stonks : opérations du joueur, rapprochement vente → achat (carte, rareté, shiny ; jamais un achat postérieur), vue achat-revente (reventes seules, à la date de la vente), plus-value, rendement, périodes jour / semaine / mois en heure locale (changement d'heure, semaines du lundi) |
-| `extension-stonks.test.js` | Lecture de l'historique : deux lectures triées (vendeur, acheteur), aucune écriture, cartes encore en stock d'après la collection, cache de quelques minutes, panne signalée sans perdre l'historique affiché |
-| `extension-collection-view.test.js` | Collection filtrée : critères cumulés, jamais vendues (toute rareté ou la sienne), intervalle de prix (prix fiables seulement, recalculés quand les réglages changent ; bornes incluses, facultatives, remises dans l'ordre), lecture des ventes (ordre stable, shiny) et résumé du site qui n'écrase pas un prix récent, mots-clés inclus ou exclus, ouverture depuis la grille du site ; exemplaire visé (jamais un favori, shiny en dernier), une requête par carte, arrêt à la première erreur, collection relue après une écriture sans réponse |
+| `extension-stonks.test.js` | Journal de l'historique : mes enchères du marché (paramètres du site) et mes notifications triées, relues depuis la dernière, une opération vue deux fois comptée une fois, aucune écriture, cartes encore en stock d'après la collection, panne signalée sans perdre l'historique affiché |
+| `extension-disclaimer.test.js` | Avertissement : demandé au premier lancement, choix enregistré, nouvelle version du texte redemandée ; réponses du site gardées tant que le choix n'est pas connu, transmises si accepté, ignorées sinon |
+| `extension-price-budget.test.js` | Budget des prix partagé entre onglets : lectures simultanées toutes comptées, rafale respectée malgré la synchronisation du stockage |
+| `extension-price-index.test.js` | Indexation des prix : désactivée par défaut, cartes jamais lues d'abord (les plus rares, doublons avant), plafond journalier, arrêt et désactivation au premier refus du site ; budget des prix : rafale limitée, fiche ouverte avant les cartes affichées, refus du site → pause des seules lectures de prix, carte gardée en file |
+| `extension-collection-view.test.js` | Collection filtrée : critères cumulés, jamais vendues (toute rareté ou la sienne), intervalle de prix (prix fiables seulement, recalculés quand les réglages changent ; bornes incluses, facultatives, remises dans l'ordre), lecture de l'historique du site (une requête par carte, la plus rare d'abord, sans réessai, pas de relecture d'un prix récent, format inattendu : plus aucune lecture), mots-clés inclus ou exclus, ouverture depuis la grille du site ; exemplaire visé (jamais un favori, shiny en dernier), une requête par carte, arrêt à la première erreur, collection relue après une écriture sans réponse |
 
 Les modules de l'extension sont chargés dans Node par `tests/helpers/extension.js` (regroupés par esbuild), avec `fetch` et `chrome.storage` simulés, et l'interface en français (`navigator.languages` fixé à `fr-FR`).
 

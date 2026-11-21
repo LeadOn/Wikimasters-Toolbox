@@ -105,3 +105,103 @@ test("sans navigator.locks, l'opération est lancée directement", async () => {
   globalThis.navigator.locks = undefined;
   assert.equal(await withLock("sort", async () => "direct"), "direct");
 });
+
+// Stockage partagé simulé pour tester l'élection d'un onglet meneur (electLeader)
+function sharedStorage(initial = {}) {
+  const data = structuredClone(initial);
+  const listeners = new Set();
+  const notify = (changes) => {
+    for (const fn of [...listeners]) fn(structuredClone(changes), "local");
+  };
+  return {
+    data,
+    chrome: {
+      runtime: {id: "test"},
+      storage: {
+        local: {
+          get: async (key) => Object.fromEntries([].concat(key).filter((k) => k in data).map((k) => [k, structuredClone(data[k])])),
+          set: async (obj) => {
+            const changes = {};
+            for (const [k, v] of Object.entries(obj)) {
+              data[k] = structuredClone(v);
+              changes[k] = {newValue: structuredClone(v)};
+            }
+            notify(changes);
+          },
+          remove: async (key) => {
+            const changes = {};
+            for (const k of [].concat(key)) {
+              delete data[k];
+              changes[k] = {newValue: undefined};
+            }
+            notify(changes);
+          },
+        },
+        onChanged: {
+          addListener: (l) => listeners.add(l),
+          removeListener: (l) => listeners.delete(l),
+        },
+      },
+    },
+  };
+}
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test("electLeader : un onglet visible reprend le relais sur un onglet caché ou un bail expiré", async () => {
+  const store = sharedStorage({
+    "leader:idx": {tab: "hidden-tab", visible: false, at: Date.now()},
+  });
+  const doc = new EventTarget();
+  doc.visibilityState = "visible";
+  const win = new EventTarget();
+  globalThis.window = win;
+  globalThis.document = doc;
+  globalThis.chrome = store.chrome;
+  const {electLeader} = loadExtensionModule("extension/src/content/lib/locks.js");
+  const states = [];
+  const handle = electLeader("idx", (on) => states.push(on), {heartbeatMs: 40, ttlMs: 120});
+  await wait(30);
+  assert.deepEqual(states, [true], "un onglet visible reprend immédiatement le relais d'un onglet caché");
+  assert.notEqual(store.data["leader:idx"].tab, "hidden-tab");
+  handle.stop();
+  assert.deepEqual(states, [true, false]);
+  assert.equal(store.data["leader:idx"], undefined, "bail libéré à l'arrêt");
+
+  // Bail visible expiré (onglet figé ou contexte invalidé après rechargement) : repris automatiquement
+  store.data["leader:idx"] = {tab: "stale-tab", visible: true, at: Date.now() - 500};
+  const states2 = [];
+  const handle2 = electLeader("idx", (on) => states2.push(on), {heartbeatMs: 40, ttlMs: 120});
+  await wait(30);
+  assert.deepEqual(states2, [true], "un bail expiré est repris automatiquement");
+  handle2.stop();
+});
+
+test("electLeader : deux onglets visibles ne se battent pas, take() transfère le relais proprement", async () => {
+  const store = sharedStorage({
+    "leader:idx2": {tab: "other-visible", visible: true, at: Date.now()},
+  });
+  const doc = new EventTarget();
+  doc.visibilityState = "visible";
+  const win = new EventTarget();
+  globalThis.window = win;
+  globalThis.document = doc;
+  globalThis.chrome = store.chrome;
+  const {electLeader} = loadExtensionModule("extension/src/content/lib/locks.js");
+  const states = [];
+  const handle = electLeader("idx2", (on) => states.push(on), {heartbeatMs: 500, ttlMs: 2000});
+  await wait(30);
+  assert.deepEqual(states, [], "un autre onglet visible garde le relais");
+  await handle.take();
+  assert.deepEqual(states, [true], "take() force la reprise dans cet onglet");
+  const myTab = store.data["leader:idx2"].tab;
+  assert.notEqual(myTab, "other-visible");
+  // Un autre onglet reprend le relais via le stockage : cet onglet s'efface aussitôt
+  await store.chrome.storage.local.set({"leader:idx2": {tab: "third-tab", visible: true, at: Date.now()}});
+  assert.deepEqual(states, [true, false], "cède dès qu'un autre onglet écrit son bail");
+  // Fermeture de l'autre onglet (bail supprimé) : reprise immédiate
+  await store.chrome.storage.local.remove("leader:idx2");
+  await wait(30);
+  assert.deepEqual(states, [true, false, true], "reprend aussitôt quand l'autre onglet ferme");
+  handle.stop();
+});

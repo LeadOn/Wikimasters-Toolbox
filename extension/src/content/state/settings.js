@@ -40,17 +40,34 @@ export const FEATURES = [
   {key: "tradeRecap", group: L("Échanges", "Trades"), label: L("Bilan dans la fenêtre d'échange", "Summary in the trade window"), help: L("Dans la fenêtre « Échanger avec … » du site : valeur au prix du marché de ce que vous donnez et de ce que vous recevez (WikiBidous compris), et la différence.", "In the site's \"Échanger avec …\" window: market value of what you give and what you get (WikiBidous included), and the difference.")},
   {key: "tradeFilter", group: L("Échanges", "Trades"), label: L("Filtre par prix dans la fenêtre d'échange", "Price filter in the trade window"), help: L("Dans la fenêtre « Échanger avec … » du site : filtre toute la collection de l'onglet ouvert (celle de l'ami ou la vôtre) par prix, comme les filtres de la collection, et ajoute les cartes trouvées à l'offre en un clic.", "In the site's \"Échanger avec …\" window: filters the whole collection of the open tab (your friend's or yours) by price, like the collection filters, and adds the cards found to the offer in one click.")},
   {key: "tradeValues", group: L("Échanges", "Trades"), label: L("Valeur des échanges", "Trade values"), help: L("Prix du marché de chaque carte et total de chaque côté des échanges en cours.", "Market price of each card and total for each side of ongoing trades.")},
+  {key: "priceIndex", group: L("Marché", "Market"), label: L("Indexer les prix de ma collection", "Index my collection's prices"), help: L("Tient à jour en arrière-plan le prix de toutes les cartes de votre collection (une lecture à la fois, à la cadence du quota réglé, plafonnée chaque jour), tant qu'une page WikiMasters est ouverte. Les cartes affichées à l'écran ont leur prix tout de suite, même sans cette option. Des milliers de lectures par jour peuvent être prises par le site pour de l'automatisation : l'indexation s'arrête d'elle-même au premier refus du site.", "Keeps the price of every card in your collection up to date in the background (one read at a time, at the pace of your configured quota, capped each day), as long as a WikiMasters page is open. Cards shown on screen get their price right away, even without this option. Thousands of reads a day may be taken by the site for automation: indexing stops on its own as soon as the site refuses.")},
+  {key: "priceIndexSpeed", group: L("Marché", "Market"), label: L("Vitesse de l'indexation", "Indexing speed"), help: L("Normale : un sixième du quota de lectures de prix (une lecture par minute et 1 440 par jour au quota par défaut de 60). Rapide : un tiers du quota (une toutes les 30 secondes et 2 880 par jour par défaut). Le quota global (fenêtre de 10 minutes et rafale de 30 secondes) se règle dans « Prix et délais » ci-dessous ; la moitié reste réservée aux cartes que vous tirez ou ouvrez.", "Normal: one sixth of the price read quota (one read per minute and 1,440 a day at the default quota of 60). Fast: one third of the quota (one every 30 seconds and 2,880 a day by default). The overall quota (10-minute window and 30-second burst) can be adjusted under \"Prices and timing\" below; half stays reserved for the cards you pull or open."), choices: [
+    {id: "normal", label: L("Normale", "Normal")},
+    {id: "fast", label: L("Rapide", "Fast")},
+  ]},
   {key: "bidAlerts", group: L("Marché", "Market"), label: L("Alerte de fin d'enchère", "Auction ending alert"), help: L("Prévient quand une enchère où vous êtes dépassé se termine bientôt.", "Warns you when an auction where you have been outbid is ending soon.")},
   {key: "stonks", group: L("Marché", "Market"), label: L("Page Stonks", "Stonks page"), help: L("Entrée « Stonks » dans le menu du site : vos achats et ventes au marché par jour, semaine ou mois, et la plus-value de l'achat-revente. Historique seulement.", "\"Stonks\" entry in the site menu: your market purchases and sales by day, week or month, and the profit from flipping. History only.")},
   {key: "autoClaimAchievements", group: L("Succès", "Achievements"), label: L("Réclamer les succès automatiquement", "Claim achievements automatically"), help: L("Réclame d'elle-même la récompense de chaque succès débloqué : au chargement d'une page WikiMasters, toutes les 15 minutes et après un paquet ou un échange. Sans cette option, le bouton « Tout réclamer » de l'onglet Succès le fait en un clic.", "Claims the reward of each unlocked achievement on its own: when a WikiMasters page loads, every 15 minutes and after a pack or a trade. Without this option, the \"Claim all\" button in the Achievements tab does it in one click.")},
   {key: "notificationSound", group: L("Confort", "Comfort"), label: L("Son de notification", "Notification sound"), help: L("Joue un son discret quand une nouvelle notification arrive.", "Plays a subtle sound when a new notification arrives.")},
 ];
 
-const OFF_BY_DEFAULT = new Set(["packRoulette", "favoriteTag", "missingImages", "notificationSound", "autoSortPulls", "autoClaimAchievements", "skipStarred"]);
+const OFF_BY_DEFAULT = new Set(["packRoulette", "favoriteTag", "missingImages", "notificationSound", "autoSortPulls", "autoClaimAchievements", "skipStarred", "priceIndex"]);
 
 // Activées par défaut pour une nouvelle installation seulement : une installation qui a déjà des
 // réglages enregistrés, sans cette option, la garde désactivée (le joueur l'active dans les réglages)
 const ON_FOR_NEW_INSTALLS = ["packSuspense"];
+
+// Quota des lectures de prix (par fenêtre de 10 min et par rafale de 30 s, tous onglets compris).
+// Par défaut : 60 / 10 min et 10 / 30 s ; modifiable par le joueur dans les Réglages.
+export const PRICE_QUOTA_LIMITS = {
+  window: {min: 2, max: 1200, default: 60},
+  burst: {min: 2, max: 120, default: 10},
+};
+
+export function clampQuota(value, bounds) {
+  const n = Math.round(Number(value));
+  return value === "" || value == null || !Number.isFinite(n) ? bounds.default : Math.min(bounds.max, Math.max(bounds.min, n));
+}
 
 export const DEFAULT_SETTINGS = {
   // Interrupteurs ; une option à choix (choices) a sa propre valeur, à sa clé
@@ -61,10 +78,13 @@ export const DEFAULT_SETTINGS = {
   themes: null,
   // Couleur de l'étiquette Doublon (celles des thèmes sont dans `themes`)
   themeColors: {},
-  priceMaxAgeHours: 48,
-  // Prix du marché : ventes nécessaires pour qu'il soit fiable, premières ventes de la carte ignorées
+  // Prix du marché : ventes sur les 12 dernières semaines nécessaires pour qu'il soit fiable
   minSales: PRICE_DEFAULTS.minSales,
-  skipFirstSales: PRICE_DEFAULTS.skipFirst,
+  // Quota de lectures de prix (tous onglets compris) : fenêtre de 10 min et rafale de 30 s
+  priceQuotaWindow: PRICE_QUOTA_LIMITS.window.default,
+  priceQuotaBurst: PRICE_QUOTA_LIMITS.burst.default,
+  // Indexation des prix de la collection : id d'un choix de priceIndexSpeed
+  priceIndexSpeed: "normal",
   bidAlertMinutes: 2,
   // Page Paquets : place du récapitulatif et des taux de drop ("below" sous le contenu, "left" / "right" dans la marge)
   packDock: {recap: "below", rates: "below"},
@@ -80,10 +100,16 @@ function migrateThemeColors(saved) {
   return {themes, themeColors};
 }
 
+// Réglages retirés (v2.7 : prix tirés de l'historique du site, durée de validité fixée par le contexte)
+const RETIRED = ["priceMaxAgeHours", "skipFirstSales"];
+const withoutRetired = (saved) => Object.fromEntries(Object.entries(saved).filter(([k]) => !RETIRED.includes(k)));
+
 export const settings = persistentStore("settings", DEFAULT_SETTINGS, {
   merge: (saved) => ({
     ...DEFAULT_SETTINGS,
-    ...saved,
+    ...withoutRetired(saved),
+    priceQuotaWindow: clampQuota(saved.priceQuotaWindow, PRICE_QUOTA_LIMITS.window),
+    priceQuotaBurst: clampQuota(saved.priceQuotaBurst, PRICE_QUOTA_LIMITS.burst),
     features: {...DEFAULT_SETTINGS.features, ...Object.fromEntries(ON_FOR_NEW_INSTALLS.map((k) => [k, false])), ...(saved.features || {})},
     packDock: {...DEFAULT_SETTINGS.packDock, ...(saved.packDock || {})},
     ...migrateThemeColors(saved),

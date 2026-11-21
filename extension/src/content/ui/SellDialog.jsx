@@ -6,7 +6,7 @@ import {useState, useEffect, useRef} from "preact/hooks";
 import {createStore, useStore} from "../lib/store";
 import {sellCard} from "../features/market";
 import {site, AUCTION_DURATIONS} from "../api/site";
-import {priceInfo, priceOptions, pricing} from "../state/prices";
+import {priceInfo, priceOptions, pricing, requestPrice, priceVersion} from "../state/prices";
 import {CardRow, Notice, Progress, fmt, plural} from "./components";
 import {toast, errorMessage} from "./feedback";
 import {L} from "../../shared/i18n";
@@ -66,30 +66,39 @@ function AuctionFields({amount, setAmount, minutes, setMinutes, label = L("Mise 
   );
 }
 
-// Ce que l'on sait du prix de l'exemplaire, sous le formulaire
+// Ce que l'on sait du prix de l'exemplaire, sous le formulaire (le site ne distingue pas les shiny)
 function priceHelp(info, shiny) {
-  const version = shiny ? " en shiny" : "";
-  if (!info) return L(`Cette carte n'a jamais été vendue${version} dans cette rareté.`, `This card has never been sold${shiny ? " as shiny" : ""} in this rarity.`);
+  const noShiny = shiny ? L(" Le site ne distingue pas les ventes shiny.", " The site does not separate shiny sales.") : "";
+  if (!info) return L("Cette carte n'a jamais été vendue dans cette rareté.", "This card has never been sold in this rarity.");
   if (info.reliable)
-    return L(
-      `Prix du marché${shiny ? " shiny" : ""} pour cette rareté : ${fmt(info.price)} ₩ (${plural(info.total, "vente")}).`,
-      `${shiny ? "Shiny market price" : "Market price"} for this rarity: ${fmt(info.price)} ₩ (${plural(info.total, "sale")}).`,
+    return (
+      L(
+        `Prix du marché pour cette rareté : ${fmt(info.price)} ₩, prix moyen ${info.carried ? "de la dernière semaine vendue" : "de la semaine"} (${plural(info.sales, "vente")} sur 12 semaines).`,
+        `Market price for this rarity: ${fmt(info.price)} ₩, average price ${info.carried ? "of the last week with sales" : "of the week"} (${plural(info.sales, "sale")} in 12 weeks).`,
+      ) + noShiny
     );
-  if (info.price == null)
-    return L(
-      `Les seules ventes${version} de cette carte sont ses toutes premières, ignorées : pas encore de prix du marché.`,
-      `The only${shiny ? " shiny" : ""} sales of this card are its very first ones, which are ignored: no market price yet.`,
-    );
-  return L(
-    `Prix indicatif : ${fmt(info.price)} ₩, sur trop peu de ventes pour être fiable (${plural(info.sales, "prise", "prises")} en compte, il en faut ${priceOptions().minSales}).`,
-    `Estimated price: ${fmt(info.price)} ₩, from too few sales to be reliable (${fmt(info.sales)} counted, ${priceOptions().minSales} needed).`,
+  return (
+    L(
+      `Prix indicatif : ${fmt(info.price)} ₩, sur trop peu de ventes pour être fiable (${plural(info.sales, "vente")} sur 12 semaines, il en faut ${priceOptions().minSales}).`,
+      `Estimated price: ${fmt(info.price)} ₩, from too few sales to be reliable (${plural(info.sales, "sale")} in 12 weeks, ${priceOptions().minSales} needed).`,
+    ) + noShiny
   );
 }
 
 function SellForm({card, userCardId, rarity, shiny = false, badges = [], note}) {
+  useStore(priceVersion);
   const info = priceInfo(card.id, rarity, {shiny});
-  // Mise de départ proposée : le prix du marché, seulement s'il est fiable
-  const [amount, setAmount] = useState(String((info?.reliable && info.price) || 10));
+  // Mise de départ proposée : le prix du marché, seulement s'il est fiable ; reprise quand un prix
+  // plus récent arrive, tant que le joueur ne l'a pas modifiée
+  const suggested = String((info?.reliable && info.price) || 10);
+  const [amount, setAmount] = useState(suggested);
+  const edited = useRef(false);
+  useEffect(() => {
+    requestPrice(card.id, {detail: true});
+  }, [card.id]);
+  useEffect(() => {
+    if (!edited.current) setAmount(suggested);
+  }, [suggested]);
   const [minutes, setMinutes] = useState(60);
   const quota = useQuota();
   const [busy, setBusy] = useState(false);
@@ -120,7 +129,15 @@ function SellForm({card, userCardId, rarity, shiny = false, badges = [], note}) 
         <h3>{L("Mettre aux enchères", "Put up for auction")}</h3>
         <CardRow card={card} rarity={rarity} {...pricing(card.id, rarity, {shiny})} badges={badges} />
         <p class="help">{note || L("L'exemplaire est mis en réserve pendant l'enchère.", "The copy is held in reserve during the auction.")}</p>
-        <AuctionFields amount={amount} setAmount={setAmount} minutes={minutes} setMinutes={setMinutes} />
+        <AuctionFields
+          amount={amount}
+          setAmount={(v) => {
+            edited.current = true;
+            setAmount(v);
+          }}
+          minutes={minutes}
+          setMinutes={setMinutes}
+        />
         <p class="small muted">
           {priceHelp(info, shiny)}
           {quota && L(` ${quota.sellingCount} / ${quota.maxConcurrentAuctions} ventes en cours.`, ` ${quota.sellingCount} / ${quota.maxConcurrentAuctions} active sales.`)}

@@ -10,6 +10,18 @@ const ext = globalThis.browser?.runtime?.id ? globalThis.browser : globalThis.ch
 const SITE = "https://www.wiki-masters.com/";
 const isSite = (url) => /^https:\/\/(www\.)?wiki-masters\.com\//.test(url || "");
 
+const num = (n) => Number(n || 0).toLocaleString(LANG === "en" ? "en-US" : "fr-FR");
+
+// État de l'indexation des prix de la collection (réglage activé), renvoyé par l'onglet WikiMasters
+function indexLine(p) {
+  if (p.stopped) return L("Indexation des prix arrêtée : le site a refusé une lecture.", "Price indexing stopped: the site refused a read.");
+  if (!p.leader) return L("Indexation des prix : faite par un autre onglet WikiMasters.", "Price indexing: done by another WikiMasters tab.");
+  if (p.total == null) return L("Indexation des prix : lecture de la collection…", "Price indexing: reading the collection…");
+  const done = L(`Prix indexés : ${num(p.read)} / ${num(p.total)} cartes`, `Prices indexed: ${num(p.read)} / ${num(p.total)} cards`);
+  if (p.today >= p.cap) return `${done} · ${L("plafond du jour atteint", "daily cap reached")}`;
+  return `${done} · ${p.due ? L(`${num(p.due)} à lire`, `${num(p.due)} to read`) : L("à jour", "up to date")}`;
+}
+
 function Popup() {
   const [tab, setTab] = useState(null);
   const [status, setStatus] = useState(null);
@@ -51,7 +63,16 @@ function Popup() {
           {L("Ouvrir WikiMasters", "Open WikiMasters")}
         </button>
       )}
-      {onSite && status?.connected && (
+      {onSite && status && status.accepted === false && (
+        <>
+          <p class="sub">{L("La Toolbox est inactive tant que son avertissement n'est pas accepté.", "The Toolbox stays inactive until its warning is accepted.")}</p>
+          <button class="primary" onClick={() => send({type: "show-disclaimer"})}>
+            {L("Lire l'avertissement", "Read the warning")}
+          </button>
+        </>
+      )}
+      {onSite && status?.connected && status.accepted !== false && status.priceIndex && <p class="sub index">{indexLine(status.priceIndex)}</p>}
+      {onSite && status?.connected && status.accepted !== false && (
         <>
           <button class="primary" onClick={() => send({type: "sort-new"})}>
             <Icon name="sort" size={16} /> {L("Trier mes nouvelles cartes", "Sort my new cards")}

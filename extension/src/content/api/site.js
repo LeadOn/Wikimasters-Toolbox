@@ -20,11 +20,13 @@ const noteBlock = (e) => {
   throw e;
 };
 
-export const siteGet = (path, opts = {}) =>
+// localBlock : un refus pour automatisation ne vaut que pour cette route (prix : limite propre à la
+// route, gérée par state/prices.js) ; les autres lectures du site continuent
+export const siteGet = (path, { localBlock = false, ...opts } = {}) =>
   limit(() => {
     if (blocked) throw blocked;
     return request(path, { ...opts, credentials: "include" });
-  }).catch(noteBlock);
+  }).catch(localBlock ? (e) => Promise.reject(e) : noteBlock);
 
 const sitePost = (path, body, opts = {}) =>
   request(path, {
@@ -45,8 +47,7 @@ const qs = (params) => {
 
 export const site = {
   friends: () => siteGet("/api/friends"),
-  profile: (username) => siteGet(`/api/profile/${encodeURIComponent(username)}`),
-  // 50 cartes par page ; souvent lente (jusqu'à 30 s)
+  // 50 cartes par page (~300 ms depuis novembre 2026, jusqu'à 30 s avant)
   profileCollection: (username, page, { rarities = [], stats = false, signal } = {}) =>
     siteGet(
       `/api/profile/${encodeURIComponent(username)}/collection?${qs({ page, sort: "rarity", stats: stats ? 1 : 0, pending: 1, rarity: rarities })}`,
@@ -55,9 +56,14 @@ export const site = {
   myCollectionStats: () => siteGet("/api/my-collection/stats?sort=rarity"),
   searchCards: ({ q, page = 0, rarities = [], sort = "rarity", signal } = {}) =>
     siteGet(`/api/cards?${qs({ page, q, sort, rarity: rarities })}`, { signal }),
-  salesSummary: (cardId, { signal } = {}) => siteGet(`/api/marketplace/cards/${cardId}/sales?scope=summary`, { retries: 3, signal }),
-  marketplaceSearch: ({ q, page = 1, rarities = [], sort } = {}) => siteGet(`/api/marketplace?${qs({ page, limit: 50, q, sort, rarity: rarities })}`),
-  marketplaceMine: () => siteGet("/api/marketplace?page=1&limit=50&mine=1"),
+  // Historique des ventes d'une carte, toutes raretés : {computed_at, by_rarity: {R: {weekly, monthly}}}
+  // (onglet Marché de la fiche ; recalculé par le site au fil de la journée, gardé 5 min en cache)
+  // Limitée en volume par compte : refus « automation_limit » propre à cette route (localBlock)
+  priceHistory: (cardId, { retries, signal } = {}) => siteGet(`/api/marketplace/cards/${encodeURIComponent(cardId)}/price-history`, { retries, signal, localBlock: true }),
+  // Marché : 50 enchères par page, seule taille acceptée (une autre valeur de limit est refusée comme
+  // automatisation) ; sort parmi les valeurs du site (recent, price_asc, price_desc, ending_soon)
+  marketplaceSearch: ({ q, page = 1, rarities = [], sort = "recent" } = {}) => siteGet(`/api/marketplace?${qs({ page, limit: 50, sort, q, rarity: rarities })}`),
+  marketplaceMine: () => siteGet("/api/marketplace?page=1&limit=50&sort=recent&mine=1"),
   marketplaceQuota: () => siteGet("/api/marketplace/mine"),
   auction: (id) => siteGet(`/api/marketplace/${id}`),
   wikibidous: () => siteGet("/api/wikibidous"),

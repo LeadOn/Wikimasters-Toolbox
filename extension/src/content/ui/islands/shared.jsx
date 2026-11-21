@@ -2,47 +2,45 @@
 import {useEffect} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {readSession} from "../../lib/session";
-import {priceInfo, priceStatus, requestPrice, priceVersion, uncertainNote} from "../../state/prices";
+import {priceInfo, priceStatus, requestPrice, priceVersion, priceSource, uncertainNote, weekLabel} from "../../state/prices";
 import {profiles, activeProfiles} from "../../state/profiles";
 import {Icon, Money, ThemeChip, plural} from "../components";
-import {FRIEND_PREFIX, RARITY_LABEL, RECENT_SALES} from "../../../../../core";
+import {FRIEND_PREFIX, RARITY_LABEL} from "../../../../../core";
 import {classify} from "../../state/themes";
-import {L} from "../../../shared/i18n";
+import {L, LOCALE} from "../../../shared/i18n";
 
-// Ventes connues, premières ventes ignorées, dernière vente et moyenne affichée par le site
-function SalesNote({info, shiny}) {
-  const ignored = info.total - info.sales;
+export const PRICE_TITLE = L("Prix moyen de la semaine, comme dans l'onglet Marché de la fiche de la carte sur le site", "The week's average price, as in the Market tab of the card's page on the site");
+const percent = (v) => v.toLocaleString(LOCALE, {style: "percent", maximumFractionDigits: 1, signDisplay: "exceptZero"});
+
+// Ce qui fonde le prix, comme l'onglet Marché du site : ventes sur 12 semaines, fourchette sur
+// 4 semaines, variation de la semaine ; semaine sans vente : dernier prix connu
+export function SalesNote({info, shiny = false}) {
   return (
     <span class="muted small">
-      {L(plural(info.total, shiny ? "vente shiny" : "vente", shiny ? "ventes shiny" : "ventes"), plural(info.total, shiny ? "shiny sale" : "sale", shiny ? "shiny sales" : "sales"))}
-      {ignored > 0 && L(` dont ${plural(ignored, "première ignorée", "premières ignorées")}`, `, ${plural(ignored, "first one", "first ones")} ignored`)}
-      {info.latest != null && (
+      {L(`${plural(info.sales, "vente")} sur 12 semaines`, `${plural(info.sales, "sale")} in 12 weeks`)}
+      {info.carried && info.lastSale && L(` · dernier prix connu (semaine du ${weekLabel(info.lastSale)})`, ` · last known price (week of ${weekLabel(info.lastSale)})`)}
+      {info.change != null && !info.carried && L(` · ${percent(info.change)} cette semaine`, ` · ${percent(info.change)} this week`)}
+      {info.low4 != null && info.high4 != null && info.low4 !== info.high4 && (
         <>
-          {L(" · dernière ", " · last ")}
-          <Money v={info.latest} />
+          {L(" · sur 4 semaines ", " · over 4 weeks ")}
+          <Money v={info.low4} />–<Money v={info.high4} />
         </>
       )}
-      {!shiny && info.average != null && info.average !== info.price && (
-        <>
-          {L(" · moyenne du site ", " · site average ")}
-          <Money v={info.average} />
-        </>
-      )}
+      {shiny && L(" · le site ne distingue pas les ventes shiny", " · the site does not separate shiny sales")}
     </span>
   );
 }
 
-// Prix du marché pour la rareté (shiny : celui des exemplaires shiny), demandé dès l'affichage s'il
-// n'est pas en cache (instantané sinon)
+// Prix du marché pour la rareté (fiche ouverte, page d'une enchère), relu dès l'affichage s'il a plus de
+// 10 min, comme l'onglet Marché du site (instantané sinon).
+// Le site ne distingue pas les ventes shiny : une shiny a le prix de sa rareté.
 export function PriceLine({cardId, rarity, shiny = false}) {
   useStore(priceVersion);
+  useStore(priceSource);
   useEffect(() => {
-    if (cardId) requestPrice(cardId, {rarity});
+    if (cardId) requestPrice(cardId, {detail: true});
   }, [cardId, rarity]);
-  const label = L(
-    `Prix du marché${RARITY_LABEL[rarity] ? ` ${RARITY_LABEL[rarity]}` : ""}${shiny ? " shiny" : ""}`,
-    `${RARITY_LABEL[rarity] ? `${RARITY_LABEL[rarity]} ` : ""}${shiny ? "shiny " : ""}market price`,
-  );
+  const label = L(`Prix du marché${RARITY_LABEL[rarity] ? ` ${RARITY_LABEL[rarity]}` : ""}`, `${RARITY_LABEL[rarity] ? `${RARITY_LABEL[rarity]} ` : ""}market price`);
   if (!cardId)
     return (
       <div class="kv">
@@ -50,32 +48,37 @@ export function PriceLine({cardId, rarity, shiny = false}) {
         <span class="spinner" aria-label={L("Recherche de la carte", "Looking up the card")} />
       </div>
     );
-  const status = priceStatus(cardId, rarity, {shiny});
-  const info = priceInfo(cardId, rarity, {shiny});
+  const status = priceStatus(cardId, rarity);
+  const info = priceInfo(cardId, rarity);
+  const source = priceSource.get();
   return (
     <div class="kv">
       <span class="k">{label}</span>
       {status === "ok" ? (
         <>
-          <span title={L(`Médiane des ${RECENT_SALES} dernières ventes prises en compte${shiny ? "" : ", hors shiny"}`, `Median of the last ${RECENT_SALES} counted sales${shiny ? "" : ", excluding shiny"}`)}>
+          <span title={PRICE_TITLE}>
             <Money v={info.price} class="price-big" />
           </span>
           <SalesNote info={info} shiny={shiny} />
         </>
       ) : status === "few" ? (
         <>
-          {info.price != null && <Money v={info.price} class="price-big" approx title={uncertainNote(info)} />}
-          <span class="chip warn" title={info.price != null ? uncertainNote(info) : L("Les toutes premières ventes d'une carte sont ignorées (réglable dans les réglages de la Toolbox).", "A card's very first sales are ignored (adjustable in the Toolbox settings).")}>
-            {info.price != null ? L("indicatif", "tentative") : L("pas encore de prix", "no price yet")}
+          <Money v={info.price} class="price-big" approx title={uncertainNote(info)} />
+          <span class="chip warn" title={uncertainNote(info)}>
+            {L("indicatif", "tentative")}
           </span>
           <SalesNote info={info} shiny={shiny} />
         </>
       ) : status === "unknown" ? (
-        <span class="spinner" aria-label={L("Chargement du prix", "Loading price")} />
+        source.broken ? (
+          <span class="muted small">{source.message}</span>
+        ) : (
+          <span class="spinner" aria-label={L("Chargement du prix", "Loading price")} />
+        )
       ) : status === "error" ? (
         <span class="muted small">{L("serveur indisponible, nouvel essai dans quelques minutes", "server unavailable, retrying in a few minutes")}</span>
       ) : (
-        <span class="muted small">{shiny ? L("jamais vendue en shiny dans cette rareté", "never sold as shiny in this rarity") : L("jamais vendue dans cette rareté", "never sold in this rarity")}</span>
+        <span class="muted small">{L("jamais vendue dans cette rareté", "never sold in this rarity")}</span>
       )}
     </div>
   );

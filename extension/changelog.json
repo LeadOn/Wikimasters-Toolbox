@@ -62,6 +62,51 @@
   },
   "releases": [
     {
+      "version": "2.7.0",
+      "date": "2026-11-21",
+      "items": [
+        {
+          "area": "toolbox",
+          "fr": "Au premier lancement, la Toolbox affiche un avertissement à accepter : le règlement de WikiMasters interdit les outils d'automatisation, et vous restez seul responsable de son utilisation pour votre compte.",
+          "en": "On first launch, the Toolbox shows a warning to accept: WikiMasters' rules forbid automation tools, and you alone are responsible for using it with your account."
+        },
+        {
+          "area": "prices",
+          "fr": "Les prix du marché fonctionnent de nouveau, après le changement du site : c'est le prix moyen de la semaine, le même que dans l'onglet Marché de la fiche d'une carte. Les cartes tirées, ouvertes ou affichées reçoivent leur prix, dans votre collection ou non, les plus rares d'abord.",
+          "en": "Market prices work again after the site's change: they show the week's average price, the same as in the Market tab of a card's page. Cards you pull, open or see get their price, in your collection or not, rarest first."
+        },
+        {
+          "area": "prices",
+          "feature": "priceIndex",
+          "tab": "prices",
+          "fr": "Dans l'onglet Prix, activez l'indexation pour tenir à jour les prix de votre collection en arrière-plan. L'indexation des prix est extrêmement lente à cause des limitations imposées par le développeur du site depuis la dernière mise à jour, et aucun contournement n'est trouvé à date.",
+          "en": "In the Prices tab, turn on indexing to keep your collection's prices up to date in the background. Price indexing is extremely slow due to the limitations imposed by the site's developer since the last update, and no workaround has been found to date."
+        },
+        {
+          "area": "prices",
+          "tab": "settings",
+          "fr": "Dans l'onglet Réglages (Prix et délais), vous pouvez ajuster le quota de lectures de prix (par 10 minutes et en rafale sur 30 secondes), commun à tous vos onglets ; la cadence de l'indexation suit ce quota.",
+          "en": "In the Settings tab (Prices and timing), you can adjust the price read quota (per 10 minutes and per 30-second burst), shared across all your tabs; indexing speed scales with this quota."
+        },
+        {
+          "area": "prices",
+          "fr": "Au survol d'un prix, la Toolbox indique le nombre de ventes sur 12 semaines, la fourchette sur 4 semaines et la variation de la semaine ; une semaine sans vente affiche le dernier prix connu, avec sa date.",
+          "en": "Hovering over a price shows the number of sales over 12 weeks, the 4-week range and the week's change; a week without sales shows the last known price, with its date."
+        },
+        {
+          "area": "market",
+          "fr": "Sur la page d'une enchère, « Prochaines enchères de cette carte » fonctionne de nouveau.",
+          "en": "On an auction page, \"Upcoming auctions for this card\" works again."
+        },
+        {
+          "area": "market",
+          "feature": "stonks",
+          "fr": "La page Stonks fonctionne de nouveau. Elle garde désormais dans votre navigateur chaque achat et chaque vente qu'elle voit passer, même quand le site ne les montre plus ; l'historique antérieur à début octobre n'est plus disponible sur le site.",
+          "en": "The Stonks page works again. It now keeps every purchase and sale it sees in your browser, even once the site no longer shows them; history from before early October is no longer available on the site."
+        }
+      ]
+    },
+    {
       "version": "2.6.0",
       "date": "2026-11-14",
       "items": [

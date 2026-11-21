@@ -50,7 +50,7 @@ export function restoreRecap(saved) {
   recapState.set({...saved, phase: "ready", pricesLoading: true});
   // Rechargé avant la fin du calcul des nouveautés : il est refait (même résultat, le paquet compté une fois)
   if (saved.cards.some((c) => c.isNew == null)) markNovelty(saved.at, saved.cards);
-  loadPrices(saved.cards.map((c) => ({id: c.id, rarity: c.rarity})))
+  loadPrices(saved.cards.map((c) => ({id: c.id, rarity: c.rarity})), {priority: true})
     .catch(() => {})
     .finally(() => {
       if (recapState.get().at === saved.at) recapState.set({pricesLoading: false});
@@ -135,7 +135,7 @@ function handleOpened(cards, {packs = 1, wasOwned, revealing = false}) {
       .catch((e) => recapState.get().at === at && recapState.set({sort: {status: "error", error: e.message || String(e)}}));
   markNovelty(at, cards);
   // Prix chargés tout de suite, pendant que le joueur découvre ses cartes
-  loadPrices(cards.map((c) => ({id: c.id, rarity: c.rarity}))).finally(() => {
+  loadPrices(cards.map((c) => ({id: c.id, rarity: c.rarity})), {priority: true}).finally(() => {
     if (recapState.get().at === at) recapState.set({pricesLoading: false});
   });
   emit("cards-added", {count: cards.length, recap: isOn("packRecap"), sorted: autoSort});
@@ -277,7 +277,7 @@ export async function openAllPacks() {
         const total = typeof res.packs_remaining === "number" ? packs + res.packs_remaining : openAllState.get().total;
         openAllState.set((s) => ({...s, opened: packs, total, batches: [...s.batches, batch]}));
         // Prix lus dès l'arrivée du paquet, pour les montrer sur la scène pendant la révélation
-        loadPrices(res.cards.map((c) => ({id: c.id, rarity: c.rarity}))).catch(() => {});
+        loadPrices(res.cards.map((c) => ({id: c.id, rarity: c.rarity})), {priority: true}).catch(() => {});
         if (typeof res.packs_remaining === "number") packsStatus.set({remaining: res.packs_remaining, at: Date.now()});
         if (!res.packs_remaining) break;
         await sleep(PACK_INTERVAL);

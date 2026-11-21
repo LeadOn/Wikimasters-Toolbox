@@ -26,7 +26,7 @@ import {news, hasNews, guideUrl} from "../state/news";
 import {SellDialogHost} from "./SellDialog";
 import {OpenAllStage, openAllStage, showOpenAllStage} from "./OpenAllStage";
 import {CardAuctionsHost} from "./CardAuctions";
-import {L} from "../../shared/i18n";
+import {L, LOCALE} from "../../shared/i18n";
 
 // L'icône de chaque onglet porte le même nom dans shared/brand.mjs
 const TABS = [
@@ -220,6 +220,26 @@ export function App() {
           type: "error",
           duration: 0,
           action: {label: L("Recharger", "Reload"), run: () => location.reload()},
+        }),
+      ),
+      // Vérification anti-robot demandée pendant une lecture de prix (le refus pour automatisation a
+      // déjà son message, site-blocked)
+      on("prices-stopped", ({message, error}) => error?.name === "HumanCheckError" && toast(message, {type: "error", duration: 0})),
+      // Limite des lectures de prix atteinte : pause de ces seules lectures, le reste continue
+      on("prices-paused", ({until}) =>
+        toast(
+          L(
+            `Le site limite les lectures de prix : la Toolbox les reprend à ${new Date(until).toLocaleTimeString(LOCALE, {hour: "2-digit", minute: "2-digit"})}, à un rythme réduit jusqu'à demain.`,
+            `The site limits price reads: the Toolbox resumes them at ${new Date(until).toLocaleTimeString(LOCALE, {hour: "2-digit", minute: "2-digit"})}, at a reduced pace until tomorrow.`,
+          ),
+          {type: "error", duration: 15000},
+        ),
+      ),
+      on("price-index-stopped", () =>
+        toast(L("L'indexation des prix a été désactivée après un refus du site. Vous pourrez la réactiver dans l'onglet Prix.", "Price indexing has been turned off after the site refused a request. You can turn it back on in the Prices tab."), {
+          type: "error",
+          duration: 0,
+          action: {label: L("Voir", "View"), run: () => openPanel("prices")},
         }),
       ),
       on("site-blocked", ({message}) =>

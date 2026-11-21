@@ -13,14 +13,14 @@ import {useStore} from "../lib/store";
 import {persistentStore} from "../lib/storage";
 import {recapState, dismissRecap, discardPulledMany, markListed, packsStatus} from "../features/packs";
 import {planSort} from "../features/sorter";
-import {priceOf, priceInfo, priceStatus, priceVersion, uncertainNote} from "../state/prices";
+import {priceOf, priceInfo, priceStatus, priceVersion, uncertainNote, isQueued, priceWaitNote} from "../state/prices";
 import {isOn} from "../state/settings";
 import {CardArt, Icon, Mark, Money, Rarity, ThemeChip, fmt, plural} from "./components";
 import {toast, errorMessage} from "./feedback";
 import {confirmDiscardMany} from "./discard";
 import {askSell} from "./SellDialog";
 import {emit} from "../lib/bus";
-import {DOUBLON, RECENT_SALES} from "../../../../core";
+import {DOUBLON} from "../../../../core";
 import {classify, isTheme} from "../state/themes";
 import {mountIsland} from "./islands/mount";
 import {pulledTags, tagColorOf} from "../features/quick-tags";
@@ -34,17 +34,17 @@ import {L} from "../../shared/i18n";
 export const recapView = persistentStore("recapView", {view: "list"});
 
 export function Price({card, loading}) {
-  const shiny = {shiny: card.is_shiny};
-  const status = priceStatus(card.id, card.rarity, shiny);
-  if (status === "ok") return <Money v={priceOf(card.id, card.rarity, shiny)} class="recap-price" />;
-  if (loading || status === "unknown") return <span class="spinner" aria-label={L("Chargement du prix", "Loading price")} />;
+  const status = priceStatus(card.id, card.rarity);
+  if (status === "ok") return <Money v={priceOf(card.id, card.rarity)} class="recap-price" />;
+  // Pas encore lu : en file (le budget de lecture étale les requêtes), ou arrêté (refus du site…)
+  if (status === "unknown")
+    return loading || isQueued(card.id) ? <span class="spinner" aria-label={L("Chargement du prix", "Loading price")} title={priceWaitNote()} /> : <span class="recap-price none" title={priceWaitNote()}>…</span>;
   if (status === "few") {
-    const info = priceInfo(card.id, card.rarity, shiny);
-    if (info.price != null) return <Money v={info.price} class="recap-price" approx title={uncertainNote(info)} />;
-    return <span class="recap-price none" title={L("Ses seules ventes sont ses toutes premières, ignorées", "Its only sales are its very first ones, which are ignored")}>{L("pas de prix", "no price")}</span>;
+    const info = priceInfo(card.id, card.rarity);
+    return <Money v={info.price} class="recap-price" approx title={uncertainNote(info)} />;
   }
   if (status === "error") return <span class="recap-price none" title={L("Le serveur n'a pas répondu ; nouvel essai dans quelques minutes", "The server did not respond; retrying in a few minutes")}>?</span>;
-  return <span class="recap-price none" title={L(`Cette carte n'a jamais été vendue${card.is_shiny ? " en shiny" : ""} dans cette rareté`, `This card has never been sold${card.is_shiny ? " as shiny" : ""} in this rarity`)}>{L("aucune vente", "no sales")}</span>;
+  return <span class="recap-price none" title={L("Cette carte n'a jamais été vendue dans cette rareté", "This card has never been sold in this rarity")}>{L("aucune vente", "no sales")}</span>;
 }
 
 // Vignette : image de la carte, sinon image de Wikimedia (jamais pour une image masquée par le site),
@@ -430,7 +430,7 @@ export function PackRecapView({onClose, onNext, compact = false, dock = false, p
                 ? L(`${plural(few, "carte vendue trop peu de fois", "cartes vendues trop peu de fois")} pour un prix fiable : hors du total.`, `${plural(few, "card", "cards")} sold too few times for a reliable price: left out of the total.`)
                 : unpriced
                   ? L(`${plural(unpriced, "carte jamais vendue", "cartes jamais vendues")} dans sa rareté.`, `${plural(unpriced, "card", "cards")} never sold in ${unpriced === 1 ? "its" : "their"} rarity.`)
-                  : L(`Prix du marché : médiane des ${RECENT_SALES} dernières ventes, par rareté.`, `Market price: median of the last ${RECENT_SALES} sales, by rarity.`)}
+                  : L("Prix du marché : prix moyen de la semaine de chaque carte dans sa rareté, comme l'onglet Marché du site.", "Market price: each card's average price for the week in its rarity, as in the site's Market tab.")}
         </span>
         <div class="recap-foot-do">
           {recap.sort?.status === "done" && (

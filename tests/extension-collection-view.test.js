@@ -7,6 +7,15 @@ const assert = require("node:assert/strict");
 const {loadExtensionModule, response, fakeJwt, sessionCookie} = require("./helpers/extension");
 const core = require("../core");
 
+// Réponse de /api/marketplace/cards/<id>/price-history : {RARETÉ: [moyenne, ventes]} pour la semaine en cours
+const history = (byRarity) => {
+  const start = core.weekStart(new Date()).toISOString().slice(0, 10);
+  return {
+    computed_at: new Date(Date.now() - 3600e3).toISOString(),
+    by_rarity: Object.fromEntries(Object.entries(byRarity).map(([r, [avg, count]]) => [r, {weekly: [{start, avg, min: avg, max: avg, count}], monthly: [{start: start.slice(0, 8) + "01", avg, min: avg, max: avg, count}]}])),
+  };
+};
+
 function fakeBrowser() {
   const target = new EventTarget();
   globalThis.window = globalThis;
@@ -147,11 +156,12 @@ test("filtre : critères cumulés, jamais vendues dans aucune rareté ou dans la
   ];
   // Ventes lues : a vendue en C seulement, b jamais, c en PC, e une seule fois (trop peu pour un
   // prix fiable) ; d pas encore lue
-  const sales = (id, summary) => m.bus.emit("sales-summary", {data: {summary}, match: [null, id]});
-  sales("a", {C: {average: 3, count: 4}});
+  // Historique chargé par le site (onglet Marché d'une fiche) : {RARETÉ: [moyenne, ventes]} cette semaine
+  const sales = (id, byRarity) => m.bus.emit("price-history", {data: history(byRarity), match: [null, id]});
+  sales("a", {C: [3, 4]});
   sales("b", {});
-  sales("c", {PC: {average: 40, count: 5}});
-  sales("e", {C: {average: 2, count: 1}});
+  sales("c", {PC: [40, 5]});
+  sales("e", {C: [2, 1]});
   let views = m.view.viewGroups(owned, m.prices.priceVersion.get().v);
   const list = (filter) => m.view.filterGroups(views, filter).map((g) => `${g.card.wikipedia_title} ${g.rarity}`);
 
@@ -181,28 +191,63 @@ test("filtre : critères cumulés, jamais vendues dans aucune rareté ou dans la
   m.settings.settings.set({minSales: 3});
   assert.equal(m.prices.priceStatus("e", "C"), "few");
   assert.deepEqual(m.prices.pricing("e", "C").price, 2, "prix indicatif affiché");
-  assert.match(m.prices.pricing("e", "C").uncertain, /1 vente prise en compte, il en faut 3/);
+  assert.match(m.prices.pricing("e", "C").uncertain, /1 vente sur les 12 dernières semaines, il en faut 3/);
   assert.deepEqual(m.prices.pricing("c", "PC"), {price: 40});
 });
 
-test("prix : un résumé du site (moyenne seule) ne remplace pas un prix récent", async () => {
+test("prix : historique du site lu par carte, une seule tentative, réponse inattendue signalée", async () => {
   fakeBrowser();
   const m = loadExtensionModule({bus: "extension/src/content/lib/bus.js", prices: "extension/src/content/state/prices.js"});
   await m.prices.ready;
-  // Ventes lues dans la table : la 1re vente (la plus ancienne, 15 000) est ignorée, médiane des autres
-  const sales = [15000, 12, 10, 11, 9].map((final_price, i) => ({id: `v${i}`, card_id: "k", snapshot_rarity: "C", final_price, settled_at: `2026-10-0${i + 1}T00:00:00Z`, is_shiny: false}));
   const urls = [];
   globalThis.fetch = async (url) => {
     urls.push(String(url));
-    return response(200, sales);
+    return String(url).includes("/k/") ? response(200, history({C: [11, 4]})) : response(503, {});
   };
-  globalThis.document.cookie = sessionCookie({token: fakeJwt({sub: "user-1", exp: Math.floor(Date.now() / 1000) + 3600}), expiresAt: Math.floor(Date.now() / 1000) + 3600});
-  await m.prices.loadPrices([{id: "k", rarity: "C"}]);
-  assert.match(urls[0], /is_shiny/);
-  assert.match(urls[0], /order=card_id,settled_at\.desc,id/, "ordre stable pour la pagination");
-  assert.deepEqual(m.prices.priceInfo("k", "C"), {price: 11, sales: 4, total: 5, reliable: true, average: 3008, latest: 9});
-  m.bus.emit("sales-summary", {data: {summary: {C: {average: 3008, count: 5, latest: 9}}}, match: [null, "k"]});
-  assert.equal(m.prices.priceOf("k", "C"), 11, "le résumé du site n'écrase pas le nôtre");
+  await m.prices.loadPrices([{id: "k", rarity: "C"}, {id: "z", rarity: "L"}]);
+  assert.deepEqual(urls, ["/api/marketplace/cards/z/price-history", "/api/marketplace/cards/k/price-history"], "route du site, la plus rare d'abord, une requête par carte sans réessai");
+  assert.deepEqual([m.prices.priceOf("k", "C"), m.prices.priceStatus("k", "C"), m.prices.priceStatus("k", "R")], [11, "ok", "none"]);
+  assert.equal(m.prices.priceStatus("z", "L"), "error", "nouvel essai plus tard");
+  assert.equal(m.prices.hasFreshPrice("k"), true, "prix récent : pas relu");
+  await m.prices.loadPrices(["k"]);
+  assert.equal(urls.length, 2, "prix frais : pas de nouvelle lecture");
+  // Format changé : plus aucune lecture jusqu'au rechargement, message clair
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return response(200, {summary: {}});
+  };
+  await m.prices.loadPrices(["x1", "x2"], {force: true});
+  assert.equal(m.prices.priceSource.get().broken, true);
+  assert.match(m.prices.priceSource.get().message, /mise à jour de la Toolbox/);
+  const n = urls.length;
+  m.prices.requestPrice("x3");
+  assert.equal(urls.length, n, "source cassée : plus de requête");
+});
+
+test("prix : relu après 10 min dans une fiche ouverte, après 3 h sur une carte affichée", async () => {
+  fakeBrowser();
+  const m = loadExtensionModule({bus: "extension/src/content/lib/bus.js", prices: "extension/src/content/state/prices.js"});
+  await m.prices.ready;
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return response(200, history({C: [11, 4]}));
+  };
+  await m.prices.loadPrices(["k"]);
+  assert.equal(urls.length, 1);
+  // 11 min plus tard (dernière étape du test : l'horloge avancée fausse ensuite les délais d'attente)
+  const realNow = Date.now;
+  Date.now = () => realNow() + 11 * 60e3;
+  try {
+    m.prices.requestPrice("k");
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(urls.length, 1, "carte affichée : prix gardé 3 h");
+    m.prices.requestPrice("k", {detail: true});
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(urls.length, 2, "fiche ouverte : prix de plus de 10 min relu, comme l'onglet Marché");
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test("liste de la page Collection : un filtre l'ouvre depuis la grille du site, à partir du filtre par défaut", () => {

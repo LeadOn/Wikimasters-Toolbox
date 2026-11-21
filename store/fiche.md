@@ -40,6 +40,8 @@ des captures en anglais (même procédure, interface passée en anglais : voir `
 ```
 Extension non officielle, faite par des joueurs pour des joueurs. Elle n'est ni éditée ni approuvée par WikiMasters.
 
+Avertissement : le règlement de WikiMasters interdit les outils d'automatisation et prévoit des sanctions pouvant aller jusqu'au bannissement. La Toolbox demande d'accepter cet avertissement avant de démarrer ; vous l'utilisez en connaissance de cause et sous votre seule responsabilité.
+
 WikiMasters Toolbox ajoute à wiki-masters.com les outils qui manquent pour gérer une grosse collection : directement dans les pages du site, et dans un panneau « Toolbox » ouvert depuis le menu. L'interface est en français ou en anglais selon votre navigateur, et s'adapte aux petits écrans.
 
 UN NOUVEL AFFICHAGE DES CARTES
@@ -57,12 +59,13 @@ TRI AUTOMATIQUE
 FILTRES DE TOUTE LA COLLECTION
 • Doublons, cartes sans image, GIF : des critères cumulables, sur toute la collection et pas seulement la page affichée.
 • Par vente : cartes jamais vendues, ou vendues entre X et Y ₩.
-• Par mots-clés à inclure ou à exclure, par rareté et par thème.
-• Classées par rareté ou par valeur, croissante ou décroissante.
+• Par mots-clés à inclure ou à exclure, par rareté, par thème et par favoris (favoris compris, hors favoris ou favoris seulement).
+• Classées par rareté ou par valeur, croissante ou décroissante, et ordre de la page Collection choisi dans les réglages à chaque visite (rareté, nom, favoris ou date d'ajout).
 • Les cartes trouvées se mettent aux enchères ou se défaussent une à une ou en lot.
 
 PRIX ET MARCHÉ
-• Prix du marché de chaque carte dans sa rareté : médiane des dernières ventes, prix à part pour les shiny, « ≈ » quand la carte s'est trop peu vendue.
+• Prix du marché de chaque carte dans sa rareté : prix moyen de la semaine (comme dans l'onglet Marché de la fiche du site), fourchette sur 4 semaines, variation et nombre de ventes au survol, « ≈ » quand la carte s'est trop peu vendue.
+• Indexation en arrière-plan des prix de toute votre collection (en option dans l'onglet Prix), avec suivi par rareté et quota de lectures réglable dans les paramètres. L'indexation des prix est extrêmement lente à cause des limitations imposées par le développeur du site depuis la dernière mise à jour, et aucun contournement n'est trouvé à date.
 • Sur la page d'une enchère : écart entre la mise et le prix du marché, et un avertissement si vous misez déjà sur une autre enchère de la même carte.
 • « Prochaines enchères de cette carte » : toutes les enchères en cours de la carte, avec la mise, le prix du marché et le temps restant.
 • Le titre de l'onglet d'une enchère affiche le temps restant et si vous êtes en tête (✓) ou surenchéri (✗), et clignote quand quelqu'un surenchérit : surveillez l'enchère depuis un autre onglet.
@@ -74,6 +77,7 @@ STONKS : VOTRE HISTORIQUE DE TRADING
 • Une page « Stonks » dans le menu du site : vos achats et ventes aux enchères, par jour, semaine ou mois.
 • Plus-value de l'achat-revente : chaque vente est rapprochée de son achat, avec le rendement, la part des reventes gagnantes et la durée de détention.
 • Vue « Achat-revente » pour n'afficher que les cartes achetées puis revendues ; ou tout l'historique, avec le flux net et la plus-value latente des cartes achetées encore en stock.
+• Garde dans votre navigateur chaque achat et chaque vente qu'elle voit passer, même quand le site ne les montre plus (historique du site disponible à partir de début octobre).
 • Historique seulement : aucune action d'achat ou de vente depuis cette page.
 
 ÉCHANGES
@@ -92,7 +96,7 @@ PAQUETS
 • Vente ou défausse sur place, carte par carte ou en lot ; « Ouvrir le prochain » pour enchaîner.
 • Récapitulatif et taux de drop à placer à gauche, dessous ou à droite.
 • Taux de drop par rareté, depuis le début ou pour la seule journée.
-• « Tout ouvrir » : seulement sur votre clic, après confirmation. Les cartes de chaque paquet sont distribuées face cachée puis retournées une à une, avec leur prix du marché, la valeur cumulée et vos meilleures cartes à la fin. « Arrêter » termine le paquet en cours. Aucune ouverture automatique.
+• « Tout ouvrir » : seulement sur votre clic, après confirmation. Les cartes de chaque paquet sont distribuées face cachée puis retournées une à une (animation désactivable dans les réglages), avec leur prix du marché, la valeur cumulée et vos meilleures cartes à la fin. « Arrêter » termine le paquet en cours. Aucune ouverture automatique.
 
 FAMILLES
 • Groupes de cartes à compléter, choisies une à une ou remplies par une recherche. Partageables par code.
@@ -134,6 +138,8 @@ Guide complet, code source et politique de confidentialité : https://github.com
 ```
 Unofficial extension, made by players for players. It is not published or endorsed by WikiMasters.
 
+Warning: WikiMasters' rules forbid automation tools and provide for sanctions up to an account ban. The Toolbox asks you to accept this warning before starting; you use it knowingly and at your own risk.
+
 WikiMasters Toolbox adds to wiki-masters.com the tools you need to manage a big collection: right inside the site's pages, and in a "Toolbox" panel opened from the menu. The interface is in English or French depending on your browser, and adapts to small screens.
 
 A NEW CARD LAYOUT
@@ -151,12 +157,13 @@ AUTOMATIC SORTING
 FILTERS ACROSS YOUR WHOLE COLLECTION
 • Duplicates, cards without an image, GIFs: combinable criteria, across the whole collection, not just the page shown.
 • By sales: cards never sold, or sold between X and Y ₩.
-• By keywords to include or exclude, by rarity and by theme.
-• Ordered by rarity or by value, high to low or low to high.
+• By keywords to include or exclude, by rarity, by theme and by favorites (all, non-favorites or favorites only).
+• Ordered by rarity or by value, high to low or low to high, plus Collection page order chosen in settings on every visit (rarity, name, favorites or date added).
 • Matching cards can be put up for auction or discarded one by one or in bulk.
 
 PRICES AND MARKET
-• Market price of each card in its rarity: median of recent sales, separate prices for shiny cards, "≈" when a card has sold too rarely.
+• Market price of each card in its rarity: the week's average price (same as in the Market tab of a card's page on the site), with 4-week range, weekly change and sales count on hover, "≈" when a card has sold too rarely.
+• Optional background indexing of your whole collection's prices (Prices tab), with progress by rarity and a configurable read quota in the settings. Price indexing is extremely slow due to the limitations imposed by the site's developer since the last update, and no workaround has been found to date.
 • On an auction page: gap between the bid and the market price, and a warning when you already bid on another auction of the same card.
 • "Upcoming auctions for this card": every running auction of the card, with the bid, market price and time left.
 • An auction's tab title shows the time left and whether you lead (✓) or were outbid (✗), and flashes when someone outbids you: keep an eye on it from another tab.
@@ -168,6 +175,7 @@ STONKS: YOUR TRADING HISTORY
 • A "Stonks" page in the site menu: your auction purchases and sales, by day, week or month.
 • Resale profit: each sale is matched with its purchase, with the return, the share of winning resales and the holding time.
 • A "Resales" view showing only cards bought then resold; or the full history, with net cash flow and the unrealized profit of cards you bought and still hold.
+• Keeps every purchase and sale it sees in your browser, even once the site no longer shows them (site history available from early October).
 • History only: nothing can be bought or sold from this page.
 
 TRADES
@@ -186,7 +194,7 @@ PACKS
 • Sell or discard in place, card by card or in bulk; "Open next" to keep going.
 • Place the recap and drop rates on the left, below or on the right.
 • Drop rates by rarity, overall or for today only.
-• "Open all": only on your click, after confirmation. Each pack's cards are dealt face down, then flipped one by one, with their market price, the running value and your best cards at the end. "Stop" finishes the current pack. Packs are never opened automatically.
+• "Open all": only on your click, after confirmation. Each pack's cards are dealt face down, then flipped one by one (animation can be turned off in the settings), with their market price, the running value and your best cards at the end. "Stop" finishes the current pack. Packs are never opened automatically.
 
 FAMILIES
 • Sets of cards to complete, hand-picked or filled from a search. Shareable by code.

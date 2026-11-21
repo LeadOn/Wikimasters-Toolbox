@@ -1,10 +1,10 @@
-// Prix de marché (résumé des ventes conclues par rareté) et valeurs dérivées.
+// Prix de marché et valeurs dérivées.
 //
-// Le site affiche la moyenne des 200 dernières ventes de la rareté, hors cartes shiny. Une seule vente
-// aberrante suffit à fausser une moyenne (une Commune vendue 15 000 ₩) : le prix retenu ici est la
-// médiane des 30 dernières ventes, la moyenne du site restant disponible pour l'affichage. Un prix
-// n'est fiable qu'à partir d'un nombre minimum de ventes, sans compter les toutes premières ventes de
-// la carte dans cette rareté (réglages `minSales` et `skipFirst`).
+// Source : l'historique des ventes que le site publie par carte (route price-history : moyenne, plus
+// bas, plus haut et nombre de ventes par semaine et par mois, pour chaque rareté). Le prix retenu est
+// celui que le site affiche dans l'onglet Marché de la fiche d'une carte, le « prix moyen de la
+// semaine », calculé de la même façon. Il n'est fiable qu'à partir d'un nombre minimum de ventes sur
+// les 12 dernières semaines (réglage `minSales`).
 "use strict";
 
 const {L} = require("./i18n");
@@ -19,54 +19,157 @@ const RARITY_LABEL = Object.defineProperties({}, Object.fromEntries(Object.entri
 const RARITY_COLORS = {L: "#ffe144", UR: "#fa9931", SR: "#ed6fa3", R: "#c6a7f2", PC: "#b1cff2", C: "#b8f2d5"};
 const rarityRank = (r) => RARITY_RANK[r] ?? -1;
 
-// Ventes prises en compte : la médiane des RECENT_SALES dernières ; le site, lui, fait la moyenne des SITE_WINDOW dernières
-const RECENT_SALES = 30;
-const SITE_WINDOW = 200;
-// Réglages par défaut (modifiables dans l'extension) : ventes nécessaires pour un prix fiable, premières ventes ignorées
-const PRICE_DEFAULTS = {minSales: 3, skipFirst: 1};
+// L'historique des ventes est recalculé par le site tout au long de la journée (`computed_at` avance
+// de quelques minutes en quelques minutes, avec un décalage de plusieurs heures sur l'heure réelle)
+const DAY = 864e5;
+const WEEK = 7 * DAY;
+// Réglage par défaut (modifiable dans l'extension) : ventes sur 12 semaines nécessaires pour un prix fiable
+const PRICE_DEFAULTS = {minSales: 3};
 
-const amount = (v) => (v != null && Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
+const num = (v) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null);
 
-function median(values) {
-  if (!values.length) return null;
-  const s = [...values].sort((a, b) => a - b);
-  const mid = s.length >> 1;
-  return Math.round(s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2);
+// Semaines du site : lundi de la semaine, jour calendaire de Paris (clé AAAA-MM-JJ de weekly[].start)
+const PARIS_DAY = new Intl.DateTimeFormat("en-CA", {timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit"});
+const dayKey = (d) => d.toISOString().slice(0, 10);
+const utcDay = (key) => new Date(`${key}T00:00:00Z`);
+function weekStart(date) {
+  const d = utcDay(PARIS_DAY.format(date));
+  return new Date(d.getTime() - DAY * ((d.getUTCDay() + 6) % 7));
 }
 
-// Prix d'une carte dans une rareté. summary : {RARETÉ: {average, count, latest, recent?, shiny?}}, celui de
-// summarizeSales ou celui du site (moyenne seule, sans `recent` : les premières ventes ne peuvent alors pas
-// être écartées). shiny : prix d'un exemplaire shiny (ventes shiny seulement).
-// → null si jamais vendue (dans cette rareté et cette version), sinon
-//   {price, sales, total, reliable, average, latest} : sales = ventes prises en compte, total = toutes
-//   (au plus SITE_WINDOW), reliable = au moins minSales ventes prises en compte.
-function priceInfo(summary, rarity, {shiny = false, minSales = PRICE_DEFAULTS.minSales, skipFirst = PRICE_DEFAULTS.skipFirst} = {}) {
-  const entry = summary?.[rarity];
-  const s = shiny ? entry?.shiny : entry;
-  const total = Number(s?.count) || 0;
-  if (!total) return null;
-  let sales;
-  let price;
-  if (Array.isArray(s.recent)) {
-    // Les ventes ignorées sont les plus anciennes ; `recent` contient les plus récentes
-    sales = Math.max(0, total - Math.max(0, skipFirst));
-    price = median(s.recent.slice(0, sales));
-  } else {
-    sales = total;
-    price = amount(s.average);
+// Date de référence du site : le calcul de l'historique s'il est valide et passé, sinon maintenant
+function referenceDate(history, now = Date.now()) {
+  const at = Date.parse(history?.computed_at);
+  return new Date(Number.isFinite(at) && at > 0 && at < now ? at : now);
+}
+
+// Semaines de `from` (ou de la première semaine vendue) à la semaine de `ref`, comme le graphique du
+// site : une semaine sans vente reprend la dernière moyenne connue (carried), même antérieure à `from`.
+function weeklySeries(weekly, ref, from = null) {
+  const sorted = (weekly || []).filter((w) => w?.start && num(w.avg) != null).sort((a, b) => a.start.localeCompare(b.start));
+  if (!sorted.length) return [];
+  const byStart = new Map(sorted.map((w) => [w.start, w]));
+  const first = utcDay(sorted[0].start);
+  const end = weekStart(ref);
+  let cursor = from ? weekStart(from) : first;
+  let carry = null;
+  for (const w of sorted) {
+    if (w.start < dayKey(cursor)) carry = num(w.avg);
+    else break;
   }
-  return {price, sales, total, reliable: price != null && sales >= Math.max(1, minSales), average: amount(s.average), latest: amount(s.latest)};
+  if (carry === null && cursor < first) cursor = first;
+  const series = [];
+  for (; cursor <= end; cursor = new Date(cursor.getTime() + WEEK)) {
+    const w = byStart.get(dayKey(cursor));
+    if (w) {
+      series.push({start: w.start, avg: num(w.avg), min: num(w.min), max: num(w.max), count: num(w.count) || 0, carried: false});
+      carry = num(w.avg);
+    } else if (carry !== null) {
+      series.push({start: dayKey(cursor), avg: carry, min: null, max: null, count: 0, carried: true});
+    }
+  }
+  return series;
 }
 
-// Prix fiable, ou null (jamais vendue, ou trop peu de ventes prises en compte). Seul ce prix entre dans
+function spread(series) {
+  let low = null;
+  let high = null;
+  let sales = 0;
+  for (const w of series) {
+    sales += w.count;
+    if (w.min != null) low = low === null ? w.min : Math.min(low, w.min);
+    if (w.max != null) high = high === null ? w.max : Math.max(high, w.max);
+  }
+  return {low, high, sales};
+}
+
+// Prix d'une rareté à partir de son historique {weekly, monthly} (route price-history du site) : le
+// « prix moyen de la semaine » de l'onglet Marché de la fiche d'une carte, calculé comme le site
+// (relevé dans son code client le 21/11/2026). null si la rareté n'a jamais été vendue.
+//   price        : moyenne de la dernière semaine de la série (13 semaines jusqu'à la date de
+//                  référence), arrondie, au moins 1 ; carried : cette semaine n'a pas de vente
+//   sales        : ventes des 12 dernières semaines (« Ventes » du site) ; low / high : plus bas / plus haut
+//   low4 / high4 : fourchette sur 4 semaines ; change : variation par rapport à la semaine précédente
+//   total        : toutes les ventes connues ; lastSale : semaine (lundi) de la dernière vente
+function rarityPrice(entry, ref) {
+  const weekly = entry?.weekly || [];
+  const series = weeklySeries(weekly, ref, new Date(ref.getTime() - 84 * DAY));
+  if (!series.length) return null;
+  const last = series[series.length - 1];
+  const {low, high, sales} = spread(series);
+  const four = spread(series.slice(-4));
+  // Variation : dernière semaine vendue contre la précédente, si elle est la semaine en cours ou la précédente
+  const full = weeklySeries(weekly, ref);
+  let n = full.length - 1;
+  while (n >= 0 && full[n].carried) n--;
+  const prev = n >= 1 ? full[n - 1].avg : null;
+  const change = n >= 1 && full.length - 1 - n <= 1 && prev > 0 ? (full[n].avg - prev) / prev : null;
+  const sold = weekly.filter((w) => num(w?.count) > 0 && w.start).map((w) => w.start).sort();
+  const monthly = (entry?.monthly || []).reduce((s, m) => s + (num(m?.count) || 0), 0);
+  const total = monthly || weekly.reduce((s, w) => s + (num(w?.count) || 0), 0);
+  return {
+    price: Math.max(1, Math.round(last.avg)),
+    carried: last.carried,
+    sales,
+    total,
+    low,
+    high,
+    low4: four.low,
+    high4: four.high,
+    change,
+    lastSale: sold.length ? sold[sold.length - 1] : null,
+  };
+}
+
+// Résumé de toutes les raretés d'une réponse price-history : {RARETÉ: rarityPrice}, {} si jamais vendue.
+// Il ne dépend que de la réponse (date de référence = son computed_at) : il se calcule une fois, à la lecture.
+function summarizeHistory(history, {now = Date.now()} = {}) {
+  const ref = referenceDate(history, now);
+  const out = {};
+  for (const [rarity, entry] of Object.entries(history?.by_rarity || {})) {
+    const p = rarityPrice(entry, ref);
+    if (p) out[rarity] = p;
+  }
+  return out;
+}
+
+// Prix d'une carte dans une rareté. summary : celui de summarizeHistory. Le site ne distingue pas les
+// ventes shiny : une carte shiny reçoit le prix de sa rareté (option shiny acceptée, sans effet).
+// → null si jamais vendue dans cette rareté, sinon le résumé de la rareté et reliable : au moins
+//   minSales ventes sur les 12 dernières semaines.
+function priceInfo(summary, rarity, {minSales = PRICE_DEFAULTS.minSales} = {}) {
+  const s = summary?.[rarity];
+  if (!s || s.price == null) return null;
+  return {...s, reliable: s.sales >= Math.max(1, minSales)};
+}
+
+// Prix fiable, ou null (jamais vendue, ou trop peu de ventes récentes). Seul ce prix entre dans
 // les totaux, les comparaisons et les mises de départ proposées.
 function marketPrice(summary, rarity, options) {
   const info = priceInfo(summary, rarity, options);
   return info?.reliable ? info.price : null;
 }
 
-// Au moins une vente conclue dans cette rareté (shiny ou non), quels que soient les réglages
-const soldIn = (summary, rarity) => Boolean(Number(summary?.[rarity]?.count) || Number(summary?.[rarity]?.shiny?.count));
+// Âge maximal d'un prix avant relecture : fiche ouverte (comme l'onglet Marché du site, que le site
+// garde 5 min en cache) ou carte simplement affichée (pastilles, listes)
+const PRICE_MAX_AGE = {detail: 10 * 60 * 1000, display: 3 * 3600 * 1000};
+
+// Cadence de l'indexation des prix de la collection : jours entre deux lectures selon la rareté de
+// l'exemplaire le plus rare possédé (la route des prix est limitée en volume : environ 1 100 lectures
+// par jour pour entretenir une collection de 15 000 cartes)
+const INDEX_CADENCE_DAYS = {L: 1, UR: 1, SR: 3, R: 7, PC: 30, C: 30};
+const UNSOLD_CADENCE_DAYS = 30;
+// Date à partir de laquelle une carte de la collection est à relire (0 : jamais lue).
+// entry : {t: lue le, s: résumé}
+function indexDueAt(entry, rarity) {
+  if (!entry?.t) return 0;
+  const sold = Object.keys(entry.s || {}).length > 0;
+  const days = sold ? INDEX_CADENCE_DAYS[rarity] ?? 7 : UNSOLD_CADENCE_DAYS;
+  return entry.t + days * DAY;
+}
+
+// Au moins une vente conclue dans cette rareté, quels que soient les réglages
+const soldIn = (summary, rarity) => Boolean(Number(summary?.[rarity]?.total));
 
 // Valeur d'une liste d'exemplaires : [{card_id, rarity, count?, is_shiny?}] ; prices : Map(card_id → summary) ;
 // options : réglages de priceInfo. Seuls les prix fiables comptent.
@@ -142,61 +245,6 @@ function spareCards(copies) {
   return spares;
 }
 
-// Résumé du marché calculé à partir des ventes conclues (table `auctions`, statut settled_sold).
-// rows : [{card_id, snapshot_rarity, final_price, settled_at, is_shiny}] dans n'importe quel ordre
-// Renvoie Map(card_id → {RARETÉ: {average, count, latest, recent, shiny?}}) : average, count, latest
-// comme le site (moyenne, nombre et dernière des `window` dernières ventes non shiny), recent : les
-// `recent` derniers prix non shiny, du plus récent au plus ancien ; shiny : {count, latest, recent}
-// pour les ventes shiny, quand il y en a.
-function summarizeSales(rows, {window = SITE_WINDOW, recent = RECENT_SALES} = {}) {
-  const groups = new Map();
-  for (const r of rows) {
-    if (r.final_price == null || !r.snapshot_rarity) continue;
-    const key = `${r.card_id}|${r.snapshot_rarity}`;
-    (groups.get(key) || groups.set(key, []).get(key)).push(r);
-  }
-  const prices = (list) => list.slice(0, recent).map((r) => Number(r.final_price));
-  const out = new Map();
-  for (const [key, list] of groups) {
-    const [cardId, rarity] = key.split("|");
-    list.sort((a, b) => (a.settled_at < b.settled_at ? 1 : a.settled_at > b.settled_at ? -1 : 0));
-    const normal = list.filter((r) => !r.is_shiny).slice(0, window);
-    const shiny = list.filter((r) => r.is_shiny).slice(0, window);
-    const entry = {
-      average: normal.length ? Math.round(normal.reduce((n, r) => n + Number(r.final_price), 0) / normal.length) : null,
-      count: normal.length,
-      latest: normal.length ? Number(normal[0].final_price) : null,
-      recent: prices(normal),
-    };
-    if (shiny.length) entry.shiny = {count: shiny.length, latest: Number(shiny[0].final_price), recent: prices(shiny)};
-    if (!out.has(cardId)) out.set(cardId, {});
-    out.get(cardId)[rarity] = entry;
-  }
-  return out;
-}
-
-// Poids d'une carte dans un lot de requêtes de prix : les cartes rares ont beaucoup plus de ventes.
-const SALES_WEIGHT = {L: 40, UR: 25, SR: 10, R: 4, PC: 2, C: 1};
-// Découpe [{id, rarity}] en lots d'au plus `maxWeight` (et `maxSize` cartes), les plus lourdes ensemble.
-function priceBatches(items, {maxWeight = 120, maxSize = 150} = {}) {
-  const sorted = [...items].sort((a, b) => (SALES_WEIGHT[b.rarity] || 4) - (SALES_WEIGHT[a.rarity] || 4));
-  const batches = [];
-  let current = [];
-  let weight = 0;
-  for (const it of sorted) {
-    const w = SALES_WEIGHT[it.rarity] || 4;
-    if (current.length && (weight + w > maxWeight || current.length >= maxSize)) {
-      batches.push(current);
-      current = [];
-      weight = 0;
-    }
-    current.push(it.id);
-    weight += w;
-  }
-  if (current.length) batches.push(current);
-  return batches;
-}
-
 // Nouveautés d'un paquet. cards : cartes tirées (dans l'ordre) ; copies : Map(card_id → exemplaires
 // possédés après le tirage). Une carte est nouvelle si aucun exemplaire n'existait avant ; si elle
 // sort plusieurs fois, seul le premier exemplaire est nouveau.
@@ -212,4 +260,25 @@ function packNovelty(cards, copies) {
   });
 }
 
-module.exports = {RARITIES, RARITY_RANK, RARITY_LABEL, RARITY_COLORS, rarityRank, RECENT_SALES, PRICE_DEFAULTS, priceInfo, marketPrice, soldIn, collectionValue, unsoldCopies, groupCopies, freeCopy, spareCards, summarizeSales, priceBatches, packNovelty};
+module.exports = {
+  RARITIES,
+  RARITY_RANK,
+  RARITY_LABEL,
+  RARITY_COLORS,
+  rarityRank,
+  PRICE_DEFAULTS,
+  weekStart,
+  weeklySeries,
+  summarizeHistory,
+  priceInfo,
+  marketPrice,
+  PRICE_MAX_AGE,
+  indexDueAt,
+  soldIn,
+  collectionValue,
+  unsoldCopies,
+  groupCopies,
+  freeCopy,
+  spareCards,
+  packNovelty,
+};

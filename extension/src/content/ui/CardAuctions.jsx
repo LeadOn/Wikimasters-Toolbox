@@ -47,11 +47,11 @@ function CardAuctionsDialog({card, currentId}) {
   const [, tick] = useState(0);
   useEffect(() => {
     let live = true;
-    cardMarket(card.id)
+    cardMarket(card)
       .then(({auctions: list, myBids}) => {
         if (!live) return;
         setState({list, myBids, error: null});
-        loadPrices(list.map((a) => ({id: a.card_id, rarity: a.snapshot_rarity}))).catch(() => {});
+        loadPrices(list.map((a) => ({id: a.card_id, rarity: a.snapshot_rarity})), {priority: true}).catch(() => {});
       })
       .catch((e) => live && setState({list: null, myBids: new Map(), error: errorMessage(e)}));
     // Temps restant mis à jour toutes les 15 s

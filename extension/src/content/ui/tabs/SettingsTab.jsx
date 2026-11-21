@@ -3,10 +3,10 @@ import {Fragment} from "preact";
 import {useState, useEffect, useRef} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {keysWithPrefix, remove} from "../../lib/storage";
-import {settings, settingsFocus, FEATURES, DEFAULT_SETTINGS} from "../../state/settings";
+import {settings, settingsFocus, FEATURES, DEFAULT_SETTINGS, PRICE_QUOTA_LIMITS, clampQuota} from "../../state/settings";
 import {recentFeatures} from "../../state/news";
-import {clearPrices} from "../../state/prices";
-import {Toggle, FileButton, plural} from "../components";
+import {clearPrices, slowBudget, priceQuota, recentReadsCount} from "../../state/prices";
+import {Toggle, FileButton, fmt, plural} from "../components";
 import {confirmAction, toast} from "../feedback";
 import {ThemeEditor} from "../ThemeEditor";
 import {defaultThemeList, storeThemes} from "../../../../../core";
@@ -22,9 +22,16 @@ const count = (value, min, max, fallback) => {
 // Recherche : majuscules et accents ignorés, tous les mots exigés
 const fold = (t) => t.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 const matches = (f, words) => words.every((w) => fold(`${f.label} ${f.help} ${f.group}`).includes(w));
+const TIMING_SEARCH = fold(
+  L(
+    "Prix et délais ventes minimum prix fiable quota appels requêtes lectures rafale limite alerte fin enchère",
+    "Prices and timing minimum sales reliable price quota calls requests reads burst limit auction ending alert",
+  ),
+);
 
 export function SettingsTab() {
   const s = useStore(settings);
+  const budget = useStore(slowBudget);
   const {key: focus} = useStore(settingsFocus);
   const [query, setQuery] = useState("");
   const root = useRef(null);
@@ -34,8 +41,18 @@ export function SettingsTab() {
   // masqués (pas retirés : une modification en cours de l'éditeur de thèmes est gardée)
   const shown = words.length ? FEATURES.filter((f) => matches(f, words)) : FEATURES;
   const searching = words.length > 0;
+  const showTiming = !searching || words.every((w) => TIMING_SEARCH.includes(w));
   const groups = [...new Set(shown.map((f) => f.group))];
   const setFeature = (key, on) => settings.set((st) => ({...st, features: {...st.features, [key]: on}}));
+  const quota = priceQuota();
+  const customQuota = quota.window !== DEFAULT_SETTINGS.priceQuotaWindow || quota.burst !== DEFAULT_SETTINGS.priceQuotaBurst;
+  const effWindow = Math.max(1, Math.floor(quota.window / (budget.halved ? 2 : 1)));
+  const effBurst = Math.max(1, Math.floor(quota.burst / (budget.halved ? 2 : 1)));
+  const setQuota = (key, bounds) => (e) => {
+    const v = clampQuota(e.currentTarget.value, bounds);
+    e.currentTarget.value = String(v);
+    settings.set({[key]: v});
+  };
   // Option montrée par une nouveauté : amenée à l'écran et soulignée un instant
   useEffect(() => {
     if (!focus) return;
@@ -55,7 +72,7 @@ export function SettingsTab() {
       </div>
       <div class="settings-search">
         <input type="search" value={query} placeholder={L("Chercher une option (prix, paquet, favori…)", "Search for an option (price, pack, favorite…)")} aria-label={L("Chercher une option", "Search for an option")} onInput={(e) => setQuery(e.currentTarget.value)} />
-        {searching && <span class="small muted">{shown.length ? plural(shown.length, "option") : L("Aucune option ne correspond.", "No option matches.")}</span>}
+        {searching && <span class="small muted">{shown.length ? plural(shown.length, "option") : showTiming ? L("Prix et délais", "Prices and timing") : L("Aucune option ne correspond.", "No option matches.")}</span>}
       </div>
       <div class="grid-2">
         {groups.map((g) => (
@@ -88,24 +105,46 @@ export function SettingsTab() {
             ))}
           </div>
         ))}
-        <div class="box stack" hidden={searching}>
+        <div class="box stack" hidden={!showTiming}>
           <h3>{L("Prix et délais", "Prices and timing")}</h3>
           <label class="field">
-            <span>{L("Durée de validité d'un prix (heures)", "How long a price stays valid (hours)")}</span>
-            <input type="number" min="1" max="720" value={s.priceMaxAgeHours} onChange={(e) => settings.set({priceMaxAgeHours: Math.max(1, Number(e.currentTarget.value) || 48)})} />
-          </label>
-          <label class="field">
-            <span>{L("Ventes minimum pour un prix fiable", "Minimum sales for a reliable price")}</span>
+            <span>{L("Ventes minimum sur 12 semaines pour un prix fiable", "Minimum sales over 12 weeks for a reliable price")}</span>
             <input type="number" min="1" max="50" value={s.minSales} onChange={(e) => settings.set({minSales: count(e.currentTarget.value, 1, 50, DEFAULT_SETTINGS.minSales)})} />
-          </label>
-          <label class="field">
-            <span>{L("Premières ventes ignorées, par carte et par rareté", "First sales ignored, per card and rarity")}</span>
-            <input type="number" min="0" max="20" value={s.skipFirstSales} onChange={(e) => settings.set({skipFirstSales: count(e.currentTarget.value, 0, 20, DEFAULT_SETTINGS.skipFirstSales)})} />
           </label>
           <p class="help">
             {L(
-              "Une carte vendue une ou deux fois n'a pas de prix représentatif, et ses toutes premières ventes se font souvent à un prix sans rapport avec le marché. En dessous du minimum, le prix est affiché « ≈ » à titre indicatif : il ne compte ni dans les totaux, ni dans les mises de départ proposées, ni dans les bonnes affaires.",
-              'A card sold once or twice has no representative price, and its very first sales often go at a price unrelated to the market. Below the minimum, the price is shown with "≈" as a rough guide: it does not count in totals, suggested starting bids or deals.',
+              "Le prix est le prix moyen de la semaine, celui de l'onglet Marché de la fiche d'une carte sur le site (dernier prix connu pour une semaine sans vente). Il est relu quand il a plus de 10 minutes dans la fiche d'une carte, plus de 3 heures sur une carte simplement affichée. Avec moins de ventes que ce minimum sur les 12 dernières semaines, le prix est affiché « ≈ » à titre indicatif : il ne compte ni dans les totaux, ni dans les mises de départ proposées, ni dans les bonnes affaires.",
+              "The price is the week's average price, the one in the Market tab of a card's page on the site (last known price for a week without sales). It is read again when more than 10 minutes old in a card's page, more than 3 hours old on a card that is just shown. With fewer sales than this minimum over the last 12 weeks, the price is shown with \"≈\" as a rough guide: it does not count in totals, suggested starting bids or deals.",
+            )}
+          </p>
+          <label class="field">
+            <span>{L("Quota de lectures de prix (par 10 minutes)", "Price read quota (per 10 minutes)")}</span>
+            <input type="number" min={PRICE_QUOTA_LIMITS.window.min} max={PRICE_QUOTA_LIMITS.window.max} value={quota.window} onChange={setQuota("priceQuotaWindow", PRICE_QUOTA_LIMITS.window)} />
+          </label>
+          <label class="field">
+            <span>{L("Rafale de lectures de prix (par 30 secondes)", "Price read burst (per 30 seconds)")}</span>
+            <input type="number" min={PRICE_QUOTA_LIMITS.burst.min} max={PRICE_QUOTA_LIMITS.burst.max} value={quota.burst} onChange={setQuota("priceQuotaBurst", PRICE_QUOTA_LIMITS.burst)} />
+          </label>
+          <div class="row">
+            <span class="small muted">
+              {L(
+                `${fmt(recentReadsCount())} / ${fmt(effWindow)} lectures sur les 10 dernières min${budget.halved ? ` (réduit de moitié jusqu'à demain : ${fmt(effWindow)} / 10 min, ${fmt(effBurst)} / 30 s)` : ""}`,
+                `${fmt(recentReadsCount())} / ${fmt(effWindow)} reads in the last 10 min${budget.halved ? ` (halved until tomorrow: ${fmt(effWindow)} / 10 min, ${fmt(effBurst)} / 30 s)` : ""}`,
+              )}
+            </span>
+            {customQuota && (
+              <button
+                class="btn ghost sm"
+                onClick={() => settings.set({priceQuotaWindow: DEFAULT_SETTINGS.priceQuotaWindow, priceQuotaBurst: DEFAULT_SETTINGS.priceQuotaBurst})}
+              >
+                {L("Valeurs par défaut", "Defaults")}
+              </button>
+            )}
+          </div>
+          <p class="help">
+            {L(
+              `Partagé entre tous vos onglets WikiMasters (${DEFAULT_SETTINGS.priceQuotaWindow} / 10 min et ${DEFAULT_SETTINGS.priceQuotaBurst} / 30 s par défaut). La moitié est réservée aux cartes que vous tirez ou ouvrez ; l'autre sert aux cartes affichées et à l'indexation, dont la cadence suit ce quota. Augmenter ces valeurs expose davantage aux refus temporaires du site ; au premier refus, les lectures de prix se mettent en pause 15 minutes et le quota est réduit de moitié jusqu'au lendemain.`,
+              `Shared across all your WikiMasters tabs (${DEFAULT_SETTINGS.priceQuotaWindow} / 10 min and ${DEFAULT_SETTINGS.priceQuotaBurst} / 30 s by default). Half is reserved for cards you pull or open; the other half is used for cards on screen and indexing, whose pace scales with this quota. Raising these values makes temporary site refusals more likely; on the first refusal, price reads pause for 15 minutes and the quota is halved until the next day.`,
             )}
           </p>
           <label class="field">

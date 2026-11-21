@@ -7,9 +7,10 @@
 import {useEffect, useState} from "preact/hooks";
 import {useStore} from "../lib/store";
 import {rest} from "../api/supabase";
-import {priceInfo, priceVersion, uncertainNote} from "../state/prices";
+import {priceInfo, priceVersion, requestPrice, uncertainNote} from "../state/prices";
 import {SiteCard} from "./SiteCard";
 import {Icon, Modal, Money, fmt} from "./components";
+import {SalesNote, PRICE_TITLE} from "./islands/shared";
 import {RARITY_LABEL} from "../../../../core";
 import {L, LOCALE} from "../../shared/i18n";
 
@@ -36,18 +37,19 @@ function useStats(card) {
   return missing && read ? {...card, ...Object.fromEntries(STAT_FIELDS.filter((k) => card[k] == null && read[k] != null).map((k) => [k, read[k]]))} : card;
 }
 
-// Prix du marché de la carte dans sa rareté (celui des shiny pour une shiny) et ce qui le fonde
+// Prix du marché de la carte dans sa rareté (le site ne distingue pas les shiny) et ce qui le fonde
 function MarketPrice({card}) {
   useStore(priceVersion);
-  const info = priceInfo(card.id, card.rarity, {shiny: card.is_shiny});
-  if (!info || info.price == null) return <span class="muted small">{L(`Jamais vendue${card.is_shiny ? " en shiny" : ""} dans cette rareté`, `Never sold${card.is_shiny ? " as shiny" : ""} in this rarity`)}</span>;
+  // Fiche ouverte : prix relu s'il a plus de 10 min
+  useEffect(() => {
+    if (card.id) requestPrice(card.id, {detail: true});
+  }, [card.id]);
+  const info = priceInfo(card.id, card.rarity);
+  if (!info) return <span class="muted small">{L("Jamais vendue dans cette rareté", "Never sold in this rarity")}</span>;
   return (
     <span class="cd-price">
-      <Money v={info.price} approx={!info.reliable} class="price-big" title={info.reliable ? undefined : uncertainNote(info)} />
-      <span class="small muted">
-        {L(`${fmt(info.sales)} vente${info.sales > 1 ? "s" : ""} prise${info.sales > 1 ? "s" : ""} en compte`, `${fmt(info.sales)} sale${info.sales !== 1 ? "s" : ""} counted`)}
-        {info.latest != null && ` · ${L("dernière", "latest")} ${fmt(info.latest)} ₩`}
-      </span>
+      <Money v={info.price} approx={!info.reliable} class="price-big" title={info.reliable ? PRICE_TITLE : uncertainNote(info)} />
+      <SalesNote info={info} shiny={Boolean(card.is_shiny)} />
     </span>
   );
 }

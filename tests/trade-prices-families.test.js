@@ -56,49 +56,86 @@ test("bilan d'une proposition : totaux avec WB, différence, prix manquants et c
   assert.equal(core.offerBalance({cards: []}, {cards: [{price: 10}]}).pct, null, "rien donné : pas de pourcentage");
 });
 
-test("prix : médiane des dernières ventes, ventes minimum, premières ventes ignorées, shiny à part", () => {
-  // recent : du plus récent au plus ancien ; une vente aberrante ne déplace pas la médiane
-  const summary = {
-    UR: {average: 3100, count: 6, latest: 300, recent: [300, 320, 15000, 310, 290, 305]},
-    SR: {average: 216, count: 2, latest: 200, recent: [200, 232]},
-    R: {average: 15150, count: 1, latest: 15150, recent: [15150]},
-    L: {average: 500, count: 4, latest: 450, recent: [450, 520, 480, 510], shiny: {count: 1, latest: 4000, recent: [4000]}},
-  };
-  assert.deepEqual(core.priceInfo(summary, "UR"), {price: 310, sales: 5, total: 6, reliable: true, average: 3100, latest: 300}, "la 1re vente (305) est ignorée");
-  assert.equal(core.marketPrice(summary, "UR", {skipFirst: 0}), 308, "médiane paire : moyenne des deux du milieu, arrondie");
-  // Trop peu de ventes : prix indicatif seulement
-  assert.deepEqual(core.priceInfo(summary, "SR"), {price: 200, sales: 1, total: 2, reliable: false, average: 216, latest: 200});
-  assert.equal(core.marketPrice(summary, "SR"), null);
-  assert.equal(core.marketPrice(summary, "SR", {minSales: 1}), 200);
-  assert.equal(core.marketPrice(summary, "SR", {minSales: 2, skipFirst: 0}), 216);
-  // Une seule vente, ignorée : vendue, mais sans prix
-  assert.deepEqual(core.priceInfo(summary, "R"), {price: null, sales: 0, total: 1, reliable: false, average: 15150, latest: 15150});
-  assert.equal(core.marketPrice(summary, "R", {minSales: 1, skipFirst: 0}), 15150);
-  assert.equal(core.priceInfo(summary, "C"), null, "jamais vendue");
-  // Shiny : ses propres ventes seulement
-  assert.equal(core.marketPrice(summary, "L"), 480, "la plus ancienne (510) est ignorée");
-  assert.equal(core.marketPrice(summary, "L", {shiny: true}), null, "une vente shiny, ignorée");
-  assert.equal(core.marketPrice(summary, "L", {shiny: true, minSales: 1, skipFirst: 0}), 4000);
-  assert.equal(core.priceInfo(summary, "UR", {shiny: true}), null);
-  // Résumé du site (moyenne seule) : pas de premières ventes à écarter
-  const site = {UR: {average: 319.4, count: 10, latest: 300}, SR: {average: 216, count: 1}};
-  assert.deepEqual(core.priceInfo(site, "UR"), {price: 319, sales: 10, total: 10, reliable: true, average: 319, latest: 300});
-  assert.equal(core.marketPrice(site, "SR"), null);
-  assert.equal(core.marketPrice({UR: {average: null, count: 3}}, "UR"), null, "moyenne absente : pas de prix à 0");
+const HISTORY = require("./fixtures/price-history.json");
+// Semaine : [lundi AAAA-MM-JJ, moyenne, ventes, min, max]
+const week = ([start, avg, count, min = avg, max = avg]) => ({start, avg, min, max, count});
+const history = (computedAt, byRarity) => ({computed_at: computedAt, by_rarity: Object.fromEntries(Object.entries(byRarity).map(([r, weeks]) => [r, {weekly: weeks.map(week), monthly: []}]))});
 
-  // Valeur : seuls les prix fiables comptent ; une shiny au prix shiny
+test("prix : identique à l'onglet Marché du site (réponses réelles du 21/11/2026)", () => {
+  // Fiche du site ce jour-là : 2 838, +8,1 % cette semaine, plus bas 550, plus haut 4 800, 649 ventes
+  const L = core.summarizeHistory(HISTORY.legendary).L;
+  assert.deepEqual([L.price, L.carried, L.low, L.high, L.sales, L.lastSale], [2838, false, 550, 4800, 649, "2026-11-16"]);
+  assert.equal(Math.round(L.change * 1000) / 10, 8.1);
+  assert.equal(L.total, 661, "toutes les ventes connues (séries mensuelles)");
+  // Semaine sans vente : dernier prix moyen connu
+  const R = core.summarizeHistory(HISTORY.sparse).R;
+  assert.deepEqual([R.price, R.carried, R.sales, R.lastSale, R.change], [4, true, 9, "2026-11-02", null]);
+  const few = core.summarizeHistory(HISTORY.fewSales).R;
+  assert.deepEqual([few.price, few.carried, few.sales, few.low4, few.high4], [10, true, 2, null, null], "aucune vente sur 4 semaines : pas de fourchette");
+  assert.deepEqual(core.summarizeHistory({computed_at: "2026-11-21T04:00:00Z", by_rarity: {}}), {}, "jamais vendue");
+});
+
+test("prix : semaines de Paris, date de référence, prix reporté et arrondi", () => {
+  // Dimanche 22/11 à 23:30 UTC = lundi 23/11 à Paris : semaine du 23/11
+  assert.equal(core.weekStart(new Date("2026-11-22T23:30:00Z")).toISOString().slice(0, 10), "2026-11-23");
+  assert.equal(core.weekStart(new Date("2026-11-22T22:30:00Z")).toISOString().slice(0, 10), "2026-11-16");
+  const h = history("2026-11-21T04:00:00Z", {
+    UR: [["2026-07-06", 900, 4], ["2026-11-09", 100.4, 2, 80, 120], ["2026-11-16", 0.4, 1]],
+    SR: [["2026-06-01", 50, 3]],
+  });
+  const s = core.summarizeHistory(h, {now: Date.parse("2026-12-30T00:00:00Z")});
+  // La date de référence est le calcul du site (21/11), pas « maintenant » : la semaine du 16/11 reste la dernière
+  assert.equal(s.UR.carried, false);
+  assert.equal(s.UR.price, 1, "arrondi, au moins 1");
+  assert.equal(s.UR.sales, 3, "la vente de juillet est hors des 12 semaines");
+  assert.deepEqual([s.UR.low, s.UR.high], [0.4, 120]);
+  assert.equal(s.UR.change < 0, true);
+  // Dernière vente avant la fenêtre : son prix est reporté, sans vente sur 12 semaines
+  assert.deepEqual([s.SR.price, s.SR.carried, s.SR.sales, s.SR.lastSale], [50, true, 0, "2026-06-01"]);
+  // computed_at absent ou dans le futur : maintenant
+  const future = core.summarizeHistory({...h, computed_at: "2027-01-01T00:00:00Z"}, {now: Date.parse("2026-11-25T12:00:00Z")});
+  assert.equal(future.UR.carried, true, "semaine du 23/11 sans vente");
+  assert.equal(future.UR.price, 1);
+});
+
+test("prix : fiabilité, valeur d'une collection, cartes jamais vendues", () => {
+  const summary = core.summarizeHistory(history("2026-11-21T04:00:00Z", {UR: [["2026-11-16", 300, 5]], SR: [["2026-11-16", 200, 2]], L: [["2026-11-09", 480, 4]]}));
+  assert.equal(core.priceInfo(summary, "UR").reliable, true);
+  assert.equal(core.marketPrice(summary, "UR"), 300);
+  assert.equal(core.priceInfo(summary, "SR").reliable, false, "2 ventes sur 12 semaines");
+  assert.equal(core.marketPrice(summary, "SR"), null);
+  assert.equal(core.marketPrice(summary, "SR", {minSales: 2}), 200);
+  assert.equal(core.priceInfo(summary, "C"), null, "jamais vendue dans cette rareté");
+  assert.equal(core.marketPrice(summary, "L", {shiny: true}), 480, "le site ne distingue pas les ventes shiny");
+
   const prices = new Map([["a", summary]]);
   const copies = [{card_id: "a", rarity: "UR", count: 2}, {card_id: "a", rarity: "SR"}, {card_id: "a", rarity: "L", is_shiny: true}, {card_id: "b", rarity: "C"}];
-  assert.deepEqual(core.collectionValue(copies, prices), {value: 620, priced: 2, total: 5});
-  assert.deepEqual(core.collectionValue(copies, prices, {minSales: 1, skipFirst: 0}), {value: 616 + 216 + 4000, priced: 4, total: 5});
-  // Jamais vendues : dans la rareté de l'exemplaire, ou dans aucune ; une carte non lue reste à part.
-  // Une vente compte, même ignorée pour le prix, et même shiny.
-  const sold = new Map([["a", {UR: {average: 1, count: 1}, SR: {average: 1, count: 1}}], ["z", {}], ["s", {L: {average: null, count: 0, recent: [], shiny: {count: 1, latest: 9, recent: [9]}}}]]);
-  const owned = [{card_id: "a", rarity: "UR"}, {card_id: "a", rarity: "L"}, {card_id: "z", rarity: "C"}, {card_id: "b", rarity: "C"}, {card_id: "s", rarity: "L"}];
+  assert.deepEqual(core.collectionValue(copies, prices), {value: 600 + 480, priced: 3, total: 5});
+  assert.deepEqual(core.collectionValue(copies, prices, {minSales: 1}), {value: 600 + 200 + 480, priced: 4, total: 5});
+  const owned = [{card_id: "a", rarity: "UR"}, {card_id: "a", rarity: "C"}, {card_id: "z", rarity: "C"}, {card_id: "b", rarity: "C"}];
+  const sold = new Map([["a", summary], ["z", {}]]);
   const inRarity = core.unsoldCopies(owned, sold);
-  assert.deepEqual(inRarity.unsold.map((c) => `${c.card_id}|${c.rarity}`), ["a|L", "z|C"]);
+  assert.deepEqual(inRarity.unsold.map((c) => `${c.card_id}|${c.rarity}`), ["a|C", "z|C"]);
   assert.deepEqual(inRarity.unknown.map((c) => c.card_id), ["b"]);
-  assert.deepEqual(core.unsoldCopies(owned, sold, {anyRarity: true}).unsold.map((c) => c.card_id), ["z"], "a s'est vendue en UR et SR");
+  assert.deepEqual(core.unsoldCopies(owned, sold, {anyRarity: true}).unsold.map((c) => c.card_id), ["z"]);
+  assert.equal(core.soldIn(summary, "SR"), true);
+});
+
+test("prix : âge maximal selon le contexte, cadence de l'indexation", () => {
+  const H = 3600e3;
+  const t = Date.parse("2026-11-21T10:00:00Z");
+  const c = "2026-11-21T04:05:00Z";
+  assert.deepEqual(core.PRICE_MAX_AGE, {detail: 10 * 60e3, display: 3 * H}, "fiche ouverte : 10 min, comme l'onglet Marché ; carte affichée : 3 h");
+  const sold = {c, t, s: {L: {total: 3}}};
+  assert.equal(core.indexDueAt(sold, "L"), t + 24 * H, "rareté haute : chaque jour");
+  assert.equal(core.indexDueAt(sold, "SR"), t + 72 * H);
+  assert.equal(core.indexDueAt(sold, "R"), t + 7 * 24 * H);
+  assert.equal(core.indexDueAt(sold, "C"), t + 30 * 24 * H);
+  assert.equal(core.indexDueAt({c, t, s: {}}, "L"), t + 30 * 24 * H, "jamais vendue : tous les 30 jours");
+  assert.equal(core.indexDueAt(null, "L"), 0, "jamais lue : tout de suite");
+});
+
+test("exemplaires : regroupement, exemplaire à vendre, doublons", () => {
   // Regroupement par carte et rareté ; exemplaire à vendre ou défausser : jamais un favori, shiny en dernier
   const groups = core.groupCopies([{id: "u1", card_id: "a", rarity: "C", count: 2}, {id: "u2", card_id: "a", rarity: "R"}, {id: "u3", card_id: "a", rarity: "C"}]);
   assert.deepEqual(groups.map((g) => [g.card_id, g.rarity, g.count, g.rows.map((r) => r.id)]), [["a", "C", 3, ["u1", "u3"]], ["a", "R", 1, ["u2"]]]);
@@ -154,38 +191,6 @@ test("codes de profil : aller-retour sans perte", async () => {
     const {payload} = await core.decodeShareCode(await core.encodeShareCode("P", p), "P");
     assert.deepEqual(payload, p);
   }
-});
-
-test("résumé des ventes : moyenne du site (200 dernières, hors shiny), 30 derniers prix, shiny à part", () => {
-  const at = (i) => new Date(Date.UTC(2026, 9, 12, 0, 0, 0) - i * 1000).toISOString(); // i : ancienneté
-  const rows = [];
-  for (let i = 0; i < 260; i++) rows.push({id: `n${i}`, card_id: "a", snapshot_rarity: "L", final_price: i < 200 ? 100 + (i % 3) : 900, settled_at: at(i), is_shiny: false});
-  for (let i = 0; i < 3; i++) rows.push({id: `s${i}`, card_id: "a", snapshot_rarity: "L", final_price: 4000 + i, settled_at: at(i + 0.5), is_shiny: true});
-  rows.push({card_id: "a", snapshot_rarity: "SR", final_price: 51, settled_at: "2026-10-01T00:00:00Z"});
-  rows.push({card_id: "b", snapshot_rarity: "C", final_price: null, settled_at: "2026-10-01T00:00:00Z"});
-  rows.push({card_id: "c", snapshot_rarity: "UR", final_price: 7000, settled_at: "2026-10-01T00:00:00Z", is_shiny: true});
-  const s = core.summarizeSales(rows.reverse());
-  const L = s.get("a").L;
-  assert.equal(L.average, 101, "les ventes shiny ne comptent pas dans la moyenne, comme sur le site");
-  assert.equal(L.count, 200);
-  assert.equal(L.latest, 100);
-  assert.equal(L.recent.length, 30);
-  assert.deepEqual(L.recent.slice(0, 4), [100, 101, 102, 100], "du plus récent au plus ancien");
-  assert.deepEqual(L.shiny, {count: 3, latest: 4000, recent: [4000, 4001, 4002]});
-  assert.deepEqual(s.get("a").SR, {average: 51, count: 1, latest: 51, recent: [51]});
-  assert.equal(s.has("b"), false);
-  assert.deepEqual(s.get("c").UR, {average: null, count: 0, latest: null, recent: [], shiny: {count: 1, latest: 7000, recent: [7000]}}, "vendue seulement en shiny");
-  assert.equal(core.priceInfo(s.get("c"), "UR"), null);
-  assert.equal(core.soldIn(s.get("c"), "UR"), true);
-});
-
-test("lots de prix pondérés par rareté", () => {
-  const items = [{id: "l1", rarity: "L"}, {id: "l2", rarity: "L"}, {id: "u", rarity: "UR"}, ...Array.from({length: 300}, (_, i) => ({id: `c${i}`, rarity: "C"}))];
-  const batches = core.priceBatches(items);
-  assert.equal(batches.flat().length, items.length);
-  assert.deepEqual(batches[0].slice(0, 3), ["l1", "l2", "u"], "les cartes lourdes d'abord");
-  assert.ok(batches.every((b) => b.length <= 150));
-  assert.deepEqual(core.priceBatches([{id: "x"}]), [["x"]]);
 });
 
 test("nouveautés d'un paquet", () => {

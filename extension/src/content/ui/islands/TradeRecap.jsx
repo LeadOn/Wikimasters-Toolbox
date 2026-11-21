@@ -35,7 +35,7 @@ export function TradeRecap({friend, give, get}) {
   const cards = [...give.cards, ...get.cards].filter((c) => c.id);
   const wanted = cards.map((c) => `${c.id}|${c.rarity}`).join(",");
   useEffect(() => {
-    for (const c of cards) requestPrice(c.id, {rarity: c.rarity});
+    for (const c of cards) requestPrice(c.id, {rarity: c.rarity, priority: true});
   }, [wanted]);
   const b = offerBalance({...give, cards: give.cards.map(priced)}, {...get, cards: get.cards.map(priced)});
   const empty = !b.give.count && !b.get.count && !b.give.wb && !b.get.wb;
