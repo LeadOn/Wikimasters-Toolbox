@@ -314,3 +314,50 @@ test("collection : filtre des favoris, sur les exemplaires d'une carte dans une 
   assert.equal(keep("starred"), "bcd", "au moins un exemplaire en favori");
   assert.deepEqual(view.STARRED.map((o) => o.id), ["all", "free", "starred"]);
 });
+
+test("collection : filtre par étiquette, sur les exemplaires d'une carte dans une rareté", () => {
+  const {view} = setup();
+  const links = new Map([
+    ["a0", new Set(["t1"])],
+    ["c0", new Set(["t2"])],
+    ["d0", new Set(["t1", "t2"])],
+    ["d1", new Set()],
+  ]);
+  const group = (id, n) => ({card_id: id, rows: Array.from({length: n}, (_, i) => ({id: `${id}${i}`, rarity: "C"}))});
+  const groups = [group("a", 1), group("b", 1), group("c", 2), group("d", 2)];
+  const keep = (tag) => groups.filter(view.byTag(tag, links)).map((g) => g.card_id).join("");
+  assert.equal(keep(""), "abcd");
+  assert.equal(keep("any"), "acd", "au moins un exemplaire étiqueté");
+  assert.equal(keep("none"), "bcd", "au moins un exemplaire sans étiquette");
+  assert.equal(keep("t1"), "ad");
+  assert.equal(keep("t2"), "cd");
+  assert.equal(keep("t3"), "");
+  assert.deepEqual(view.TAGGED.map((o) => o.id), ["", "any", "none"]);
+});
+
+test("collection : étiquettes lues une par une, gardées en mémoire, oubliées avec la collection", async () => {
+  fakeBrowser();
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  globalThis.document.cookie = sessionCookie({userId: "me", token: fakeJwt({sub: "me", exp}), expiresAt: exp});
+  const state = loadExtensionModule("extension/src/content/state/collection.js");
+  const calls = scriptedFetch((url) => {
+    url = String(url);
+    if (url.includes("/tags?")) return response(200, [{id: 1, name: "Favoris", color: "#fff"}, {id: 2, name: "Sports", color: "#000"}]);
+    if (url.includes("tag_id=eq.1") && url.includes("offset=0")) return response(200, [{user_card_id: "u1"}, {user_card_id: "u2"}]);
+    if (url.includes("tag_id=eq.2") && url.includes("offset=0")) return response(200, [{user_card_id: "u2"}]);
+    if (url.includes("/user_card_tags?")) return response(200, []);
+    return response(404, {});
+  });
+  const {tags, links} = await state.loadCollectionTags();
+  assert.deepEqual(tags.map((x) => [x.id, x.name]), [["1", "Favoris"], ["2", "Sports"]]);
+  assert.deepEqual([...links.get("u1")], ["1"]);
+  assert.deepEqual([...links.get("u2")].sort(), ["1", "2"]);
+  const reads = calls.filter((c) => String(c.url).includes("/user_card_tags?"));
+  assert.ok(reads.every((c) => /tag_id=eq\.\d+&order=user_card_id\.asc/.test(c.url)), "jamais user_card_tags sans filtre, ordre stable");
+  const before = calls.length;
+  await state.loadCollectionTags();
+  assert.equal(calls.length, before, "en mémoire");
+  state.invalidateCollection();
+  await state.loadCollectionTags();
+  assert.ok(calls.length > before, "relue après invalidation");
+});

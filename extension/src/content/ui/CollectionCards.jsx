@@ -1,12 +1,12 @@
 // Ma collection filtrée par la Toolbox (features/collection-view.js). CollectionFilters : critères
 // cumulables (doublons, sans image, GIF) et prix de vente (jamais vendues, vendues entre X et Y ₩) ;
-// CollectionCards : la liste, affinée par mots-clés (inclus ou exclus), rareté et thème. Un clic sur
-// une carte la coche ; chaque carte se met aux enchères ou se défausse sur place, et les cartes
+// CollectionCards : la liste, affinée par mots-clés (inclus ou exclus), rareté, thème et étiquette. Un
+// clic sur une carte la coche ; chaque carte se met aux enchères ou se défausse sur place, et les cartes
 // cochées ensemble, toujours après confirmation. Barre de la page Collection (un clic sur le nom
 // d'une carte ouvre la fenêtre du site : onOpen) et onglet « Prix ».
 import {useState, useEffect, useMemo, useRef} from "preact/hooks";
 import {useStore} from "../lib/store";
-import {KINDS, cardsState, loadCards, viewGroups, filterGroups, matchKeywords, parseKeyword, normText, copiesByCard, keepOnePerCard, discardGroups, sellGroups, copyFor, afterSell, LOCKED, ORDERS, sortGroups, STARRED, byStarred} from "../features/collection-view";
+import {KINDS, cardsState, loadCards, viewGroups, filterGroups, matchKeywords, parseKeyword, normText, copiesByCard, keepOnePerCard, discardGroups, sellGroups, copyFor, afterSell, LOCKED, ORDERS, sortGroups, STARRED, byStarred, tagsState, loadTags, TAGGED, byTag} from "../features/collection-view";
 import {pricing, summaryOf, priceVersion, loadPrices, hasFreshPrice} from "../state/prices";
 import {CardTile, Icon, Notice, Paged, Progress, Rarity, fmt, plural} from "./components";
 import {toast, errorMessage} from "./feedback";
@@ -14,6 +14,7 @@ import {askSell, askSellMany} from "./SellDialog";
 import {confirmDiscardMany} from "./discard";
 import {RARITIES, RARITY_LABEL, freeCopy, soldIn} from "../../../../core";
 import {themeMemo} from "../state/themes";
+import {sortState} from "../features/sorter";
 import {L} from "../../shared/i18n";
 
 const keyOf = (g) => `${g.card_id}|${g.rarity}`;
@@ -163,6 +164,8 @@ export function CollectionCards({filter, onOpen, mini = false}) {
   const [opening, setOpening] = useState(null); // carte en cours d'ouverture dans la fenêtre du site
   const [order, setOrder] = useState("rarity"); // ORDERS (features/collection-view.js)
   const [starred, setStarred] = useState("all"); // STARRED (features/collection-view.js)
+  const [tag, setTag] = useState(""); // TAGGED ou id d'une étiquette (features/collection-view.js)
+  const t = useStore(tagsState);
   const abort = useRef(null);
   const {kinds, sale, min, max, anyRarity} = filter;
   const keepOne = kinds.includes("doubles");
@@ -170,7 +173,15 @@ export function CollectionCards({filter, onOpen, mini = false}) {
   // Collection relue à l'affichage (en cache quelques minutes, relue après un paquet ou une action)
   useEffect(() => {
     loadCards();
+    loadTags();
   }, []);
+  // Tri appliqué pendant que la liste est affichée : étiquettes relues
+  const sorting = useStore(sortState, (s) => s.running);
+  const wasSorting = useRef(false);
+  useEffect(() => {
+    if (wasSorting.current && !sorting) loadTags();
+    wasSorting.current = sorting;
+  }, [sorting]);
   // La sélection est propre à chaque filtre
   useEffect(() => setPicked(new Set()), [filterKey]);
 
@@ -195,7 +206,30 @@ export function CollectionCards({filter, onOpen, mini = false}) {
   const removeWord = (word) => setWords((ws) => ws.filter((w) => w !== word));
   const flipWord = (word) => setWords((ws) => ws.map((w) => (w === word ? {...w, out: !w.out} : w)));
   const byStar = useMemo(() => (starred === "all" ? byQuery : byQuery.filter(byStarred(starred))), [byQuery, starred]);
-  const filtered = useMemo(() => (rarities.length ? byStar.filter((g) => rarities.includes(g.rarity)) : byStar), [byStar, rarities]);
+  // Étiquette supprimée depuis : aucun filtre
+  const activeTag = tag === "any" || tag === "none" || t.tags?.some((x) => x.id === tag) ? tag : "";
+  const byTagged = useMemo(() => (activeTag ? byStar.filter(byTag(activeTag, t.links)) : byStar), [byStar, activeTag, t.links]);
+  const filtered = useMemo(() => (rarities.length ? byTagged.filter((g) => rarities.includes(g.rarity)) : byTagged), [byTagged, rarities]);
+  // Nombre de cartes par choix d'étiquette, parmi celles des autres filtres (raretés comprises)
+  const tagCounts = useMemo(() => {
+    const counts = new Map();
+    const add = (id) => counts.set(id, (counts.get(id) || 0) + 1);
+    if (!t.links) return counts;
+    for (const g of byStar) {
+      if (rarities.length && !rarities.includes(g.rarity)) continue;
+      const ids = new Set();
+      let untagged = false;
+      for (const r of g.rows) {
+        const own = t.links.get(r.id);
+        if (own?.size) own.forEach((id) => ids.add(id));
+        else untagged = true;
+      }
+      if (ids.size) add("any");
+      if (untagged) add("none");
+      ids.forEach(add);
+    }
+    return counts;
+  }, [byStar, rarities, t.links]);
   const themeCounts = useMemo(() => {
     const m = new Map();
     for (const g of filtered) m.set(themeOf(g.card), (m.get(themeOf(g.card)) || 0) + 1);
@@ -203,7 +237,7 @@ export function CollectionCards({filter, onOpen, mini = false}) {
   }, [filtered]);
   // Même tableau tant que rien ne change : cocher une carte ne ramène pas la liste à sa première page
   const shown = useMemo(() => (theme && themeCounts.some(([t]) => t === theme) ? filtered.filter((g) => themeOf(g.card) === theme) : filtered), [filtered, theme, themeCounts]);
-  const rarityCount = (r) => byStar.filter((g) => g.rarity === r).length;
+  const rarityCount = (r) => byTagged.filter((g) => g.rarity === r).length;
   // Tri par valeur : le prix affiché sur la carte (celui de l'exemplaire qui serait vendu) ; pas de
   // prix pour le filtre « jamais vendues »
   const byValue = sale !== "never" && order !== "rarity";
@@ -398,6 +432,26 @@ export function CollectionCards({filter, onOpen, mini = false}) {
               </option>
             ))}
           </select>
+        )}
+        {t.tags && (
+          <select class={`mini-select${activeTag ? " on" : ""}`} aria-label={L("Étiquettes", "Tags")} value={activeTag} onChange={(e) => setTag(e.currentTarget.value)}>
+            {TAGGED.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+                {o.id ? ` · ${fmt(tagCounts.get(o.id) || 0)}` : ""}
+              </option>
+            ))}
+            {t.tags.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name} · {fmt(tagCounts.get(x.id) || 0)}
+              </option>
+            ))}
+          </select>
+        )}
+        {t.error && !t.tags && (
+          <span class="small muted" title={t.error}>
+            {L("Étiquettes illisibles", "Tags unavailable")}
+          </span>
         )}
         {sale !== "never" && (
           <select class={`mini-select${order !== "rarity" ? " on" : ""}`} aria-label={L("Ordre", "Order")} value={order} onChange={(e) => setOrder(e.currentTarget.value)}>
