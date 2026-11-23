@@ -11,7 +11,7 @@ import {settings, isOn} from "../state/settings";
 import {themeSet, pendingThemeTags, settleThemeTags} from "../state/themes";
 import {invalidateCollection} from "../state/collection";
 import {L} from "../../shared/i18n";
-import {managedTags, planThemeTags, countCopies, computeAssignments, managedTagIds, planChanges, planTagUpserts, countByTag, applyPlan, DOUBLON, FAVORI} from "../../../../core";
+import {managedTags, planThemeTags, countCopies, computeAssignments, managedTagIds, planChanges, planCardChanges, planTagUpserts, countByTag, applyPlan, DOUBLON, FAVORI} from "../../../../core";
 
 export const sortState = createStore({running: false, step: "", progress: null, plan: null, result: null, error: null, lastRun: null});
 load("lastSort", null).then((lastRun) => lastRun && sortState.set({lastRun}));
@@ -102,6 +102,8 @@ export async function planSort({newOnly}) {
       withThemes,
       counts: countByTag(scoped, managed),
       cards: scoped.map((a) => ({id: a.userCard.id, title: a.userCard.cards.wikipedia_title, category: a.userCard.cards.category, tags: a.tags})),
+      // Cartes dont les étiquettes changent : étiquettes retirées → ajoutées (aperçu du retri complet)
+      changes: planCardChanges({toInsert, toDelete}, existingTags, current, managed).map((c) => ({...c, title: titleOf(c.userCardId), category: byId.get(c.userCardId)?.cards?.category || ""})),
       doublonAdds: toInsert.filter((x) => x.name === DOUBLON && !fresh?.has(x.userCardId)).map((x) => titleOf(x.userCardId)),
       doublonDels: toDelete.filter((d) => d.name === DOUBLON).flatMap((d) => d.ids.map(titleOf)),
       // Étiquette Favori (réglage) : ajoutée aux exemplaires mis en favori, retirée quand l'étoile l'est

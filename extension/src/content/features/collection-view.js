@@ -6,7 +6,7 @@
 // clic du joueur après confirmation ; l'exemplaire traité quitte la liste sans relire la collection.
 import {createStore} from "../lib/store";
 import {on} from "../lib/bus";
-import {loadMyCollection, discardCopy} from "../state/collection";
+import {loadMyCollection, loadCollectionTags, discardCopy} from "../state/collection";
 import {priceMap, priceOptions} from "../state/prices";
 import {sellCard} from "./market";
 import {imageKind} from "./card-images";
@@ -32,6 +32,9 @@ export const collectionView = createStore({open: false, ...DEFAULT_FILTER});
 // copies : exemplaires de ma collection (instantané, mis à jour après chaque action)
 export const cardsState = createStore({copies: null, loading: false, progress: 0, error: null});
 
+// Étiquettes du joueur et associations (state/collection.js loadCollectionTags), pour le filtre par étiquette
+export const tagsState = createStore({tags: null, links: null, loading: false, error: null});
+
 export const LOCKED = L("Tous vos exemplaires sont en favori : le site les verrouille.", "All your copies are favorites: the site locks them.");
 
 export async function loadCards({force = false} = {}) {
@@ -42,6 +45,19 @@ export async function loadCards({force = false} = {}) {
     cardsState.set({copies, loading: false});
   } catch (e) {
     cardsState.set({loading: false, error: e?.message || String(e)});
+  }
+}
+
+// Une lecture plus ancienne (commencée avant un tri) ne remplace pas la dernière
+let tagsRead = 0;
+export async function loadTags({force = false} = {}) {
+  const read = ++tagsRead;
+  tagsState.set({loading: true, error: null});
+  try {
+    const {tags, links} = await loadCollectionTags({force});
+    if (read === tagsRead) tagsState.set({tags, links, loading: false});
+  } catch (e) {
+    if (read === tagsRead) tagsState.set({loading: false, error: e?.message || String(e)});
   }
 }
 
@@ -124,6 +140,22 @@ export const STARRED = [
 export function byStarred(mode) {
   if (mode === "free") return (g) => Boolean(freeCopy(g.rows));
   if (mode === "starred") return (g) => g.rows.some((r) => r.starred);
+  return () => true;
+}
+
+// Étiquettes : "" (toutes les cartes), "any" (au moins un exemplaire avec une étiquette), "none" (au
+// moins un exemplaire sans étiquette) ou id d'une étiquette (au moins un exemplaire qui la porte).
+// links : Map(id de user_cards → Set(id d'étiquette)).
+export const TAGGED = [
+  {id: "", label: L("Avec ou sans étiquette", "Tagged or not")},
+  {id: "any", label: L("Avec une étiquette", "With a tag")},
+  {id: "none", label: L("Sans étiquette", "Without a tag")},
+];
+export function byTag(tag, links) {
+  const has = (r) => links?.get(r.id)?.size > 0;
+  if (tag === "any") return (g) => g.rows.some(has);
+  if (tag === "none") return (g) => g.rows.some((r) => !has(r));
+  if (tag) return (g) => g.rows.some((r) => links?.get(r.id)?.has(tag));
   return () => true;
 }
 

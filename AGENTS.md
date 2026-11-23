@@ -74,6 +74,7 @@ node scripts/eval_categorize.js --verbose
 **Mode complet (sans `--new-only`)**
 - Resynchronise toutes les cartes sur le résultat du moteur : ajoute les tags manquants et **retire** les tags gérés qui ne correspondent plus (une correction manuelle d'un tag géré est donc écrasée ; pour la rendre durable, corrigez les règles ou `manual_mapping_db.json`).
 - Supprime aussi les tags gérés en double (deux tags portant le même nom).
+- La console résume les cartes dont les étiquettes changent par transition (`  1234  Sports → Histoire`) ; avec `--dry-run`, chaque carte modifiée porte ses étiquettes retirées et ajoutées (`removed`, `added`) dans `dry-run.json`.
 
 **Commun aux deux modes**
 - `--dry-run` n'écrit rien : il affiche la répartition par tag, le nombre d'associations à ajouter / supprimer, et écrit le détail par carte dans `dry-run.json` (gitignoré ; en `--new-only`, seulement les cartes non triées).

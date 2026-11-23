@@ -1,7 +1,9 @@
 // Ma collection (exemplaires), lue dans Supabase. Gardée en mémoire quelques minutes ; les ids des
 // cartes possédées sont aussi enregistrés pour les badges « possédée ». Défausse d'un exemplaire.
-import {fetchAll} from "../api/supabase";
+import {fetchAll, rest} from "../api/supabase";
 import {site} from "../api/site";
+import {ensureSession} from "../lib/session";
+import {runAll} from "../lib/http";
 import {createStore} from "../lib/store";
 import {load, save} from "../lib/storage";
 import {withLock} from "../lib/locks";
@@ -17,6 +19,7 @@ load("ownedCardIds", null).then((saved) => {
 });
 
 let cache = null;
+let tagsCache = null;
 let inflight = null;
 // Incrémentée à chaque invalidation : une lecture commencée avant (paquet ouvert, tri appliqué…)
 // ne remplace pas le cache par des données périmées.
@@ -63,6 +66,34 @@ export async function loadMyCollection({withSummary = false, force = false, onPr
 export function invalidateCollection() {
   generation++;
   cache = null;
+  tagsCache = null;
+}
+
+// Étiquettes du joueur et leurs associations : {tags: [{id, name, color}], links: Map(id de
+// user_cards → Set(id d'étiquette))}. Lecture étiquette par étiquette (une lecture de user_card_tags
+// sans filtre dépasse le délai du serveur), 3 à la fois ; gardée en mémoire comme la collection et
+// oubliée avec elle (tri appliqué, étiquette posée en un clic…).
+export async function loadCollectionTags({force = false} = {}) {
+  if (!force && tagsCache && Date.now() - tagsCache.at < MAX_AGE) return tagsCache.promise;
+  const promise = (async () => {
+    const session = await ensureSession();
+    const tags = await rest(`tags?select=id,name,color&user_id=eq.${session.userId}&order=name.asc`, {retries: 3});
+    const links = new Map();
+    await runAll(
+      tags,
+      async (tag) => {
+        const rows = await fetchAll(`user_card_tags?select=user_card_id&tag_id=eq.${tag.id}&order=user_card_id.asc`, {key: "user_card_id"});
+        for (const {user_card_id: id} of rows) (links.get(id) ?? links.set(id, new Set()).get(id)).add(String(tag.id));
+      },
+      {concurrency: 3},
+    );
+    return {tags: tags.map((t) => ({...t, id: String(t.id)})), links};
+  })();
+  tagsCache = {at: Date.now(), promise};
+  promise.catch(() => {
+    if (tagsCache?.promise === promise) tagsCache = null;
+  });
+  return promise;
 }
 
 // Nouvelles cartes vues dans un paquet : la collection en mémoire n'est plus à jour
