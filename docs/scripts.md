@@ -55,6 +55,7 @@ Les scripts s'authentifient avec le token de votre session WikiMasters. Il expir
 - Le mode complet retire les étiquettes gérées qui ne correspondent plus, **y compris celles corrigées à la main**. Pour rendre une correction durable, corrigez les règles, ou ajoutez la carte dans `scripts/manual_mapping_db.json` (utilisé seulement quand le moteur ne trouve rien de fiable).
 - Vos étiquettes personnelles ne sont jamais touchées.
 - `--dry-run` n'écrit rien : il affiche la répartition par étiquette et écrit le détail par carte dans `dry-run.json`.
+- En mode complet, la console résume les cartes modifiées par changement (`  1234  Sports → Histoire`) ; dans `dry-run.json`, chaque carte modifiée porte ses étiquettes retirées (`removed`) et ajoutées (`added`).
 - Une exécution prend environ deux minutes (la base est lente). Faites toujours un `--dry-run` d'abord.
 
 ---

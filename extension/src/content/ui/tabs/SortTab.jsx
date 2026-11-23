@@ -1,17 +1,17 @@
 // Onglet « Tri » : trier les nouvelles cartes, doublons, retri complet.
-import {useState} from "preact/hooks";
+import {useState, useMemo} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {sortState, planSort, applySort} from "../../features/sorter";
 import {activeProfiles} from "../../state/profiles";
 import {settings, isOn} from "../../state/settings";
 import {Progress, Notice, ThemeChip, fmt, plural, timeAgo} from "../components";
 import {confirmAction, toast, errorMessage} from "../feedback";
-import {DOUBLON, FAVORI} from "../../../../../core";
+import {DOUBLON, FAVORI, groupCardChanges, changeKey} from "../../../../../core";
 
 // Pastille d'une étiquette gérée qui n'est pas un thème : Doublon, Favori, « Pour : … »
 const chipClass = (name) => (name === DOUBLON ? "danger" : name === FAVORI ? "warn" : "accent");
 import {isTheme} from "../../state/themes";
-import {L} from "../../../shared/i18n";
+import {L, LOCALE} from "../../../shared/i18n";
 
 function TagCounts({counts}) {
   const max = Math.max(1, ...counts.map((c) => c.count));
@@ -32,12 +32,125 @@ function TagCounts({counts}) {
   );
 }
 
+const tagChip = (t) => (isTheme(t) ? <ThemeChip key={t} theme={t} /> : <span key={t} class={`chip ${chipClass(t)}`}>{t}</span>);
+
+// Aperçu d'un tri (nouvelles cartes ou retri complet) : les cartes dont les étiquettes changent,
+// étiquettes retirées (avant) et ajoutées (après). Toute la collection peut changer (thèmes modifiés) : les changements sont d'abord
+// regroupés par transition (« Sports → Histoire » : 1 234 cartes), un clic sur une transition en
+// liste les cartes, 10 par page.
+const PAGE = 10;
+const TOP_GROUPS = 8;
+const tagsOrNone = (names) => (names.length ? names.map(tagChip) : <span class="muted">—</span>);
+
+function ChangeList({changes}) {
+  const [filter, setFilter] = useState("");
+  const [group, setGroup] = useState(null); // clé d'une transition (changeKey de core/tag-sync.js)
+  const [allGroups, setAllGroups] = useState(false);
+  const [page, setPage] = useState(0);
+  // Une fois par aperçu : transitions, ordre alphabétique et texte de recherche de chaque carte
+  const groups = useMemo(() => groupCardChanges(changes), [changes]);
+  const rows = useMemo(() => {
+    const collator = new Intl.Collator(LOCALE);
+    return changes
+      .map((c) => ({...c, key: changeKey(c), text: `${c.title} ${c.category} ${c.removed.join(" ")} ${c.added.join(" ")}`.toLowerCase()}))
+      .sort((a, b) => collator.compare(a.title, b.title));
+  }, [changes]);
+  const q = filter.trim().toLowerCase();
+  const shown = useMemo(() => rows.filter((c) => (!group || c.key === group) && (!q || c.text.includes(q))), [rows, group, q]);
+  const pages = Math.ceil(shown.length / PAGE);
+  // Autre transition ou autre filtre : retour à la première page
+  const pick = (key) => {
+    setGroup((g) => (g === key ? null : key));
+    setPage(0);
+  };
+  const listed = allGroups ? groups : groups.slice(0, TOP_GROUPS);
+  return (
+    <div class="box stack">
+      <h3>{L(`Cartes modifiées · ${fmt(changes.length)}`, `Changed cards · ${fmt(changes.length)}`)}</h3>
+      {groups.length > 1 && (
+        <div class="stack">
+          <table class="list">
+            <thead>
+              <tr><th>{L("Avant", "Before")}</th><th>{L("Après", "After")}</th><th class="num">{L("Cartes", "Cards")}</th></tr>
+            </thead>
+            <tbody>
+              {listed.map((g) => (
+                <tr key={g.key} class={group === g.key ? "on" : ""}>
+                  <td><div class="chips">{tagsOrNone(g.removed)}</div></td>
+                  <td><div class="chips">{tagsOrNone(g.added)}</div></td>
+                  <td class="num" style={{width: "90px"}}>
+                    <button class="btn sm ghost" aria-pressed={group === g.key} title={group === g.key ? L("Toutes les cartes modifiées", "All changed cards") : L("Voir ces cartes", "Show these cards")} onClick={() => pick(g.key)}>
+                      {fmt(g.count)}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {groups.length > TOP_GROUPS && (
+            <div class="row">
+              <button class="btn sm ghost" onClick={() => setAllGroups(!allGroups)}>
+                {allGroups ? L("Moins de changements", "Fewer changes") : L(`Tous les changements (${fmt(groups.length)})`, `All changes (${fmt(groups.length)})`)}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      <div class="row">
+        <p class="small muted" style={{flex: 1}}>
+          {group
+            ? L(`${plural(shown.length, "carte")} pour ce changement.`, `${fmt(shown.length)} ${shown.length === 1 ? "card" : "cards"} for this change.`)
+            : q
+              ? L(`${plural(shown.length, "carte trouvée", "cartes trouvées")}.`, `${fmt(shown.length)} ${shown.length === 1 ? "card" : "cards"} found.`)
+              : L("Toutes les cartes modifiées, par nom.", "All changed cards, by name.")}
+          {group && (
+            <button class="btn sm ghost" onClick={() => pick(group)}>
+              {L("Toutes les cartes", "All cards")}
+            </button>
+          )}
+        </p>
+        {changes.length > 10 && <input type="search" placeholder={L("Filtrer…", "Filter…")} style={{maxWidth: "240px"}} value={filter} onInput={(e) => {
+          setFilter(e.currentTarget.value);
+          setPage(0);
+        }} />}
+      </div>
+      {shown.length > 0 && (
+        <table class="list">
+          <thead>
+            <tr><th>{L("Carte", "Card")}</th><th>{L("Avant", "Before")}</th><th>{L("Après", "After")}</th></tr>
+          </thead>
+          <tbody>
+            {shown.slice(page * PAGE, (page + 1) * PAGE).map((c) => (
+              <tr key={c.userCardId}>
+                <td>
+                  <div style={{fontWeight: 600}}>{c.title}</div>
+                  <div class="small muted">{c.category}</div>
+                </td>
+                <td><div class="chips">{tagsOrNone(c.removed)}</div></td>
+                <td><div class="chips">{tagsOrNone(c.added)}</div></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {pages > 1 && (
+        <div class="row" style={{justifyContent: "center"}}>
+          <button class="btn sm" disabled={!page} onClick={() => setPage(page - 1)}>{L("Précédent", "Previous")}</button>
+          <span class="small muted num">{L(`Page ${fmt(page + 1)} sur ${fmt(pages)}`, `Page ${fmt(page + 1)} of ${fmt(pages)}`)}</span>
+          <button class="btn sm" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>{L("Suivant", "Next")}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const retiredList = (retired) => retired.map((t) => `${t.name} (${plural(t.count, L("carte", "card"))})`).join(", ");
 
 function PlanView({plan}) {
   const [filter, setFilter] = useState("");
   const q = filter.trim().toLowerCase();
   const cards = q ? plan.cards.filter((c) => `${c.title} ${c.tags.join(" ")}`.toLowerCase().includes(q)) : plan.cards;
+  const showChanges = plan.changes?.length > 0;
   const nothing = !plan.insertCount && !plan.deleteCount && !plan.extraTagIds.length && !plan.renamed?.length;
   return (
     <div class="stack">
@@ -73,14 +186,16 @@ function PlanView({plan}) {
           <Notice type="warn">{L(`Étiquettes de thèmes supprimés, retirées puis supprimées : ${retiredList(plan.retired)}. Leurs cartes reçoivent un thème de votre liste.`, `Tags of deleted themes, removed then deleted: ${retiredList(plan.retired)}. Their cards get a theme from your list.`)}</Notice>
         ))}
       {plan.unmanaged.length > 0 && <p class="small muted">{L("Vos étiquettes personnelles ne seront pas touchées : ", "Your personal tags will not be touched: ")}{plan.unmanaged.join(", ")}.</p>}
-      {(plan.doublonAdds.length > 0 || plan.doublonDels.length > 0) && (
+      {showChanges && <ChangeList changes={plan.changes} />}
+      {/* Doublon et Favori figurent dans les cartes modifiées, sans liste de noms à rallonge */}
+      {!showChanges && (plan.doublonAdds.length > 0 || plan.doublonDels.length > 0) && (
         <div class="box">
           <h3>{L("Doublons", "Duplicates")}</h3>
           {plan.doublonAdds.length > 0 && <p class="small">+ {plan.doublonAdds.join(", ")}</p>}
           {plan.doublonDels.length > 0 && <p class="small muted">− {plan.doublonDels.join(", ")}</p>}
         </div>
       )}
-      {(plan.favoriAdds?.length > 0 || plan.favoriDels?.length > 0) && (
+      {!showChanges && (plan.favoriAdds?.length > 0 || plan.favoriDels?.length > 0) && (
         <div class="box">
           <h3>{L("Favoris", "Favorites")}</h3>
           {plan.favoriAdds.length > 0 && <p class="small">+ {plan.favoriAdds.join(", ")}</p>}
@@ -93,7 +208,8 @@ function PlanView({plan}) {
           <TagCounts counts={plan.counts} />
         </div>
       )}
-      {plan.cards.length > 0 && (
+      {/* Nouvelles cartes : toutes dans les cartes modifiées ; retri complet : toute la collection, modifiée ou non */}
+      {plan.cards.length > 0 && !(plan.newOnly && showChanges) && (
         <div class="box stack">
           <div class="row">
             <h3 style={{flex: 1}}>{L("Détail par carte", "Per-card details")}</h3>
@@ -112,7 +228,7 @@ function PlanView({plan}) {
                   </td>
                   <td>
                     <div class="chips">
-                      {c.tags.map((t) => (isTheme(t) ? <ThemeChip key={t} theme={t} /> : <span key={t} class={`chip ${chipClass(t)}`}>{t}</span>))}
+                      {c.tags.map(tagChip)}
                     </div>
                   </td>
                 </tr>
@@ -145,10 +261,10 @@ export function SortTab() {
       const ok = await confirmAction({
         title: L("Appliquer le retri complet ?", "Apply the full re-sort?"),
         body: L(
-          `Toute la collection est resynchronisée : ${fmt(plan.insertCount)} étiquette(s) ajoutée(s), ${fmt(plan.deleteCount)} retirée(s). Les corrections faites à la main sur une étiquette gérée (thème, « Pour : … », Doublon) seront écrasées.${
+          `Toute la collection est resynchronisée : ${plural(plan.changes?.length || 0, "carte modifiée", "cartes modifiées")}, ${fmt(plan.insertCount)} étiquette(s) ajoutée(s), ${fmt(plan.deleteCount)} retirée(s). Les corrections faites à la main sur une étiquette gérée (thème, « Pour : … », Doublon) seront écrasées.${
             plan.retired?.length ? ` Étiquettes de thèmes supprimés, supprimées : ${retiredList(plan.retired)}.` : ""
           } Vos étiquettes personnelles ne sont jamais touchées.`,
-          `The whole collection is resynced: ${fmt(plan.insertCount)} tag(s) added, ${fmt(plan.deleteCount)} removed. Manual fixes to a managed tag (theme, "Pour : …", Doublon) will be overwritten.${
+          `The whole collection is resynced: ${fmt(plan.changes?.length || 0)} changed card(s), ${fmt(plan.insertCount)} tag(s) added, ${fmt(plan.deleteCount)} removed. Manual fixes to a managed tag (theme, "Pour : …", Doublon) will be overwritten.${
             plan.retired?.length ? ` Tags of deleted themes, deleted: ${retiredList(plan.retired)}.` : ""
           } Your personal tags are never touched.`,
         ),

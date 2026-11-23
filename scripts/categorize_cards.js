@@ -160,6 +160,14 @@ async function processCards({dryRun = false, newOnly = false} = {}) {
 
   const title = new Map(userCards.map((uc) => [uc.id, uc.cards?.wikipedia_title]));
   if (fresh) for (const {userCard, tags} of scoped) console.log(`  + ${userCard.cards.wikipedia_title} → ${tags.join(", ")}`);
+  // Mode complet : cartes dont les étiquettes changent, regroupées par transition (toute la
+  // collection peut changer) ; le détail carte par carte est dans dry-run.json
+  const changes = fresh ? [] : core.planCardChanges({toInsert, toDelete}, existingTags, current, TAG_COLORS);
+  if (!fresh) {
+    console.log(`${changes.length} carte(s) modifiée(s) :`);
+    for (const g of core.groupCardChanges(changes))
+      console.log(`  ${String(g.count).padStart(5)}  ${g.removed.join(", ") || "—"} → ${g.added.join(", ") || "—"}`);
+  }
   const doublonAdds = toInsert.filter((i) => i.name === core.DOUBLON && !fresh?.has(i.userCardId));
   const doublonDels = toDelete.filter((d) => d.name === core.DOUBLON).flatMap((d) => d.ids);
   for (const i of doublonAdds) console.log(`  + Doublon : ${title.get(i.userCardId)}`);
@@ -168,11 +176,14 @@ async function processCards({dryRun = false, newOnly = false} = {}) {
   console.log(`${toInsert.length} association(s) à ajouter, ${deleteCount} à supprimer.`);
 
   if (dryRun) {
+    const changed = new Map(changes.map((c) => [c.userCardId, c]));
     const report = scoped.map(({userCard: uc, tags}) => ({
       user_card_id: uc.id,
       title: uc.cards.wikipedia_title,
       category: uc.cards.category,
       tags,
+      // Mode complet : étiquettes retirées et ajoutées, pour les cartes qui changent
+      ...(changed.has(uc.id) && {removed: changed.get(uc.id).removed, added: changed.get(uc.id).added}),
     }));
     const out = path.join(__dirname, "..", "dry-run.json");
     fs.writeFileSync(out, JSON.stringify(report, null, 2));

@@ -148,6 +148,47 @@ function planChanges(assignments, existingTags, current, {newOnly = false, manag
   return {fresh, toInsert, toDelete, extraTagIds};
 }
 
+// Changements d'un plan (planChanges) carte par carte, pour l'aperçu : [{userCardId, removed,
+// added}] (noms d'étiquettes), dans l'ordre de la première carte rencontrée, cartes sans changement
+// net écartées. Une carte retirée d'une étiquette en double (ou de deux étiquettes du même nom) ne
+// perd ce nom que si elle ne le garde pas sur l'étiquette principale. Noms dans l'ordre des tags
+// gérés ; une étiquette qui ne l'est plus (thème supprimé) en tête.
+function planCardChanges({toInsert, toDelete}, existingTags, current, managed) {
+  const primary = Object.fromEntries(Object.entries(managedTagIds(existingTags, managed)).map(([name, ids]) => [name, ids[0]]));
+  const cards = new Map();
+  const entry = (id) => cards.get(id) ?? cards.set(id, {removed: new Set(), added: new Set()}).get(id);
+  const leftPrimary = new Set(); // `${nom}|${id}` retirés de l'étiquette principale
+  for (const {name, tagId, ids} of toDelete) for (const id of ids) if (tagId === primary[name]) leftPrimary.add(`${name}|${id}`);
+  for (const {name, tagId, ids} of toDelete)
+    for (const id of ids) {
+      const kept = tagId !== primary[name] && current.get(primary[name])?.has(id) && !leftPrimary.has(`${name}|${id}`);
+      if (!kept) entry(id).removed.add(name);
+    }
+  for (const {name, userCardId} of toInsert) entry(userCardId).added.add(name);
+  const order = Object.keys(managed);
+  const sorted = (names) => [...names].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const out = [];
+  for (const [userCardId, {removed, added}] of cards) {
+    for (const name of [...removed]) if (added.delete(name)) removed.delete(name);
+    if (removed.size || added.size) out.push({userCardId, removed: sorted(removed), added: sorted(added)});
+  }
+  return out;
+}
+
+// Changements regroupés par transition (mêmes étiquettes retirées, mêmes ajoutées) :
+// [{key, removed, added, count}], la plus fréquente d'abord. Une collection entière peut changer
+// (thèmes modifiés) : l'aperçu montre ces groupes avant le détail carte par carte.
+const changeKey = ({removed, added}) => `${removed.join("\u0000")}\u0001${added.join("\u0000")}`;
+function groupCardChanges(changes) {
+  const groups = new Map();
+  for (const c of changes) {
+    const key = changeKey(c);
+    const g = groups.get(key) ?? groups.set(key, {key, removed: c.removed, added: c.added, count: 0}).get(key);
+    g.count++;
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+}
+
 // Tags à créer ou à recolorer avant d'insérer les associations.
 // En mode newOnly, un tag géré absent n'est créé que s'il reçoit au moins une carte
 // (un ancien tag supprimé à la main n'est pas recréé pour rien).
@@ -175,4 +216,4 @@ function countByTag(assignments, managed) {
   return Object.keys(managed).filter((n) => counts[n]).map((name) => ({name, count: counts[name]}));
 }
 
-module.exports = {managedTags, isThemeTag, planThemeTags, countCopies, computeAssignments, managedTagIds, planChanges, planTagUpserts, countByTag};
+module.exports = {managedTags, isThemeTag, planThemeTags, countCopies, computeAssignments, managedTagIds, planChanges, planCardChanges, changeKey, groupCardChanges, planTagUpserts, countByTag};

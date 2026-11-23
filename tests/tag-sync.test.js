@@ -151,3 +151,56 @@ test("Favori : option désactivée, une étiquette Favori déjà posée n'est pl
   const plan = core.planChanges(core.computeAssignments(collection), tagsFav, current, {newOnly: false, managed});
   assert.ok(!plan.toDelete.some((d) => d.name === "Favori" || d.tagId === "t-fav"));
 });
+
+test("aperçu du retri complet : changements carte par carte, ancien thème → nouveau", () => {
+  const assignments = core.computeAssignments(collection);
+  // u1 corrigée à la main en Sports ; u2 a Sports en double (deux étiquettes du même nom) ;
+  // u4 dans un thème supprimé (étiquette retirée)
+  const dupTags = [...tags, {id: "t-sport-2", name: "Sports", color: "#ea580c"}];
+  const retired = [{id: "t-old", name: "Ancien thème", color: "#fff"}];
+  const current = new Map([
+    ["t-geo", new Set()],
+    ["t-sport", new Set(["u1", "u2", "u3"])],
+    ["t-sport-2", new Set(["u2", "u3"])],
+    ["t-old", new Set(["u4"])],
+  ]);
+  current.set("t-doublon", new Set(["u2", "u3"]));
+  const allTags = [...dupTags, {id: "t-doublon", name: "Doublon", color: "#dc2626"}];
+  const plan = core.planChanges(assignments, allTags, current, {newOnly: false, managed, retired});
+  const changes = core.planCardChanges(plan, allTags, current, managed);
+  const byId = Object.fromEntries(changes.map((c) => [c.userCardId, `${c.removed.join(", ")} → ${c.added.join(", ")}`]));
+  assert.deepEqual(byId, {
+    u1: "Sports → Géographie & Territoires",
+    u4: "Ancien thème → Astronomie & Espace",
+  }, "u2 et u3 gardent Sports sur l'étiquette principale : aucun changement");
+});
+
+test("aperçu : une carte retirée d'une étiquette en double et de la principale perd le nom une fois", () => {
+  const dupTags = [...tags, {id: "t-sport-2", name: "Sports", color: "#ea580c"}];
+  const current = new Map([["t-geo", new Set()], ["t-sport", new Set(["u1"])], ["t-sport-2", new Set(["u1"])]]);
+  const plan = {toInsert: [{name: "Géographie & Territoires", userCardId: "u1"}], toDelete: [{name: "Sports", tagId: "t-sport", ids: ["u1"]}, {name: "Sports", tagId: "t-sport-2", ids: ["u1"]}]};
+  assert.deepEqual(core.planCardChanges(plan, dupTags, current, managed), [{userCardId: "u1", removed: ["Sports"], added: ["Géographie & Territoires"]}]);
+  // Retirée du double seulement, ajoutée à la principale : aucun changement
+  const moved = {toInsert: [{name: "Sports", userCardId: "u1"}], toDelete: [{name: "Sports", tagId: "t-sport-2", ids: ["u1"]}]};
+  assert.deepEqual(core.planCardChanges(moved, dupTags, new Map([["t-sport-2", new Set(["u1"])]]), managed), []);
+});
+
+test("aperçu : changements regroupés par transition, la plus fréquente d'abord", () => {
+  const changes = [
+    {userCardId: "a", removed: ["Sports"], added: ["Histoire"]},
+    {userCardId: "b", removed: ["Doublon"], added: []},
+    {userCardId: "c", removed: ["Sports"], added: ["Histoire"]},
+    {userCardId: "d", removed: ["Sports", "Pour : Ana"], added: ["Histoire"]},
+    {userCardId: "e", removed: ["Sports"], added: ["Histoire"]},
+  ];
+  const groups = core.groupCardChanges(changes);
+  assert.deepEqual(groups.map((g) => [g.removed.join("+"), g.added.join("+"), g.count]), [
+    ["Sports", "Histoire", 3],
+    ["Doublon", "", 1],
+    ["Sports+Pour : Ana", "Histoire", 1],
+  ]);
+  assert.equal(groups[0].key, core.changeKey(changes[0]), "même clé pour filtrer les cartes d'un groupe");
+  // Une collection entière : regroupement en une passe
+  const many = Array.from({length: 20000}, (_, i) => ({userCardId: `u${i}`, removed: [i % 2 ? "Sports" : "Autre"], added: ["Histoire"]}));
+  assert.deepEqual(core.groupCardChanges(many).map((g) => g.count), [10000, 10000]);
+});

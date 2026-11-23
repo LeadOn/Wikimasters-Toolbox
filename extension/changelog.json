@@ -70,6 +70,13 @@
           "fr": "Dans la liste de la barre Toolbox de la page Collection, un nouveau filtre par étiquette : vos cartes avec une étiquette, sans étiquette, ou celles d'une de vos étiquettes, avec le nombre de cartes de chacune.",
           "en": "In the Toolbox bar list of the Collection page, a new tag filter: your cards with a tag, without a tag, or those with one of your tags, with the number of cards for each.",
           "credits": [{"name": "Tom32i", "for": "code"}]
+        },
+        {
+          "area": "sort",
+          "tab": "sort",
+          "fr": "Dans l'onglet Tri, l'aperçu du tri et du retri complet liste les cartes qui vont changer, avec leurs étiquettes avant et après (par exemple « Sports → Histoire »), regroupées par changement.",
+          "en": "In the Sort tab, the sort and full re-sort previews list the cards that will change, with their tags before and after (for example \"Sports → Histoire\"), grouped by change.",
+          "credits": [{"name": "mkl-rgb", "for": "idea"}]
         }
       ]
     },

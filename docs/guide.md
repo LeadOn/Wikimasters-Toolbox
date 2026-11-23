@@ -213,7 +213,7 @@ Deux modes, toujours précédés d'un aperçu qui n'écrit rien :
 | **Trier mes nouvelles cartes** | Les cartes sans thème, plus `Doublon` sur toute la collection | Après avoir ouvert des paquets. Vos corrections manuelles sont conservées |
 | **Retri complet** | Toute la collection | Après avoir modifié des profils ou des thèmes, ou mis à jour l'extension. Les étiquettes gérées qui ne correspondent plus sont retirées, **y compris celles que vous aviez corrigées à la main** : une confirmation est demandée |
 
-L'aperçu détaille le nombre de cartes concernées, les étiquettes ajoutées et retirées, la répartition par thème et le détail carte par carte (avec un filtre). Comptez une à deux minutes : la base de WikiMasters est lente.
+L'aperçu détaille le nombre de cartes concernées, les étiquettes ajoutées et retirées, la répartition par thème et le détail carte par carte (avec un filtre). Les deux aperçus listent les **cartes modifiées** (nouvelles cartes classées, `Doublon` ajouté ou retiré, thème changé au retri complet) : les changements sont d'abord regroupés (« Sports → Histoire » : nombre de cartes) ; un clic sur le nombre affiche ces cartes, et la liste de toutes les cartes modifiées, avec leurs étiquettes avant et après, se filtre et s'affiche 10 par 10 (*Précédent*, *Suivant*). Comptez une à deux minutes : la base de WikiMasters est lente.
 
 Trois réglages (onglet *Réglages* → **Tri**) changent ce que pose le tri (les deux premiers aussi pour le tri automatique des cartes tirées) :
 
