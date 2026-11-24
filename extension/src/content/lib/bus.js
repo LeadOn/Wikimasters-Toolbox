@@ -24,6 +24,7 @@ const ROUTES = [
   ["friend-collection", /^\/api\/profile\/([^/]+)\/collection/],
   ["catalog", /^\/api\/cards(?:\?|$)/],
   ["price-history", /^\/api\/marketplace\/cards\/([0-9a-f-]{36})\/price-history$/],
+  ["card-sales", /^\/api\/marketplace\/cards\/([0-9a-f-]{36})\/sales(?:\?rarity=([A-Z]+))?$/],
   ["auction", /^\/api\/marketplace\/([0-9a-f-]{36})$/],
   ["marketplace", /^\/api\/marketplace(?:\?|$)/],
   ["trades", /^\/api\/trades/],

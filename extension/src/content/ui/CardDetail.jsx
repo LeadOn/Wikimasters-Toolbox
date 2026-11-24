@@ -7,7 +7,7 @@
 import {useEffect, useState} from "preact/hooks";
 import {useStore} from "../lib/store";
 import {rest} from "../api/supabase";
-import {priceInfo, priceVersion, requestPrice, uncertainNote} from "../state/prices";
+import {priceInfo, priceStatus, isQueued, priceVersion, requestPrice, uncertainNote} from "../state/prices";
 import {SiteCard} from "./SiteCard";
 import {Icon, Modal, Money, fmt} from "./components";
 import {SalesNote, PRICE_TITLE} from "./islands/shared";
@@ -44,7 +44,10 @@ function MarketPrice({card}) {
   useEffect(() => {
     if (card.id) requestPrice(card.id, {detail: true});
   }, [card.id]);
+  const status = priceStatus(card.id, card.rarity);
   const info = priceInfo(card.id, card.rarity);
+  if (status === "unknown" && isQueued(card.id)) return <span class="spinner" aria-label={L("Chargement du prix", "Loading price")} />;
+  if (status === "error") return <span class="muted small">{L("Serveur indisponible, nouvel essai dans quelques minutes", "Server unavailable, retrying in a few minutes")}</span>;
   if (!info) return <span class="muted small">{L("Jamais vendue dans cette rareté", "Never sold in this rarity")}</span>;
   return (
     <span class="cd-price">

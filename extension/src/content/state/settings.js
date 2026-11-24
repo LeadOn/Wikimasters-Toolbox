@@ -1,7 +1,7 @@
 // Réglages de la Toolbox : un interrupteur (ou un choix) par fonctionnalité, thèmes de tri, couleur de Doublon.
 import {persistentStore} from "../lib/storage";
 import {createStore} from "../lib/store";
-import {PRICE_DEFAULTS} from "../../../../core/prices";
+import {PRICE_DEFAULTS, RARITIES} from "../../../../core/prices";
 import {DOUBLON} from "../../../../core/themes";
 import {resolveThemes, storeThemes, applyTagColors} from "../../../../core/theme-set";
 import {L} from "../../shared/i18n";
@@ -41,7 +41,7 @@ export const FEATURES = [
   {key: "tradeFilter", group: L("Échanges", "Trades"), label: L("Filtre par prix dans la fenêtre d'échange", "Price filter in the trade window"), help: L("Dans la fenêtre « Échanger avec … » du site : filtre toute la collection de l'onglet ouvert (celle de l'ami ou la vôtre) par prix, comme les filtres de la collection, et ajoute les cartes trouvées à l'offre en un clic.", "In the site's \"Échanger avec …\" window: filters the whole collection of the open tab (your friend's or yours) by price, like the collection filters, and adds the cards found to the offer in one click.")},
   {key: "tradeValues", group: L("Échanges", "Trades"), label: L("Valeur des échanges", "Trade values"), help: L("Prix du marché de chaque carte et total de chaque côté des échanges en cours.", "Market price of each card and total for each side of ongoing trades.")},
   {key: "priceIndex", group: L("Marché", "Market"), label: L("Indexer les prix de ma collection", "Index my collection's prices"), help: L("Tient à jour en arrière-plan le prix de toutes les cartes de votre collection (une lecture à la fois, à la cadence du quota réglé, plafonnée chaque jour), tant qu'une page WikiMasters est ouverte. Les cartes affichées à l'écran ont leur prix tout de suite, même sans cette option. Des milliers de lectures par jour peuvent être prises par le site pour de l'automatisation : l'indexation s'arrête d'elle-même au premier refus du site.", "Keeps the price of every card in your collection up to date in the background (one read at a time, at the pace of your configured quota, capped each day), as long as a WikiMasters page is open. Cards shown on screen get their price right away, even without this option. Thousands of reads a day may be taken by the site for automation: indexing stops on its own as soon as the site refuses.")},
-  {key: "priceIndexSpeed", group: L("Marché", "Market"), label: L("Vitesse de l'indexation", "Indexing speed"), help: L("Normale : un sixième du quota de lectures de prix (une lecture par minute et 1 440 par jour au quota par défaut de 60). Rapide : un tiers du quota (une toutes les 30 secondes et 2 880 par jour par défaut). Le quota global (fenêtre de 10 minutes et rafale de 30 secondes) se règle dans « Prix et délais » ci-dessous ; la moitié reste réservée aux cartes que vous tirez ou ouvrez.", "Normal: one sixth of the price read quota (one read per minute and 1,440 a day at the default quota of 60). Fast: one third of the quota (one every 30 seconds and 2,880 a day by default). The overall quota (10-minute window and 30-second burst) can be adjusted under \"Prices and timing\" below; half stays reserved for the cards you pull or open."), choices: [
+  {key: "priceIndexSpeed", group: L("Marché", "Market"), label: L("Vitesse de l'indexation", "Indexing speed"), help: L("Répartie entre les deux routes de l'onglet Marché d'une carte (historique et dernières ventes). Normale : une lecture toutes les 4 secondes (1 toutes les 8 s par route, 900 / h, 21 600 par jour au plus). Rapide : une lecture toutes les 2 secondes (1 toutes les 4 s par route, 1 800 / h, 43 200 par jour au plus). La cadence suit aussi le quota réglé dans « Prix et délais » ci-dessous.", "Split across the two routes of a card's Market tab (price history and recent sales). Normal: one read every 4 seconds (1 every 8 s per route, 900/hr, up to 21,600 a day). Fast: one read every 2 seconds (1 every 4 s per route, 1,800/hr, up to 43,200 a day). The pace also scales with the quota configured under \"Prices and timing\" below."), choices: [
     {id: "normal", label: L("Normale", "Normal")},
     {id: "fast", label: L("Rapide", "Fast")},
   ]},
@@ -69,6 +69,13 @@ export function clampQuota(value, bounds) {
   return value === "" || value == null || !Number.isFinite(n) ? bounds.default : Math.min(bounds.max, Math.max(bounds.min, n));
 }
 
+// Raretés choisies pour l'indexation des prix : dans l'ordre L → C, toutes par défaut (au moins une gardée)
+export function normalizeIndexRarities(list) {
+  if (!Array.isArray(list)) return [...RARITIES];
+  const valid = RARITIES.filter((r) => list.includes(r));
+  return valid.length ? valid : [...RARITIES];
+}
+
 export const DEFAULT_SETTINGS = {
   // Interrupteurs ; une option à choix (choices) a sa propre valeur, à sa clé
   features: Object.fromEntries(FEATURES.filter((f) => !f.choices).map((f) => [f.key, !OFF_BY_DEFAULT.has(f.key)])),
@@ -83,8 +90,9 @@ export const DEFAULT_SETTINGS = {
   // Quota de lectures de prix (tous onglets compris) : fenêtre de 10 min et rafale de 30 s
   priceQuotaWindow: PRICE_QUOTA_LIMITS.window.default,
   priceQuotaBurst: PRICE_QUOTA_LIMITS.burst.default,
-  // Indexation des prix de la collection : id d'un choix de priceIndexSpeed
+  // Indexation des prix de la collection : id d'un choix de priceIndexSpeed, et raretés à indexer
   priceIndexSpeed: "normal",
+  priceIndexRarities: [...RARITIES],
   bidAlertMinutes: 2,
   // Page Paquets : place du récapitulatif et des taux de drop ("below" sous le contenu, "left" / "right" dans la marge)
   packDock: {recap: "below", rates: "below"},
@@ -110,6 +118,7 @@ export const settings = persistentStore("settings", DEFAULT_SETTINGS, {
     ...withoutRetired(saved),
     priceQuotaWindow: clampQuota(saved.priceQuotaWindow, PRICE_QUOTA_LIMITS.window),
     priceQuotaBurst: clampQuota(saved.priceQuotaBurst, PRICE_QUOTA_LIMITS.burst),
+    priceIndexRarities: normalizeIndexRarities(saved.priceIndexRarities),
     features: {...DEFAULT_SETTINGS.features, ...Object.fromEntries(ON_FOR_NEW_INSTALLS.map((k) => [k, false])), ...(saved.features || {})},
     packDock: {...DEFAULT_SETTINGS.packDock, ...(saved.packDock || {})},
     ...migrateThemeColors(saved),

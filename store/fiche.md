@@ -65,7 +65,7 @@ FILTRES DE TOUTE LA COLLECTION
 
 PRIX ET MARCHÉ
 • Prix du marché de chaque carte dans sa rareté : prix moyen de la semaine (comme dans l'onglet Marché de la fiche du site), fourchette sur 4 semaines, variation et nombre de ventes au survol, « ≈ » quand la carte s'est trop peu vendue.
-• Indexation en arrière-plan des prix de toute votre collection (en option dans l'onglet Prix), avec suivi par rareté et quota de lectures réglable dans les paramètres. L'indexation des prix est extrêmement lente à cause des limitations imposées par le développeur du site depuis la dernière mise à jour, et aucun contournement n'est trouvé à date.
+• Indexation en arrière-plan des prix de votre collection (en option dans l'onglet Prix), avec choix des raretés à indexer, suivi par rareté et quota de lectures réglable dans les paramètres. L'indexation des prix est extrêmement lente à cause des limitations imposées par le développeur du site depuis la dernière mise à jour, et aucun contournement n'est trouvé à date.
 • Sur la page d'une enchère : écart entre la mise et le prix du marché, et un avertissement si vous misez déjà sur une autre enchère de la même carte.
 • « Prochaines enchères de cette carte » : toutes les enchères en cours de la carte, avec la mise, le prix du marché et le temps restant.
 • Le titre de l'onglet d'une enchère affiche le temps restant et si vous êtes en tête (✓) ou surenchéri (✗), et clignote quand quelqu'un surenchérit : surveillez l'enchère depuis un autre onglet.
@@ -163,7 +163,7 @@ FILTERS ACROSS YOUR WHOLE COLLECTION
 
 PRICES AND MARKET
 • Market price of each card in its rarity: the week's average price (same as in the Market tab of a card's page on the site), with 4-week range, weekly change and sales count on hover, "≈" when a card has sold too rarely.
-• Optional background indexing of your whole collection's prices (Prices tab), with progress by rarity and a configurable read quota in the settings. Price indexing is extremely slow due to the limitations imposed by the site's developer since the last update, and no workaround has been found to date.
+• Optional background indexing of your collection's prices (Prices tab), with choice of rarities to index, progress by rarity and a configurable read quota in the settings. Price indexing is extremely slow due to the limitations imposed by the site's developer since the last update, and no workaround has been found to date.
 • On an auction page: gap between the bid and the market price, and a warning when you already bid on another auction of the same card.
 • "Upcoming auctions for this card": every running auction of the card, with the bid, market price and time left.
 • An auction's tab title shows the time left and whether you lead (✓) or were outbid (✗), and flashes when someone outbids you: keep an eye on it from another tab.

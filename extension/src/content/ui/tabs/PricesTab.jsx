@@ -7,7 +7,7 @@ import {loadMyCollection} from "../../state/collection";
 import {priceOf, priceStatus, priceOptions, priceVersion, priceSource, slowBudget, slowSpeed, slowStoppedBy, priceQuota, PRICE_BUDGET} from "../../state/prices";
 import {siteBlocked} from "../../api/site";
 import {indexState, indexProgress, loadIndexList, takePriceIndexLead} from "../../state/price-index";
-import {settings} from "../../state/settings";
+import {settings, normalizeIndexRarities} from "../../state/settings";
 import {CardRow, Money, Paged, Progress, Notice, Toggle, fmt, plural} from "../components";
 import {CollectionFilters, CollectionCards} from "../CollectionCards";
 import {DEFAULT_FILTER} from "../../features/collection-view";
@@ -49,8 +49,12 @@ function IndexBox() {
   const fast = slowSpeed("fast");
   const speed = slowSpeed();
   const stopped = slowStoppedBy() || siteBlocked();
-  const burst = Math.max(1, Math.floor(quota.burst / (budget.halved ? 2 : 1)));
-  const gap = Math.max(speed.gap * (budget.halved ? 2 : 1), Math.round(PRICE_BUDGET.BURST_MS / Math.max(1, Math.floor(burst * 0.5))));
+  const gap = speed.gap * (budget.halved ? 2 : 1);
+  const selectedRarities = normalizeIndexRarities(s.priceIndexRarities);
+  const toggleRarity = (r) => {
+    const next = selectedRarities.includes(r) ? selectedRarities.filter((x) => x !== r) : [...selectedRarities, r];
+    if (next.length) settings.set({priceIndexRarities: normalizeIndexRarities(next)});
+  };
   const setOn = (value) => settings.set((st) => ({...st, features: {...st.features, priceIndex: value}}));
   let status;
   let showTakeover = false;
@@ -77,8 +81,8 @@ function IndexBox() {
       </div>
       <p class="help">
         {L(
-          `Tient à jour en arrière-plan le prix de chaque carte de votre collection, tant qu'une page WikiMasters est ouverte : une lecture à la fois, après les cartes affichées, les plus rares d'abord. Chaque carte est relue régulièrement (L et UR chaque jour, SR tous les 3 jours, R chaque semaine, PC et C chaque mois) ; une carte que vous ouvrez est relue si son prix a plus de 10 minutes. La Toolbox reste sous ${fmt(quota.window)} lectures en 10 minutes (réglable dans Réglages) et en garde la moitié pour les cartes que vous tirez ou ouvrez. Au premier refus du site, l'indexation s'arrête et se désactive.`,
-          `Keeps the price of every card in your collection up to date in the background, as long as a WikiMasters page is open: one read at a time, after the cards on screen, rarest first. Each card is read again regularly (L and UR every day, SR every 3 days, R every week, PC and C every month); a card you open is read again if its price is more than 10 minutes old. The Toolbox stays under ${fmt(quota.window)} reads in 10 minutes (configurable in Settings) and keeps half of them for the cards you pull or open. As soon as the site refuses, indexing stops and turns itself off.`,
+          `Tient à jour en arrière-plan le prix de chaque carte de votre collection, tant qu'une page WikiMasters est ouverte : une lecture à la fois, après les cartes affichées, en alternant entre les deux routes de l'onglet Marché d'une carte (l'historique complet pour vos cartes L, UR, SR et les cartes très vendues ; les 5 dernières ventes pour les cartes R, PC et C). Chaque carte est relue régulièrement (L et UR chaque jour, SR tous les 3 jours, R chaque semaine, PC et C chaque mois) ; une carte que vous ouvrez est relue si son prix a plus de 10 minutes. La Toolbox reste sous ${fmt(quota.window)} lectures en 10 minutes par route (réglable dans Réglages) et garde la moitié de la rafale pour les cartes que vous tirez ou ouvrez. Au premier refus du site, l'indexation s'arrête et se désactive.`,
+          `Keeps the price of every card in your collection up to date in the background, as long as a WikiMasters page is open: one read at a time, after the cards on screen, alternating between the two routes of a card's Market tab (the full history for your L, UR, SR and frequently sold cards; the last 5 sales for R, PC and C cards). Each card is read again regularly (L and UR every day, SR every 3 days, R every week, PC and C every month); a card you open is read again if its price is more than 10 minutes old. The Toolbox stays under ${fmt(quota.window)} reads in 10 minutes per route (configurable in Settings) and keeps half the burst for the cards you pull or open. As soon as the site refuses, indexing stops and turns itself off.`,
         )}
       </p>
       <label class="field">
@@ -88,16 +92,29 @@ function IndexBox() {
           <option value="fast">{L(`Rapide : une lecture ${every(fast.gap)}, ${fmt(fast.cap)} par jour au plus`, `Fast: one read ${every(fast.gap)}, at most ${fmt(fast.cap)} a day`)}</option>
         </select>
       </label>
-      {p.total != null && <Progress done={p.read} total={p.total} label={L("Cartes de la collection avec un prix lu", "Collection cards with a price read")} />}
-      {p.total != null && (
-        <div class="chips">
-          {RARITIES.filter((r) => p.byRarity[r]).map((r) => (
-            <span key={r} class="chip">
-              {RARITY_LABEL[r]} · {fmt(p.byRarity[r].read)} / {fmt(p.byRarity[r].total)}
-            </span>
-          ))}
+      <div class="field">
+        <span>{L("Raretés à indexer", "Rarities to index")}</span>
+        <div class="chips" role="group" aria-label={L("Raretés à indexer", "Rarities to index")}>
+          {RARITIES.map((r) => {
+            const active = selectedRarities.includes(r);
+            const counts = p.byRarity[r];
+            return (
+              <button
+                key={r}
+                type="button"
+                class={`chip${active ? " on" : ""}`}
+                aria-pressed={active}
+                disabled={active && selectedRarities.length === 1}
+                onClick={() => toggleRarity(r)}
+              >
+                {RARITY_LABEL[r]}
+                {counts ? ` · ${fmt(counts.read)} / ${fmt(counts.total)}` : ""}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
+      {p.total != null && <Progress done={p.read} total={p.total} label={L("Cartes des raretés choisies avec un prix lu", "Cards in selected rarities with a price read")} />}
       {on && status && (
         <div class="row">
           <p class="small muted">{status}</p>

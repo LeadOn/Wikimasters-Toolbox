@@ -132,9 +132,12 @@ test("budget des prix : cartes affichées sur la moitié de la rafale, cartes ti
   await until(() => pulled.every((id) => m.reads.includes(id)), 1000);
   assert.deepEqual(m.reads.slice(half), pulled, "les cinq cartes du paquet, sans attendre");
   await loaded;
+  // Même une fois toute la rafale utilisée, une fiche ou un paquet suivant ouvert par le joueur
+  // prend la priorité et part immédiatement, pendant que les pastilles de grille (tile11) attendent
   m.prices.requestPrice("opened", {detail: true});
-  await new Promise((r) => setTimeout(r, 100));
-  assert.ok(!m.reads.includes("opened"), "rafale entière utilisée : la fiche attend le prochain créneau");
+  await until(() => m.reads.includes("opened"), 1000);
+  assert.ok(m.reads.includes("opened"), "la fiche ouverte part tout de suite même quand la rafale est pleine");
+  assert.ok(!m.reads.includes("tile11"), "les pastilles de grille attendent toujours le prochain créneau");
 });
 
 test("budget des prix : refus du site → pause des seules lectures de prix, carte gardée en file", async () => {
@@ -147,11 +150,70 @@ test("budget des prix : refus du site → pause des seules lectures de prix, car
   await until(() => paused.length > 0);
   assert.ok(AutomationBlockedError);
   assert.equal(paused.length, 1);
-  assert.ok(m.prices.pricesPausedUntil() > Date.now() + 14 * 60e3, "pause d'un quart d'heure");
+  assert.ok(m.prices.pricesPausedUntil() > Date.now() + 50e3 && m.prices.pricesPausedUntil() <= Date.now() + 65e3, "pause courte d'une minute");
   assert.equal(m.prices.slowBudget.get().halved, true, "budget réduit jusqu'au lendemain");
   assert.ok(m.prices.isQueued("a"), "la carte sera lue à la reprise");
   m.prices.requestPrice("b", {detail: true});
   await new Promise((r) => setTimeout(r, 50));
   assert.deepEqual(m.reads, ["a"], "plus de lecture de prix pendant la pause");
   assert.match(m.prices.priceWaitNote(), /pause jusqu'à/);
+});
+
+test("indexation : choix des raretés à indexer (priceIndexRarities)", async () => {
+  const m = load();
+  await Promise.all([m.settings.settings.ready, m.prices.ready]);
+  // Seules L et R sont sélectionnées : les cartes C (c et c2) sont exclues de l'indexation
+  m.settings.settings.set({
+    priceIndexRarities: ["L", "R"],
+    features: {...m.settings.settings.get().features, priceIndex: true},
+  });
+  m.index.startPriceIndex();
+  await until(() => m.reads.length >= 2);
+  await new Promise((r) => setTimeout(r, 100));
+  assert.deepEqual(m.reads, ["l", "r"], "seules les raretés choisies sont indexées");
+  const p = m.index.indexProgress();
+  assert.deepEqual([p.total, p.read, p.due], [2, 2, 0], "la progression ne compte que les raretés choisies");
+  assert.deepEqual(p.byRarity.C, {total: 2, read: 0}, "le détail par rareté garde le total des autres raretés");
+});
+
+test("indexation sur les deux routes de l'onglet Marché : /sales résout les cartes < 5 ventes, price-history complète celles à 5 ventes", async () => {
+  fakeBrowser();
+  const historyCalls = [];
+  const salesCalls = [];
+  const nowIso = new Date().toISOString();
+  const fiveSales = Array.from({length: 5}, (_, i) => ({id: `s${i}`, final_price: 20, settled_at: nowIso, rarity: "R"}));
+  const twoSales = Array.from({length: 2}, (_, i) => ({id: `c${i}`, final_price: 4, settled_at: nowIso, rarity: "C"}));
+  globalThis.fetch = async (url) => {
+    url = String(url);
+    if (url.includes("/user_cards?")) return response(200, url.includes("offset=0") ? COPIES : []);
+    const mh = /\/api\/marketplace\/cards\/([^/]+)\/price-history$/.exec(url);
+    if (mh) {
+      historyCalls.push(mh[1]);
+      return response(200, history());
+    }
+    const ms = /\/api\/marketplace\/cards\/([^/]+)\/sales$/.exec(url);
+    if (ms) {
+      salesCalls.push(ms[1]);
+      // r a 5 ventes (partiel → à compléter par price-history) ; c et c2 ont < 5 ventes (complet en un appel)
+      return response(200, {recent: ms[1] === "r" ? fiveSales : twoSales});
+    }
+    return response(404, {});
+  };
+  const mods = loadExtensionModule({
+    prices: "extension/src/content/state/prices.js",
+    index: "extension/src/content/state/price-index.js",
+    settings: "extension/src/content/state/settings.js",
+  });
+  mods.prices.SLOW_SPEEDS.normal.gap = 5;
+  await Promise.all([mods.settings.settings.ready, mods.prices.ready]);
+  mods.settings.settings.set({features: {...mods.settings.settings.get().features, priceIndex: true}});
+  mods.index.startPriceIndex();
+  await until(() => mods.index.indexProgress().due === 0 && mods.index.indexProgress().read === 4);
+  // c (< 5 ventes sur /sales) est résolue directement par /sales sans appel à price-history ;
+  // r (5 ventes sur /sales) est complétée par price-history
+  assert.ok(salesCalls.includes("r") && salesCalls.includes("c"), "la voie /sales lit les cartes R/C en parallèle");
+  assert.ok(historyCalls.includes("l") && historyCalls.includes("r"), "price-history lit L et complète r (5 ventes)");
+  assert.ok(!historyCalls.includes("c"), "une carte à < 5 ventes lue par /sales n'appelle pas price-history");
+  assert.equal(mods.prices.entryOf("r").partial, undefined, "l'entrée partielle de r a été complétée");
+  assert.equal(mods.prices.priceInfo("c", "C").price, 4);
 });

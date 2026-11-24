@@ -10,10 +10,10 @@
 import { createStore } from "../lib/store";
 import { electLeader } from "../lib/locks";
 import { on, emit } from "../lib/bus";
-import { settings, isOn } from "./settings";
+import { settings, isOn, normalizeIndexRarities } from "./settings";
 import { loadMyCollection } from "./collection";
-import { entryOf, setIndexSource, slowStoppedBy, priceSource, priceVersion, ready as pricesReady } from "./prices";
-import { indexDueAt, rarityRank } from "../../../../core/prices";
+import { entryOf, isQueued, setIndexSource, slowStoppedBy, priceSource, priceVersion, ready as pricesReady } from "./prices";
+import { indexDueAt, RARITY_RANK, rarityRank } from "../../../../core/prices";
 
 // Liste des cartes de la collection relue toutes les 30 min (cartes défaussées, vendues, échangées)
 const REFRESH = 30 * 60 * 1000;
@@ -55,25 +55,39 @@ function refreshList() {
   return loading;
 }
 
-// Date à partir de laquelle relire une carte (0 : jamais lue)
-function dueAt(card) {
+// Date à partir de laquelle relire une carte (0 : jamais lue, ou lecture partielle par /sales à
+// compléter par price-history)
+function dueAt(card, route = "history") {
   const entry = entryOf(card.id);
   if (entry?.err) return entry.t + ERROR_RETRY;
+  if (entry?.partial && route === "history") return 0;
   return indexDueAt(entry, card.rarity);
 }
 
 const active = () => isOn("priceIndex") && indexState.get().leader && priceVersion.get().loaded && !slowStoppedBy() && !priceSource.get().broken;
+export const indexedRarities = () => new Set(normalizeIndexRarities(settings.get().priceIndexRarities));
 
-// Carte suivante à lire, ou null (appelée par state/prices.js quand la voie lente est libre)
-function nextCard() {
+// Carte suivante à lire sur la route demandée ("history" ou "sales"), ou null (appelée par
+// state/prices.js quand la voie lente est libre). Seules les raretés choisies dans
+// settings.priceIndexRarities sont indexées. La route /sales traite en priorité les cartes R, PC et C
+// (qui ont presque toujours moins de 5 ventes, donc un historique complet en un appel), pendant que
+// price-history traite les L, UR, SR et complète les cartes où /sales a trouvé 5 ventes.
+function nextCard(route = "history") {
   if (!active()) return null;
   if (!loading && (!cards || Date.now() - listAt > REFRESH)) refreshList();
   if (!cards) return null;
   const now = Date.now();
+  const allowed = indexedRarities();
+  const scoped = cards.filter((c) => allowed.has(c.rarity));
+  const list =
+    route === "sales"
+      ? [...scoped.filter((c) => rarityRank(c.rarity) <= RARITY_RANK.R), ...scoped.filter((c) => rarityRank(c.rarity) > RARITY_RANK.R)]
+      : scoped;
   let best = null;
   let bestDue = Infinity;
-  for (const card of cards) {
-    const due = dueAt(card);
+  for (const card of list) {
+    if (isQueued(card.id)) continue;
+    const due = dueAt(card, route);
     if (due === 0) return card.id;
     if (due <= now && due < bestDue) {
       best = card.id;
@@ -87,10 +101,13 @@ function apply() {
   setIndexSource(active() ? nextCard : null);
 }
 
-// Avancement, pour l'onglet Prix et la popup : cartes lues (au moins une fois, sans erreur) par
-// rareté, à relire maintenant, prochaine relecture
+// Avancement, pour l'onglet Prix et la popup : cartes lues (au moins une fois, sans erreur ni
+// lecture partielle en attente de complément) par rareté ; total, read, due et next portent sur les
+// seules raretés sélectionnées pour l'indexation (byRarity détaille toutes les raretés possédées).
 export function indexProgress() {
   const byRarity = {};
+  const allowed = indexedRarities();
+  let total = 0;
   let read = 0;
   let due = 0;
   let next = Infinity;
@@ -99,15 +116,16 @@ export function indexProgress() {
     const r = (byRarity[card.rarity] ||= { total: 0, read: 0 });
     r.total++;
     const entry = entryOf(card.id);
-    if (entry && !entry.err) {
-      r.read++;
-      read++;
-    }
-    const at = dueAt(card);
+    const done = Boolean(entry && !entry.err && !entry.partial);
+    if (done) r.read++;
+    if (!allowed.has(card.rarity)) continue;
+    total++;
+    if (done) read++;
+    const at = dueAt(card, "history");
     if (at <= now) due++;
     else next = Math.min(next, at);
   }
-  return { total: cards ? cards.length : null, read, due, next: next === Infinity ? null : next, byRarity };
+  return { total: cards ? total : null, read, due, next: next === Infinity ? null : next, byRarity };
 }
 
 let lead = null;
@@ -133,15 +151,14 @@ export function startPriceIndex() {
     cards.sort(byValue);
     indexState.set({ total: cards.length });
   });
-  // Refus du site (limite des prix, vérification anti-robot) : l'indexation est désactivée, le joueur
-  // la réactive lui-même
+  // Vérification anti-robot demandée par le site : l'indexation est désactivée, le joueur la réactive
+  // lui-même (une simple pause temporaire 403 reprend d'elle-même après 1 min)
   const stop = () => {
     if (!isOn("priceIndex")) return;
     settings.set({ features: { ...settings.get().features, priceIndex: false } });
     emit("price-index-stopped", {});
   };
   on("prices-stopped", stop);
-  on("prices-paused", stop);
 }
 
 // Liste chargée tout de suite (onglet Prix ouvert avant la première lecture)

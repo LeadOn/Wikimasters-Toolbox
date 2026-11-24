@@ -62,6 +62,23 @@
   },
   "releases": [
     {
+      "version": "2.9.0",
+      "date": "2026-11-24",
+      "items": [
+        {
+          "area": "prices",
+          "tab": "prices",
+          "fr": "Dans l'onglet Prix et dans les réglages (Marché), l'indexation en arrière-plan est deux fois plus rapide (une lecture toutes les 4 secondes en vitesse normale, toutes les 2 secondes en rapide) et vous pouvez choisir les raretés de cartes à indexer.",
+          "en": "In the Prices tab and in the settings (Market), background price indexing is twice as fast (one read every 4 seconds in normal speed, every 2 seconds in fast) and you can choose which card rarities to index."
+        },
+        {
+          "area": "packs",
+          "fr": "Les prix des cartes d'un paquet que vous venez d'ouvrir et de la carte dont vous ouvrez la fiche sont lus immédiatement en priorité, sans attendre l'indexation ni les autres cartes affichées.",
+          "en": "Prices for cards in a pack you just opened and for the card whose details you open are loaded right away with top priority, without waiting for indexing or other cards on screen."
+        }
+      ]
+    },
+    {
       "version": "2.8.0",
       "date": "2026-11-23",
       "items": [

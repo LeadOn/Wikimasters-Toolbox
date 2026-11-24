@@ -121,6 +121,62 @@ function rarityPrice(entry, ref) {
   };
 }
 
+// Nombre maximum de ventes renvoyées par la route /sales de l'onglet Marché d'une carte. En dessous
+// de ce seuil (sans filtre de rareté), la réponse contient toutes les ventes de l'histoire de la
+// carte, toutes raretés confondues : on en reconstitue exactement le même historique hebdomadaire et
+// mensuel que price-history.
+const RECENT_SALES_LIMIT = 5;
+
+// Reconstitue un objet {computed_at, by_rarity: {R: {weekly, monthly}}} identique à celui de la route
+// price-history à partir d'une liste de ventes [{final_price, settled_at, rarity}] (route /sales).
+function historyFromSales(recent, {now = Date.now()} = {}) {
+  const byRarity = {};
+  for (const sale of Array.isArray(recent) ? recent : []) {
+    const rarity = sale?.rarity;
+    const price = num(sale?.final_price);
+    const at = Date.parse(sale?.settled_at);
+    if (!Object.prototype.hasOwnProperty.call(RARITY_RANK, rarity) || price == null || price < 0 || !Number.isFinite(at) || at <= 0) continue;
+    const date = new Date(at);
+    const wKey = dayKey(weekStart(date));
+    const mKey = `${PARIS_DAY.format(date).slice(0, 7)}-01`;
+    const r = (byRarity[rarity] ||= {weekly: new Map(), monthly: new Map()});
+    for (const [map, key] of [[r.weekly, wKey], [r.monthly, mKey]]) {
+      const b = map.get(key) || map.set(key, {sum: 0, min: price, max: price, count: 0}).get(key);
+      b.sum += price;
+      b.min = Math.min(b.min, price);
+      b.max = Math.max(b.max, price);
+      b.count++;
+    }
+  }
+  const toBuckets = (map) =>
+    [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([start, b]) => ({start, avg: Math.round(b.sum / b.count), min: b.min, max: b.max, count: b.count}));
+  const out = {};
+  for (const [rarity, r] of Object.entries(byRarity)) out[rarity] = {weekly: toBuckets(r.weekly), monthly: toBuckets(r.monthly)};
+  return {computed_at: new Date(now).toISOString(), by_rarity: out};
+}
+
+// Résumé tiré de la route /sales ({recent}) : {summary, complete}. complete vaut true quand la liste
+// (sans filtre de rareté) compte moins de RECENT_SALES_LIMIT ventes, ou que les 5 ventes portent sur
+// une seule rareté et remontent au-delà de la fenêtre de 12 semaines (toutes les ventes des 12
+// dernières semaines et le prix reporté antérieur sont alors connus).
+function summarizeSales(recent, {now = Date.now()} = {}) {
+  const list = Array.isArray(recent) ? recent : [];
+  const history = historyFromSales(list, {now});
+  const rarities = Object.keys(history.by_rarity);
+  const cutoff = weekStart(new Date(now - 84 * DAY)).getTime();
+  const oldest = list.reduce((min, s) => {
+    const at = Date.parse(s?.settled_at);
+    return Number.isFinite(at) && at > 0 ? Math.min(min, at) : min;
+  }, Infinity);
+  const complete = list.length < RECENT_SALES_LIMIT || (rarities.length === 1 && oldest < cutoff);
+  return {
+    summary: summarizeHistory(history, {now}),
+    complete,
+  };
+}
+
 // Résumé de toutes les raretés d'une réponse price-history : {RARETÉ: rarityPrice}, {} si jamais vendue.
 // Il ne dépend que de la réponse (date de référence = son computed_at) : il se calcule une fois, à la lecture.
 function summarizeHistory(history, {now = Date.now()} = {}) {
@@ -267,8 +323,11 @@ module.exports = {
   RARITY_COLORS,
   rarityRank,
   PRICE_DEFAULTS,
+  RECENT_SALES_LIMIT,
   weekStart,
   weeklySeries,
+  historyFromSales,
+  summarizeSales,
   summarizeHistory,
   priceInfo,
   marketPrice,

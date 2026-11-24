@@ -96,6 +96,41 @@ test("prix : semaines de Paris, date de référence, prix reporté et arrondi", 
   const future = core.summarizeHistory({...h, computed_at: "2027-01-01T00:00:00Z"}, {now: Date.parse("2026-11-25T12:00:00Z")});
   assert.equal(future.UR.carried, true, "semaine du 23/11 sans vente");
   assert.equal(future.UR.price, 1);
+
+  // Reconstitution depuis les 5 dernières ventes (route /sales de l'onglet Marché) : identique à
+  // price-history sur une vraie réponse du site (4 ventes en C)
+  const now = Date.parse("2026-11-23T07:50:00Z");
+  const sales = [
+    {id: "1", final_price: 3, settled_at: "2026-11-20T03:36:15.504596+00:00", rarity: "C"},
+    {id: "2", final_price: 11, settled_at: "2026-11-18T10:12:57.970009+00:00", rarity: "C"},
+    {id: "3", final_price: 2, settled_at: "2026-11-01T09:47:40.389493+00:00", rarity: "C"},
+    {id: "4", final_price: 2, settled_at: "2026-08-20T21:20:51.086532+00:00", rarity: "C"},
+  ];
+  const fromSales = core.summarizeSales(sales, {now});
+  assert.equal(fromSales.complete, true, "moins de 5 ventes : tout l'historique de la carte est connu");
+  const fromHist = core.summarizeHistory(
+    {
+      computed_at: "2026-11-23T07:50:00.052295+00:00",
+      by_rarity: {
+        C: {
+          weekly: [
+            {start: "2026-08-17", avg: 2, min: 2, max: 2, count: 1},
+            {start: "2026-10-26", avg: 2, min: 2, max: 2, count: 1},
+            {start: "2026-11-16", avg: 7, min: 3, max: 11, count: 2},
+          ],
+          monthly: [
+            {start: "2026-08-01", avg: 2, min: 2, max: 2, count: 1},
+            {start: "2026-11-01", avg: 5, min: 2, max: 11, count: 3},
+          ],
+        },
+      },
+    },
+    {now},
+  );
+  assert.deepEqual(fromSales.summary, fromHist);
+  const recentFive = [...sales.slice(0, 3), {id: "4b", final_price: 5, settled_at: "2026-10-20T12:00:00Z", rarity: "C"}, {id: "5", final_price: 9, settled_at: "2026-10-15T12:00:00Z", rarity: "C"}];
+  assert.equal(core.summarizeSales(recentFive, {now}).complete, false, "5 ventes dans les 12 dernières semaines : historique potentiellement tronqué");
+  assert.equal(core.summarizeSales([...sales, {id: "5", final_price: 9, settled_at: "2026-08-01T12:00:00Z", rarity: "C"}], {now}).complete, true, "5e vente antérieure aux 12 semaines dans une seule rareté : la série de 12 semaines est complète");
 });
 
 test("prix : fiabilité, valeur d'une collection, cartes jamais vendues", () => {

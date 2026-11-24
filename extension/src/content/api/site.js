@@ -21,12 +21,16 @@ const noteBlock = (e) => {
 };
 
 // localBlock : un refus pour automatisation ne vaut que pour cette route (prix : limite propre à la
-// route, gérée par state/prices.js) ; les autres lectures du site continuent
-export const siteGet = (path, { localBlock = false, ...opts } = {}) =>
-  limit(() => {
+// route, gérée par state/prices.js) ; les autres lectures du site continuent.
+// priority : lecture déclenchée par une action directe du joueur (paquet ouvert, fiche de carte) —
+// part tout de suite sans attendre derrière la file des lectures de fond.
+export const siteGet = (path, { localBlock = false, priority = false, ...opts } = {}) => {
+  const run = () => {
     if (blocked) throw blocked;
     return request(path, { ...opts, credentials: "include" });
-  }).catch(localBlock ? (e) => Promise.reject(e) : noteBlock);
+  };
+  return (priority ? run() : limit(run)).catch(localBlock ? (e) => Promise.reject(e) : noteBlock);
+};
 
 const sitePost = (path, body, opts = {}) =>
   request(path, {
@@ -59,7 +63,11 @@ export const site = {
   // Historique des ventes d'une carte, toutes raretés : {computed_at, by_rarity: {R: {weekly, monthly}}}
   // (onglet Marché de la fiche ; recalculé par le site au fil de la journée, gardé 5 min en cache)
   // Limitée en volume par compte : refus « automation_limit » propre à cette route (localBlock)
-  priceHistory: (cardId, { retries, signal } = {}) => siteGet(`/api/marketplace/cards/${encodeURIComponent(cardId)}/price-history`, { retries, signal, localBlock: true }),
+  priceHistory: (cardId, { retries, signal, priority } = {}) => siteGet(`/api/marketplace/cards/${encodeURIComponent(cardId)}/price-history`, { retries, signal, priority, localBlock: true }),
+  // 5 dernières ventes conclues d'une carte (onglet Marché de la fiche) : {recent: [{id, final_price, settled_at, rarity}]}.
+  // Sans rarity, renvoie les 5 dernières ventes toutes raretés confondues (donc tout l'historique si < 5 ventes).
+  cardSales: (cardId, { rarity, retries, signal } = {}) =>
+    siteGet(`/api/marketplace/cards/${encodeURIComponent(cardId)}/sales${rarity ? `?${qs({ rarity })}` : ""}`, { retries, signal, localBlock: true }),
   // Marché : 50 enchères par page, seule taille acceptée (une autre valeur de limit est refusée comme
   // automatisation) ; sort parmi les valeurs du site (recent, price_asc, price_desc, ending_soon)
   marketplaceSearch: ({ q, page = 1, rarities = [], sort = "recent" } = {}) => siteGet(`/api/marketplace?${qs({ page, limit: 50, sort, q, rarity: rarities })}`),

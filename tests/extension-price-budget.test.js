@@ -74,12 +74,13 @@ test("budget des prix : quota et rafale réglés dans les paramètres appliqués
   await until(() => reads.length >= 8);
   await new Promise((r) => setTimeout(r, 100));
   assert.equal(reads.length, 8, "relance immédiate après hausse de la rafale");
-  // Fenêtre plus basse que la rafale : la fenêtre limite les lectures prioritaires
+  // Fenêtre plus basse que la rafale : les cartes affichées en attente (d8, d9) restent plafonnées
+  // par la fenêtre, mais les demandes prioritaires (ouverture de paquet / fiche) partent tout de suite
   settings.settings.set({priceQuotaWindow: 10, priceQuotaBurst: 40});
   for (let i = 0; i < 5; i++) prices.requestPrice(`h${i}`, {detail: true});
-  await until(() => reads.length >= 10);
+  await until(() => reads.length >= 13);
   await new Promise((r) => setTimeout(r, 100));
-  assert.equal(reads.length, 10, "la fenêtre de 10 min plafonne même avec une rafale plus haute");
+  assert.equal(reads.length, 13, "les 5 demandes prioritaires partent sans attendre, les cartes affichées restent plafonnées");
 });
 
 test("budget des prix : cadence de la voie lente proportionnelle au quota, valeurs hors bornes ramenées dans les limites", async () => {
@@ -89,18 +90,18 @@ test("budget des prix : cadence de la voie lente proportionnelle au quota, valeu
     window: settings.PRICE_QUOTA_LIMITS.window.max,
     burst: settings.PRICE_QUOTA_LIMITS.burst.min,
   });
-  // Quota par défaut (60)
+  // Quota par défaut (60) : 1 lecture / 4 s en normale (21 600 / j), 1 / 2 s en rapide (43 200 / j)
   settings.settings.set({priceQuotaWindow: 60, priceQuotaBurst: 10});
-  assert.deepEqual(prices.slowSpeed("normal"), {gap: 60000, cap: 1440});
-  assert.deepEqual(prices.slowSpeed("fast"), {gap: 30000, cap: 2880});
+  assert.deepEqual(prices.slowSpeed("normal"), {gap: 4000, cap: 21600});
+  assert.deepEqual(prices.slowSpeed("fast"), {gap: 2000, cap: 43200});
   // Quota doublé (120) : écart divisé par 2, plafond doublé
   settings.settings.set({priceQuotaWindow: 120});
-  assert.deepEqual(prices.slowSpeed("normal"), {gap: 30000, cap: 2880});
-  assert.deepEqual(prices.slowSpeed("fast"), {gap: 15000, cap: 5760});
+  assert.deepEqual(prices.slowSpeed("normal"), {gap: 2000, cap: 43200});
+  assert.deepEqual(prices.slowSpeed("fast"), {gap: 1000, cap: 86400});
   // Quota divisé par 2 (30)
   settings.settings.set({priceQuotaWindow: 30});
-  assert.deepEqual(prices.slowSpeed("normal"), {gap: 120000, cap: 720});
-  assert.deepEqual(prices.slowSpeed("fast"), {gap: 60000, cap: 1440});
+  assert.deepEqual(prices.slowSpeed("normal"), {gap: 8000, cap: 10800});
+  assert.deepEqual(prices.slowSpeed("fast"), {gap: 4000, cap: 21600});
   // Valeur illisible ou vide → défaut
   assert.equal(settings.clampQuota("", settings.PRICE_QUOTA_LIMITS.window), 60);
   assert.equal(settings.clampQuota("abc", settings.PRICE_QUOTA_LIMITS.burst), 10);

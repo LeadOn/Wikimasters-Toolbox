@@ -8,6 +8,61 @@ Une section par version, la plus récente en premier. Pour chaque version :
   partir de `extension/changelog.json`, qui alimente aussi l'onglet Nouveautés de l'extension.
 - Le Chrome Web Store n'a pas de champ de notes de version : rien à saisir.
 
+## 2.9.0
+
+### Note complète
+
+```
+v2.9.0 : indexation des prix accélérée sur deux routes, choix des raretés, priorité aux paquets
+
+Prix et indexation
+- Indexation sur les deux routes de l'onglet Marché d'une carte : /price-history
+  pour les cartes L, UR, SR (et toute carte avec 5 ventes ou plus sur 12 semaines)
+  et /sales (les 5 dernières ventes conclues) pour les cartes R, PC et C, qui ont
+  presque toujours moins de 5 ventes récentes (core/prices.js : summarizeSales,
+  historyFromSales, RECENT_SALES_LIMIT ; api/site.js : cardSales ; hook et bus :
+  lecture passive de /sales).
+- Vitesse d'indexation doublée : 1 lecture toutes les 4 s en normale (21 600 / j)
+  et 1 toutes les 2 s en rapide (43 200 / j), réparties entre les deux routes.
+- Choix des raretés à indexer (priceIndexRarities dans state/settings.js,
+  state/price-index.js, onglet Prix et Réglages → Marché) : toutes par défaut,
+  au moins une gardée ; décocher PC et C réduit fortement le nombre de cartes à lire.
+- Priorité immédiate aux ouvertures de paquet, fiches de carte, échanges et ventes
+  (PRIO.high : HIGH_CONCURRENCY = 5 lectures en parallèle sans blocage de rafale,
+  repli sur /sales en cas de limitation sur /price-history, indicateur de chargement
+  dans ui/CardDetail.jsx).
+- Pause après un refus 403 réduite de 15 minutes à 1 minute (PAUSE_BLOCKED), levée
+  dès qu'une réponse passive arrive du site ; l'indexation reprend après la pause
+  sans se désactiver.
+
+Tests (222), routes du site (docs/site-api.md), guide, README, AGENTS.md,
+fiches des stores et notes de version mis à jour.
+```
+
+### Firefox Add-ons : notes de version (anglais)
+
+```
+What's new in 2.9.0
+
+Prices
+- In the Prices tab and in the settings (Market), background price indexing is twice as fast (one read every 4 seconds in normal speed, every 2 seconds in fast) and you can choose which card rarities to index.
+
+Packs
+- Prices for cards in a pack you just opened and for the card whose details you open are loaded right away with top priority, without waiting for indexing or other cards on screen.
+```
+
+### Firefox Add-ons : notes de version (français)
+
+```
+Nouveautés de la 2.9.0
+
+Prix
+- Dans l'onglet Prix et dans les réglages (Marché), l'indexation en arrière-plan est deux fois plus rapide (une lecture toutes les 4 secondes en vitesse normale, toutes les 2 secondes en rapide) et vous pouvez choisir les raretés de cartes à indexer.
+
+Paquets
+- Les prix des cartes d'un paquet que vous venez d'ouvrir et de la carte dont vous ouvrez la fiche sont lus immédiatement en priorité, sans attendre l'indexation ni les autres cartes affichées.
+```
+
 ## 2.5.0
 
 ### Note complète

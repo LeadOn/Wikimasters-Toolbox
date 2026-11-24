@@ -13,6 +13,7 @@
     /^\/api\/cards(?:\?|$)/,
     /^\/api\/marketplace(?:\?|$|\/[0-9a-f-]{36}$)/,
     /^\/api\/marketplace\/cards\/[0-9a-f-]{36}\/price-history$/,
+    /^\/api\/marketplace\/cards\/[0-9a-f-]{36}\/sales(?:\?|$)/,
     /^\/api\/trades(?:\?|$)/,
     /^\/api\/packs\/(?:open|pro-daily|special)$/,
     /^\/api\/notifications$/,

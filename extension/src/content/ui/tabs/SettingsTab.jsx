@@ -3,13 +3,13 @@ import {Fragment} from "preact";
 import {useState, useEffect, useRef} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {keysWithPrefix, remove} from "../../lib/storage";
-import {settings, settingsFocus, FEATURES, DEFAULT_SETTINGS, PRICE_QUOTA_LIMITS, clampQuota} from "../../state/settings";
+import {settings, settingsFocus, FEATURES, DEFAULT_SETTINGS, PRICE_QUOTA_LIMITS, clampQuota, normalizeIndexRarities} from "../../state/settings";
 import {recentFeatures} from "../../state/news";
 import {clearPrices, slowBudget, priceQuota, recentReadsCount} from "../../state/prices";
 import {Toggle, FileButton, fmt, plural} from "../components";
 import {confirmAction, toast} from "../feedback";
 import {ThemeEditor} from "../ThemeEditor";
-import {defaultThemeList, storeThemes} from "../../../../../core";
+import {RARITIES, RARITY_LABEL, defaultThemeList, storeThemes} from "../../../../../core";
 import {L} from "../../../shared/i18n";
 import {rouletteSound, importSound, resetSound, previewTick, MAX_SOUND_BYTES} from "../../features/roulette-sound";
 
@@ -101,6 +101,7 @@ export function SettingsTab() {
                   )}
                 </div>
                 {f.key === "packRoulette" && s.features.packRoulette && <RouletteSound />}
+                {f.key === "priceIndexSpeed" && <PriceIndexRarities />}
               </Fragment>
             ))}
           </div>
@@ -143,8 +144,8 @@ export function SettingsTab() {
           </div>
           <p class="help">
             {L(
-              `Partagé entre tous vos onglets WikiMasters (${DEFAULT_SETTINGS.priceQuotaWindow} / 10 min et ${DEFAULT_SETTINGS.priceQuotaBurst} / 30 s par défaut). La moitié est réservée aux cartes que vous tirez ou ouvrez ; l'autre sert aux cartes affichées et à l'indexation, dont la cadence suit ce quota. Augmenter ces valeurs expose davantage aux refus temporaires du site ; au premier refus, les lectures de prix se mettent en pause 15 minutes et le quota est réduit de moitié jusqu'au lendemain.`,
-              `Shared across all your WikiMasters tabs (${DEFAULT_SETTINGS.priceQuotaWindow} / 10 min and ${DEFAULT_SETTINGS.priceQuotaBurst} / 30 s by default). Half is reserved for cards you pull or open; the other half is used for cards on screen and indexing, whose pace scales with this quota. Raising these values makes temporary site refusals more likely; on the first refusal, price reads pause for 15 minutes and the quota is halved until the next day.`,
+              `Partagé entre tous vos onglets WikiMasters (${DEFAULT_SETTINGS.priceQuotaWindow} / 10 min et ${DEFAULT_SETTINGS.priceQuotaBurst} / 30 s par défaut). Les cartes que vous tirez ou ouvrez gardent toujours la priorité et partent tout de suite. Augmenter ces valeurs expose davantage aux refus temporaires du site ; au premier refus, les lectures de prix se mettent en pause 1 minute (avec repli sur la route des dernières ventes pour un paquet ouvert) et le quota est réduit de moitié jusqu'au lendemain.`,
+              `Shared across all your WikiMasters tabs (${DEFAULT_SETTINGS.priceQuotaWindow} / 10 min and ${DEFAULT_SETTINGS.priceQuotaBurst} / 30 s by default). Cards you pull or open always take priority and go out right away. Raising these values makes temporary site refusals more likely; on the first refusal, price reads pause for 1 minute (with a fallback to the recent sales route for an opened pack) and the quota is halved until the next day.`,
             )}
           </p>
           <label class="field">
@@ -198,6 +199,46 @@ export function SettingsTab() {
           </button>
         </div>
         <p class="small muted">WikiMasters Toolbox {__VERSION__} · {L("données gardées dans votre navigateur uniquement, aucun serveur tiers.", "data kept in your browser only, no third-party server.")}</p>
+      </div>
+    </div>
+  );
+}
+
+// Choix des raretés de la collection à indexer en arrière-plan (L, UR, SR, R, PC, C)
+function PriceIndexRarities() {
+  const s = useStore(settings);
+  const selected = normalizeIndexRarities(s.priceIndexRarities);
+  const toggle = (r) => {
+    const next = selected.includes(r) ? selected.filter((x) => x !== r) : [...selected, r];
+    if (next.length) settings.set({priceIndexRarities: normalizeIndexRarities(next)});
+  };
+  return (
+    <div class="setting sub">
+      <div class="txt">
+        <strong>{L("Raretés à indexer", "Rarities to index")}</strong>
+        <span>
+          {L(
+            "Choisissez les raretés de votre collection dont l'indexation tient les prix à jour en arrière-plan (exclure Peu commune et Commune divise par 5 à 10 le nombre de cartes à lire).",
+            "Choose which rarities in your collection have their prices kept up to date by background indexing (excluding Uncommon and Common cuts the number of cards to read by 5 to 10×).",
+          )}
+        </span>
+        <div class="chips" role="group" aria-label={L("Raretés à indexer", "Rarities to index")}>
+          {RARITIES.map((r) => {
+            const on = selected.includes(r);
+            return (
+              <button
+                key={r}
+                type="button"
+                class={`chip${on ? " on" : ""}`}
+                aria-pressed={on}
+                disabled={on && selected.length === 1}
+                onClick={() => toggle(r)}
+              >
+                {RARITY_LABEL[r]} ({r})
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
