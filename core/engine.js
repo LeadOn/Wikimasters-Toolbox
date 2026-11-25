@@ -80,6 +80,12 @@ function isDisambiguation(f) {
   return DISAMBIG_LEAD.test(f.leadFull);
 }
 
+// Nom vernaculaire ("Morue est un nom vernaculaire désignant…", "Musaraigne est un nom vernaculaire
+// ambigu… pouvant désigner plusieurs espèces") : un groupe d'êtres vivants, pas une page
+// d'homonymie, même quand Wikidata la décrit comme telle ("Silure").
+const VERNACULAR = compile("noms? vernaculaires?");
+const isVernacularName = (f) => [f.desc, f.def, f.lead].some((t) => firstMatch(VERNACULAR, t)?.word <= 1);
+
 const FRENCH = compile(
   "français|française|françaises|france|paris|assemblée nationale française|cinquième république|ve république|ive république|iiie république",
 );
@@ -115,12 +121,15 @@ function manualCategory(mapping, userCardId) {
   return manualIndex.get(mapping).get(userCardId) || null;
 }
 
-// Les règles à part (homonymies, nom latin, biographie) visent le thème qui a ce rôle ;
-// sans lui (thème supprimé par le joueur), la carte suit le cas général.
+// Les règles à part (nom vernaculaire, homonymies, nom latin, biographie) visent le thème qui a ce
+// rôle ; sans lui (thème supprimé par le joueur), la carte suit le cas général (un nom vernaculaire
+// est alors classé par les mots-clés, une page d'homonymie va dans « Autre »).
 function genericCategory(f, themes) {
   const set = themeSetOf(themes);
   const {disambig, species, person} = set.roles;
-  if (isDisambiguation(f)) return {theme: disambig ? tagOf(disambig, f) : set.other, scores: {}, confident: true};
+  if (isVernacularName(f)) {
+    if (species) return {theme: tagOf(species, f), scores: {}, confident: true};
+  } else if (isDisambiguation(f)) return {theme: disambig ? tagOf(disambig, f) : set.other, scores: {}, confident: true};
   const scores = scoreThemes(f, set);
   let rule = null;
   let best = MIN_SCORE - 0.001;
