@@ -62,6 +62,19 @@
   },
   "releases": [
     {
+      "version": "2.9.1",
+      "date": "2026-11-25",
+      "items": [
+        {
+          "area": "sort",
+          "tab": "sort",
+          "fr": "Le tri range dans Faune & Flore (ou le thème qui le remplace) les noms d'animaux et de plantes comme « Dauphin », « Morue » ou « Musaraigne », qui partaient avec les pages d'homonymie ou dans Autre, même quand vous aviez ajouté leurs mots-clés.",
+          "en": "Sorting now puts animal and plant names such as \"Dauphin\", \"Morue\" or \"Musaraigne\" in Faune & Flore (or the theme that replaces it); they used to end up with disambiguation pages or in Autre, even when you had added their keywords.",
+          "credits": [{"name": "mkl-rgb", "for": "idea"}]
+        }
+      ]
+    },
+    {
       "version": "2.9.0",
       "date": "2026-11-24",
       "items": [

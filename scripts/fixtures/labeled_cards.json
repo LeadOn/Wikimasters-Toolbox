@@ -3132,5 +3132,35 @@
       ]
     },
     "synthetic": true
+  },
+  {
+    "title": "Dauphin",
+    "category": "mammifère marin",
+    "summary": "Dauphin est un nom vernaculaire ambigu désignant en français certains mammifères marins et fluviaux appartenant à l'infra-ordre des cétacés.",
+    "expected": "Faune & Flore"
+  },
+  {
+    "title": "Génépi",
+    "category": "nom vernaculaire",
+    "summary": "Le terme génépi, genépi ou encore génépy est un nom vernaculaire qui désigne différentes espèces d'armoises du genre Artemisia de petite taille et que l'on rencontre exclusivement en montagne. La plante se trouve en particulier sur les moraines et autres monticules de pierres en montagne, et pousse majoritairement entre 2 500 et 3 200 mètres d'altitude.",
+    "expected": "Faune & Flore"
+  },
+  {
+    "title": "Morue",
+    "category": "nom vernaculaire désignant des poissons de plusieurs espèces de l'ordre des gadiformes",
+    "summary": "Morue, ou cabillaud, est un nom vernaculaire désignant en français des poissons de plusieurs espèces de l'ordre des gadiformes. Ces poissons vivent dans les eaux froides.",
+    "expected": "Faune & Flore"
+  },
+  {
+    "title": "Musaraigne",
+    "category": "nom vernaculaire ambigu de petits mammifères insectivores",
+    "summary": "Musaraigne est un nom vernaculaire ambigu en français, pouvant désigner plusieurs espèces différentes de petits mammifères insectivores, généralement gris-brun à museau pointu.",
+    "expected": "Faune & Flore"
+  },
+  {
+    "title": "Silure",
+    "category": "page d'homonymie de Wikimédia",
+    "summary": "Le terme « silure » est un nom vernaculaire ambigu en français, pouvant désigner plusieurs espèces différentes de poissons actinoptérygiens de l'ordre des Siluriformes.",
+    "expected": "Faune & Flore"
   }
 ]

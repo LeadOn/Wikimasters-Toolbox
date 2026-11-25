@@ -357,7 +357,7 @@ Hors de wiki-masters.com, elle propose d'ouvrir le site. Si elle demande de rech
 
 ## Comment une carte est triée
 
-Le thème d'une carte se déduit de sa **description courte** (« footballeur danois », « commune française du département… », « espèce d'arachnides ») et de la première phrase de son article : le type de l'article est le signal le plus fiable. Chaque thème a ses mots-clés ; le thème qui obtient le meilleur score l'emporte, et une carte sans signal fiable va dans *Autre*. Les pages d'homonymie, noms de famille et prénoms vont dans *Divers & Homonymies*, et la politique se partage entre française et internationale selon la nationalité.
+Le thème d'une carte se déduit de sa **description courte** (« footballeur danois », « commune française du département… », « espèce d'arachnides ») et de la première phrase de son article : le type de l'article est le signal le plus fiable. Chaque thème a ses mots-clés ; le thème qui obtient le meilleur score l'emporte, et une carte sans signal fiable va dans *Autre*. Deux règles passent avant les mots-clés : les noms vernaculaires d'animaux ou de plantes (« Morue est un nom vernaculaire désignant… ») vont dans *Faune & Flore*, même quand Wikipédia les présente comme une page d'homonymie, et les pages d'homonymie, noms de famille et prénoms dans *Divers & Homonymies*. La politique se partage entre française et internationale selon la nationalité.
 
 Le moteur est vérifié sur plus de 300 cartes étiquetées à la main à chaque modification (avec les thèmes par défaut). Si une carte est mal classée, corrigez son étiquette à la main sur le site (le tri des nouvelles cartes ne la touchera plus) et signalez-la dans les [issues](https://github.com/LeadOn/Wikimasters-Toolbox/issues) pour que les règles soient corrigées pour tout le monde.
 
@@ -394,7 +394,7 @@ Les étiquettes WikiMasters suivent **au prochain tri**, toujours précédé d'u
 - **thème supprimé** : son étiquette reste en place, et ses cartes comptent comme triées, jusqu'au prochain **retri complet**, qui reclasse ces cartes dans vos thèmes et supprime l'étiquette ; l'aperçu et la confirmation l'indiquent. Pour la garder comme étiquette personnelle, cliquez sur *Garder comme étiquette personnelle* dans les réglages : le tri ne la touchera plus ;
 - **thème ajouté** ou **mots-clés modifiés** : appliqués aux nouvelles cartes ; lancez un retri complet pour reclasser toute la collection.
 
-Les profils d'intérêts et les familles qui citent un thème par son nom d'origine (« Sports ») le reconnaissent après un renommage. Supprimer *Divers & Homonymies*, *Faune & Flore* ou *Personnalités* envoie dans *Autre* les cartes que ces thèmes recevaient par une règle à part (pages d'homonymie, noms latins sans description, biographies non reconnues). Les thèmes personnalisés restent dans votre navigateur : les scripts Node utilisent toujours la liste par défaut.
+Les profils d'intérêts et les familles qui citent un thème par son nom d'origine (« Sports ») le reconnaissent après un renommage. Supprimer *Divers & Homonymies*, *Faune & Flore* ou *Personnalités* envoie dans *Autre* les cartes que ces thèmes recevaient par une règle à part (pages d'homonymie, noms latins sans description, biographies non reconnues) ; un nom vernaculaire est alors classé par les mots-clés. Les thèmes personnalisés restent dans votre navigateur : les scripts Node utilisent toujours la liste par défaut.
 
 ### Les raretés
 

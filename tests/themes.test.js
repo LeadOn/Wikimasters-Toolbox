@@ -64,6 +64,27 @@ test("thèmes supprimés : les règles à part tombent dans « Autre », un thè
   assert.equal(themeOf(card("Viktor Orbán", "homme politique hongrois"), list), "Politique");
 });
 
+test("nom vernaculaire : thème des espèces, même renommé, et même décrit comme page d'homonymie", () => {
+  const morue = card("Morue", "nom vernaculaire désignant des poissons", "Morue est un nom vernaculaire désignant en français des poissons.");
+  const silure = card("Silure", "page d'homonymie de Wikimédia", "Le terme « silure » est un nom vernaculaire ambigu en français, pouvant désigner plusieurs espèces de poissons.");
+  assert.equal(themeOf(morue), "Faune & Flore");
+  assert.equal(themeOf(silure), "Faune & Flore");
+  // Retour d'un joueur : homonymies supprimées, « Autre » et « Faune & Flore » renommés
+  const list = edited((l) => {
+    l.themes = l.themes.filter((t) => t.id !== "Divers & Homonymies");
+    byId(l, "Faune & Flore").name = "Nature";
+    l.other.name = "OSEF";
+  });
+  assert.equal(themeOf(morue, list), "Nature");
+  assert.equal(themeOf(silure, list), "Nature");
+  // Sans thème des espèces, les mots-clés décident
+  const fishing = edited((l) => {
+    l.themes = l.themes.filter((t) => t.id !== "Faune & Flore");
+    l.themes.push({...core.newTheme("Pêche"), kw: "poissons?"});
+  });
+  assert.equal(themeOf(morue, fishing), "Pêche");
+});
+
 test("réglage enregistré : seulement les différences, un thème non modifié suit la liste par défaut", () => {
   const list = edited((l) => {
     byId(l, "Sports").color = "#111111";

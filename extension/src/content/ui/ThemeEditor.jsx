@@ -32,7 +32,7 @@ import {
 
 const ROLE_HELP = {
   disambig: L("Reçoit aussi les pages d'homonymie, les noms de famille et les prénoms.", "Also receives disambiguation pages, surnames and given names."),
-  species: L("Reçoit aussi les cartes sans description dont le titre est un nom latin.", "Also receives cards with no description whose title is a Latin name."),
+  species: L("Reçoit aussi les noms vernaculaires (« Morue est un nom vernaculaire… »), avant les mots-clés des autres thèmes, et les cartes sans description dont le titre est un nom latin.", "Also receives vernacular names (\"Morue est un nom vernaculaire…\"), before other themes' keywords, and cards with no description whose title is a Latin name."),
   person: L("Reçoit aussi les biographies qu'aucun autre thème ne reconnaît.", "Also receives biographies that no other theme recognizes."),
 };
 const FIELDS = ["name", "color", "kw", "head", "split"];
