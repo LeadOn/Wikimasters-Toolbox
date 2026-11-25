@@ -62,6 +62,31 @@
   },
   "releases": [
     {
+      "version": "2.10.0",
+      "date": "2026-11-25",
+      "items": [
+        {
+          "area": "trades",
+          "feature": "tradeFilter",
+          "fr": "Dans la fenêtre d'échange du site, les cartes de votre ami s'affichent dès que sa collection est lue, sans attendre les prix : trier par thème, rareté ou mots n'en lit aucun. Les prix ne sont lus que pour un filtre de prix ou sur un clic sur « Lire les prix », et s'arrêtent sans perdre la liste.",
+          "en": "In the site's trade window, your friend's card list shows as soon as their collection is read, without waiting for prices: sorting by theme, rarity or words no longer reads any price. Prices are only read for a price filter or when you click \"Read prices\", and you can stop them without losing the list.",
+          "credits": [{"name": "HenryLF", "for": "idea"}]
+        },
+        {
+          "area": "trades",
+          "tab": "trades",
+          "fr": "Dans l'onglet Échanges, vous choisissez vos cartes à proposer d'un clic : celles du profil de votre ami, vos doublons ou toutes celles qui lui manquent. « Préparer l'échange » garde votre choix : dans la fenêtre « Échanger avec … » du site, la Toolbox liste ces cartes avec un bouton Ajouter.",
+          "en": "In the Trades tab, you now pick the cards you offer with a click, among those matching your friend's profile, your duplicates or all the ones they lack. \"Prepare the trade\" keeps your choice: in the site's \"Échanger avec …\" window, the Toolbox lists these cards with an Add button.",
+          "credits": [{"name": "HenryLF", "for": "idea"}]
+        },
+        {
+          "area": "trades",
+          "fr": "Les cartes que votre ami a mises en favori sont maintenant signalées « Favori » dans la fenêtre d'échange et dans l'onglet Échanges : le site ne les échange pas, la Toolbox ne propose plus de les ajouter. Une collection déjà lue se met à jour avec « Actualiser ».",
+          "en": "Cards your friend marked as favorite are now flagged \"Favorite\" in the trade window and the Trades tab: the site does not trade them, so the Toolbox no longer offers to add them. Use \"Refresh\" to update a collection that was already read."
+        }
+      ]
+    },
+    {
       "version": "2.9.1",
       "date": "2026-11-25",
       "items": [

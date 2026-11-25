@@ -5,12 +5,17 @@
 // la liste des cartes qui le passent remplace la grille du site (une page de cartes, masquée par
 // features/site-dom.js). Chaque carte dit si elle est en favori (verrouillée : le site ne l'échange
 // pas) et si je la possède déjà. « Ajouter » la choisit dans la grille du site, comme un clic du
-// joueur ; un échec s'affiche sur la ligne. L'offre part toujours avec le bouton du site.
+// joueur ; un échec s'affiche sur la ligne. La liste s'affiche dès la collection lue ; ses prix ne
+// sont lus que pour un filtre de prix ou sur un clic (« Lire les prix »), et leur lecture s'arrête sans
+// perdre la liste. Un échange préparé dans l'onglet « Échanges » avec cet ami (features/trades.js)
+// montre en tête les cartes choisies de l'onglet ouvert, à ajouter de la même façon. L'offre part
+// toujours avec le bouton du site.
 import {useEffect, useState} from "preact/hooks";
 import {useStore} from "../../lib/store";
-import {tradeFilter, setTradeFilter, tradeSide, loadTradeSide, stopTradeSide, isActive, covers, matchesPrice, filterTradeItems, itemPrice, itemMatcher, ownedByMe, themeOfItem} from "../../features/trade-filter";
+import {tradeFilter, setTradeFilter, tradeSide, loadTradeSide, loadSidePrices, stopSidePrices, stopTradeSide, isActive, covers, matchesPrice, filterTradeItems, itemPrice, itemMatcher, ownedByMe, themeOfItem} from "../../features/trade-filter";
+import {preparedTrade, loadPreparedTrade, clearPreparedTrade, preparedFor} from "../../features/trades";
 import {themeNames} from "../../state/themes";
-import {priceVersion} from "../../state/prices";
+import {priceOf, priceVersion} from "../../state/prices";
 import {normTitle} from "../../lib/registry";
 import {RANGES, PriceInput} from "../CollectionCards";
 import {CardRow, Icon, Mark, Paged, Progress, Rarity, fmt, plural} from "../components";
@@ -60,6 +65,50 @@ function AddButton({it, chosen, onAdd}) {
   );
 }
 
+// Cartes de l'échange préparé dans l'onglet « Échanges », pour l'onglet ouvert de la fenêtre
+function PreparedCards({trade, theirs, friend, chosen, onAdd}) {
+  const cards = theirs ? trade.ask : trade.offer;
+  const other = theirs ? trade.offer.length : trade.ask.length;
+  const added = cards.filter((c) => chosen.has(`${normTitle(c.title)}|${c.rarity}`)).length;
+  return (
+    <div class="tf-prepared">
+      <div class="trade-filter-count small">
+        <span>
+          <strong>{theirs ? L("À demander", "To ask for") : L("À proposer", "To offer")}</strong>
+          <span class="muted">
+            {" · "}
+            {L(`préparé dans la Toolbox, ${fmt(added)} sur ${fmt(cards.length)} dans l'offre`, `prepared in the Toolbox, ${fmt(added)} of ${fmt(cards.length)} in the offer`)}
+            {other > 0 &&
+              (theirs
+                ? L(` · ${plural(other, "carte")} à proposer dans « Mes cartes »`, ` · ${plural(other, "card")} to offer under "Mes cartes"`)
+                : L(` · ${plural(other, "carte")} à demander dans « Cartes de ${friend} »`, ` · ${plural(other, "card")} to ask for under "Cartes de ${friend}"`))}
+          </span>
+        </span>
+        <button class="btn sm ghost" title={L("Retirer cet échange préparé (les cartes déjà ajoutées restent dans l'offre)", "Drop this prepared trade (cards already added stay in the offer)")} onClick={() => clearPreparedTrade()}>
+          {L("Oublier", "Forget")}
+        </button>
+      </div>
+      {cards.length > 0 && (
+        <Paged
+          items={cards}
+          pageSize={30}
+          class="mini trade-filter-list"
+          render={(c) => (
+            <CardRow
+              key={`${c.card_id}|${c.shiny}`}
+              card={c.card}
+              rarity={c.rarity}
+              price={priceOf(c.card_id, c.rarity, {shiny: c.shiny})}
+              badges={[c.shiny && {label: "Shiny", type: "warn", icon: "shine"}]}
+              action={<AddButton it={c} chosen={chosen.has(`${normTitle(c.title)}|${c.rarity}`)} onAdd={onAdd} />}
+            />
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
 const ORDERS = [
   {id: "price-desc", label: L("Prix décroissant", "Price, high to low")},
   {id: "price-asc", label: L("Prix croissant", "Price, low to high")},
@@ -71,18 +120,28 @@ const ORDERS = [
 export function TradeFilter({friend, theirs, selected = [], onAdd}) {
   const f = useStore(tradeFilter);
   const side = useStore(tradeSide);
+  const prepared = preparedFor(useStore(preparedTrade).trade, friend);
   useStore(priceVersion);
   const filtering = isActive(f);
   const wantedSide = sideOf(friend, theirs);
   const loaded = side.side === wantedSide && side.status !== "idle" && covers(side.read, theirs ? f.rarities : []);
-  const read = () => loadTradeSide({friend, theirs, rarities: f.rarities});
+  const read = (refresh = false) => loadTradeSide({friend, theirs, rarities: f.rarities, refresh, withPrices: Boolean(f.sale) || side.prices === "done"});
 
-  // Mes cartes : lues d'office (rapide) ; celles de l'ami sur clic (jusqu'à 30 s par page de 50).
-  // Une lecture en cours qui ne correspond plus à l'onglet ou aux raretés choisies est arrêtée.
+  useEffect(() => {
+    loadPreparedTrade();
+  }, []);
+  // Mes cartes : lues d'office (rapide) ; celles de l'ami sur clic. Une lecture en cours qui ne
+  // correspond plus à l'onglet ou aux raretés choisies est arrêtée.
   useEffect(() => {
     if (filtering && !theirs && !loaded) read();
     else if (side.status === "loading" && (!filtering || !loaded)) stopTradeSide();
   }, [filtering, theirs, loaded, side.status]);
+  // Prix : lus d'office pour un filtre de prix (sauf si le joueur a arrêté leur lecture), arrêtés
+  // quand plus aucun critère n'est choisi
+  useEffect(() => {
+    if (!filtering) stopSidePrices("idle");
+    else if (f.sale && loaded && side.status === "ready" && side.prices === "idle") loadSidePrices();
+  }, [filtering, f.sale, loaded, side.status, side.prices]);
 
   const ready = loaded && side.items.length > 0;
   // Cartes qui passent les critères autres que le prix (les nombres des choix de prix en partent)
@@ -101,6 +160,7 @@ export function TradeFilter({friend, theirs, selected = [], onAdd}) {
 
   return (
     <section class="island compact trade-filter" aria-label={L("Filtrer les cartes par prix (WikiMasters Toolbox)", "Filter the cards by price (WikiMasters Toolbox)")}>
+      {prepared && <PreparedCards trade={prepared} theirs={theirs} friend={friend} chosen={chosen} onAdd={onAdd} />}
       <div class="filters">
         <div class="filter-row">
           <span class="trade-filter-head">
@@ -193,11 +253,11 @@ export function TradeFilter({friend, theirs, selected = [], onAdd}) {
         <div class="trade-filter-read">
           <span class="small muted">
             {L(
-              `Les filtres portent sur toute la ${whose}, lue par pages de 50 cartes (jusqu'à 30 s par page, gardée 12 h). Choisir des raretés accélère la lecture.`,
-              `The filters cover ${whose} as a whole, read 50 cards at a time (up to 30 s per page, kept 12 h). Picking rarities makes it faster.`,
+              `Les filtres portent sur toute la ${whose}, lue par pages de 50 cartes et gardée 12 h. Ses prix ne sont lus que pour un filtre de prix, ou sur demande. Choisir des raretés accélère la lecture.`,
+              `The filters cover ${whose} as a whole, read 50 cards at a time and kept 12 h. Its prices are only read for a price filter, or on request. Picking rarities makes it faster.`,
             )}
           </span>
-          <button class="btn sm primary" onClick={read}>
+          <button class="btn sm primary" onClick={() => read()}>
             {L(`Lire sa collection${f.rarities.length ? ` (${f.rarities.join(", ")})` : ""}`, `Read their collection${f.rarities.length ? ` (${f.rarities.join(", ")})` : ""}`)}
           </button>
         </div>
@@ -213,7 +273,17 @@ export function TradeFilter({friend, theirs, selected = [], onAdd}) {
       {filtering && loaded && side.status === "error" && (
         <div class="trade-filter-read">
           <span class="small" style={{color: "var(--danger)"}}>{side.error}</span>
-          <button class="btn sm" onClick={read}>{L("Réessayer", "Retry")}</button>
+          <button class="btn sm" onClick={() => read()}>{L("Réessayer", "Retry")}</button>
+        </div>
+      )}
+      {filtering && loaded && side.status === "ready" && side.prices === "loading" && (
+        <div class="trade-filter-read">
+          <div style={{flex: 1, minWidth: 0}}>
+            <Progress done={side.priceProgress?.done || 0} total={side.priceProgress?.total} label={L("Lecture des prix (la liste reste utilisable)", "Reading prices (the list stays usable)")} />
+          </div>
+          <button class="btn sm ghost" title={L("Arrêter la lecture des prix : les prix déjà lus restent affichés", "Stop reading prices: prices already read stay shown")} onClick={() => stopSidePrices()}>
+            {L("Arrêter les prix", "Stop prices")}
+          </button>
         </div>
       )}
       {filtering && ready && side.status === "ready" && (
@@ -222,7 +292,8 @@ export function TradeFilter({friend, theirs, selected = [], onAdd}) {
             <span>
               {L(`${plural(list.length, "carte")} sur ${fmt(side.items.length)}`, `${plural(list.length, "card")} out of ${fmt(side.items.length)}`)}
               {theirs && side.total > side.items.length && !side.read.length && ` · ${L(`${fmt(side.total)} au total`, `${fmt(side.total)} in total`)}`}
-              {unread > 0 && ` · ${L(plural(unread, "prix illisible", "prix illisibles"), `${plural(unread, "unreadable price")}`)}`}
+              {unread > 0 &&
+                ` · ${side.prices === "done" ? L(plural(unread, "prix illisible", "prix illisibles"), plural(unread, "unreadable price")) : L(plural(unread, "prix non lu", "prix non lus"), plural(unread, "price not read", "prices not read"))}`}
             </span>
             <select class="mini-select" aria-label={L("Ordre", "Order")} value={f.order} onChange={(e) => setTradeFilter({order: e.currentTarget.value})}>
               {ORDERS.map((o) => (
@@ -231,7 +302,12 @@ export function TradeFilter({friend, theirs, selected = [], onAdd}) {
                 </option>
               ))}
             </select>
-            <button class="btn sm ghost" title={L("Relire la collection et ses prix", "Read the collection and its prices again")} onClick={() => loadTradeSide({friend, theirs, rarities: f.rarities, refresh: true})}>
+            {side.prices !== "loading" && side.prices !== "done" && (
+              <button class="btn sm ghost" title={L("Lire les prix de ces cartes, pour les filtrer ou les trier par prix", "Read these cards' prices, to filter or sort them by price")} onClick={() => loadSidePrices()}>
+                {L("Lire les prix", "Read prices")}
+              </button>
+            )}
+            <button class="btn sm ghost" title={L("Relire la collection", "Read the collection again")} onClick={() => read(true)}>
               <Icon name="refresh" size={12} /> {L("Actualiser", "Refresh")}
             </button>
           </div>

@@ -182,8 +182,10 @@ Dans la même fenêtre, sous la recherche du site, le bloc de la Toolbox filtre 
 
 Dès qu'un critère est choisi :
 
-- *Mes cartes* : votre collection est lue d'office, puis ses prix ;
-- *Cartes de …* : la collection de l'ami est lue sur un clic (*Lire sa collection*), par la même route et avec le même cache (12 heures) que la recherche d'échanges : le site met jusqu'à 30 secondes par page de 50 cartes, choisir des raretés avant la lecture l'accélère beaucoup. *Arrêter* interrompt la lecture, qui reprend là où elle s'était arrêtée ; ses prix sont lus ensuite. Si WikiMasters refuse des requêtes qu'il juge automatisées, la Toolbox arrête toutes ses lectures du site jusqu'au rechargement de la page.
+- *Mes cartes* : votre collection est lue d'office ;
+- *Cartes de …* : la collection de l'ami est lue sur un clic (*Lire sa collection*), par la même route et avec le même cache (12 heures) que la recherche d'échanges, par pages de 50 cartes : choisir des raretés avant la lecture l'accélère. *Arrêter* interrompt la lecture, qui reprend là où elle s'était arrêtée. Si WikiMasters refuse des requêtes qu'il juge automatisées, la Toolbox arrête toutes ses lectures du site jusqu'au rechargement de la page.
+
+La liste s'affiche dès la collection lue, **sans attendre les prix** : trier par thème, rareté ou mots ne lit aucun prix. Les prix ne sont lus que pour un critère *Jamais vendues* ou *Vendues entre …*, ou sur un clic (*Lire les prix*, pour trier par prix). Leur lecture s'affiche sous les filtres et s'arrête avec *Arrêter les prix* : la liste reste utilisable, les prix déjà lus restent affichés.
 
 La liste des cartes qui passent les critères remplace alors la grille du site, masquée, dans l'ordre choisi (prix décroissant par défaut, prix croissant, ou rareté) ; le décompte (« 12 cartes sur 340 ») et les nombres des choix portent sur toute la collection lue. Chaque carte indique son prix, si elle est **en favori** (exemplaire verrouillé : le site ne permet pas de l'échanger, *Ajouter* est désactivé), si vous la **possédez déjà** (*Possédée*) ou non (*Nouvelle*) pour les cartes de l'ami, ses exemplaires, si elle est shiny ou déjà engagée dans un échange. **Ajouter** la choisit dans l'offre en passant par la grille du site : la recherche de la fenêtre affiche la carte, qui est cliquée comme le ferait le joueur, puis la recherche reprend sa valeur ; l'ajout n'est tenu pour fait que si la carte apparaît dans les cartes choisies (ou si le nombre de cartes de ce côté augmente), sinon la raison s'affiche sous le bouton. Une carte déjà choisie est marquée *Choisie*. Les cartes en favori et la possession viennent du site : pour une collection lue par une version précédente de la Toolbox, *Actualiser* les relit. *Tous les prix* sans autre critère fait revenir la grille du site ; fermer la fenêtre remet les filtres à zéro. Rien n'est envoyé : l'offre part toujours avec le bouton du site. Désactivable dans les réglages (*Filtre par prix dans la fenêtre d'échange*).
 
@@ -250,10 +252,12 @@ Les profils de la bande ne sont plus fournis avec l'extension. Ceux que vous avi
 
 Choisissez un ami, éventuellement des raretés et des thèmes précis (plutôt que votre profil), puis *Chercher*. Vous obtenez deux listes filtrables par thème et par texte :
 
-- **À demander** : triées par liste de souhaits, puis cartes qu'il possède en plusieurs exemplaires, puis rareté. Les cartes déjà engagées dans un échange en cours sont signalées.
-- **À proposer** : vos doublons d'abord.
+- **À demander** : triées par liste de souhaits, puis cartes qu'il possède en plusieurs exemplaires, puis rareté. Les cartes déjà engagées dans un échange en cours sont signalées ; celles qu'il a mises en favori (*Favori*, verrouillées par le site) passent en fin de liste et ne peuvent pas être choisies.
+- **À proposer** : *Son profil* (vos cartes qui correspondent à son profil d'intérêts) ou, s'il n'en a pas, *Mes doublons* (vos doublons qu'il n'a pas) ; *Tout ce qu'il n'a pas* montre toutes vos cartes qui lui manquent, à filtrer par thème ou par texte. Une carte dont tous vos exemplaires sont en favori est marquée *Favori* : le site ne l'échange pas.
 
-Sélectionnez les cartes que vous voulez obtenir : la Toolbox en calcule la valeur, et **Proposer une offre équilibrée** choisit parmi vos cartes un lot de valeur équivalente en prix du marché. *Charger les prix* récupère les prix manquants des deux listes.
+Cliquez sur les cartes à demander et sur celles à proposer : la Toolbox donne la valeur de chaque côté et l'écart. **Proposer une offre équilibrée** choisit parmi les cartes à proposer affichées un lot de valeur équivalente, que vous pouvez ensuite retoucher. *Charger les prix* récupère les prix manquants des deux listes.
+
+**Préparer l'échange** garde votre choix (24 heures, ou jusqu'à *Oublier*). Ouvrez ensuite *Proposer un échange* avec cet ami sur le site : dans la fenêtre « Échanger avec … », la Toolbox liste en tête les cartes préparées de l'onglet ouvert (à demander dans *Cartes de …*, à proposer dans *Mes cartes*), chacune avec un bouton **Ajouter** qui la choisit dans l'offre comme le filtre de cette fenêtre. Rien n'est envoyé : l'offre part avec le bouton du site.
 
 En bas de l'onglet, **Échanges en cours** détaille chaque échange en attente : ce que vous donnez, ce que vous recevez, leur valeur et l'écart.
 

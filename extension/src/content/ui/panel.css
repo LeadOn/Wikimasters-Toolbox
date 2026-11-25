@@ -1326,6 +1326,8 @@ button.chip:disabled { opacity: 0.5; cursor: progress; }
 .trade-filter-head { display: inline-flex; align-items: center; gap: 8px; }
 .trade-filter-head .filter-k { width: auto; }
 .trade-filter-count { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+/* Décompte à gauche, ordre et boutons groupés à droite */
+.trade-filter-count > span:first-child { margin-right: auto; }
 .tf-search { flex: 1 1 200px; min-width: 0; height: 26px; min-height: 26px; padding: 0 8px; border-radius: 5px; font-size: 12.5px; }
 .trade-filter .filter-row .mini-select { max-width: 220px; }
 .tf-add { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; }
@@ -1333,6 +1335,9 @@ button.chip:disabled { opacity: 0.5; cursor: progress; }
 .trade-filter-read { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .trade-filter-read .small { flex: 1; min-width: 200px; }
 .trade-filter .cards.trade-filter-list { max-height: 46vh; overflow-y: auto; padding-right: 2px; }
+/* Cartes d'un échange préparé dans l'onglet « Échanges », en tête du bloc */
+.tf-prepared { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+.tf-prepared .cards.trade-filter-list { max-height: 30vh; }
 .chip.price-range input { width: 52px; height: 20px; min-height: 0; padding: 0 5px; border: 0; border-radius: 3px; background: var(--bg); color: var(--fg); font: 500 12px var(--mono); text-align: right; box-shadow: none; appearance: textfield; }
 .chip.price-range input::-webkit-inner-spin-button, .chip.price-range input::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .chip.price-range:focus-within { border-color: var(--accent); }

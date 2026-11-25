@@ -129,7 +129,7 @@ export function FriendTrades({username}) {
             />
             <Column
               title={L("À lui proposer", "To offer")}
-              items={r.toOffer}
+              items={r.toOffer.filter((c) => c.suggested)}
               empty={r.friendTag ? L("Aucune de vos cartes ne correspond à son profil.", "None of your cards match their profile.") : L("Aucun de vos doublons ne lui manque.", "They already have all your duplicates.")}
               badges={(c) => [c.spare && {label: L(`${c.copies} ex. chez vous`, `${c.copies} copies on your side`), type: "ok"}]}
             />

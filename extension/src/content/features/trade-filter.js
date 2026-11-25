@@ -6,7 +6,9 @@
 // description, thème, cartes que je n'ai pas, hors favoris (exemplaires verrouillés), doublons, et
 // l'ordre de la liste.
 // La collection de l'ami est lue par la même route et le même cache (12 h) que la recherche
-// d'échanges (features/trades.js) ; la mienne, comme partout dans la Toolbox. La liste des cartes
+// d'échanges (features/trades.js) ; la mienne, comme partout dans la Toolbox. La liste s'affiche dès
+// la collection lue : les prix ne sont lus que pour un filtre de prix ou à la demande du joueur
+// (lecture arrêtable sans perdre la liste). La liste des cartes
 // qui passent le filtre est montrée par ui/islands/TradeFilter.jsx ; une carte n'est ajoutée à
 // l'offre que par un clic du joueur, avec la grille du site (features/site-dom.js → addToOffer).
 import {createStore} from "../lib/store";
@@ -32,15 +34,21 @@ export const isFiltering = (f) => f.sale === "never" || f.sale === "range";
 export const isActive = (f) => isFiltering(f) || Boolean(f.q?.trim() || f.theme || f.missing || f.unstarred || f.doubles || f.rarities?.length);
 
 // Cartes de l'onglet ouvert, collection entière. side : "mine" ou "friend:<pseudo>" ;
-// read : raretés lues ([] : toutes) ; status : "idle" | "loading" | "ready" | "error" ;
-// items : [{key, card_id, title, rarity, shiny, count, pending, card}] ; total : cartes de la collection
-const IDLE = {side: null, read: [], status: "idle", step: "", progress: null, items: [], total: 0, pricesAt: 0, error: null};
+// read : raretés lues ([] : toutes) ; status : "idle" | "loading" | "ready" | "error" (collection) ;
+// items : [{key, card_id, title, rarity, shiny, count, pending, card}] ; total : cartes de la collection ;
+// prices : "idle" | "loading" | "stopped" | "done" (prix de ces cartes), priceProgress : {done, total}
+const IDLE = {side: null, read: [], status: "idle", step: "", progress: null, items: [], total: 0, prices: "idle", priceProgress: null, pricesAt: 0, error: null};
 export const tradeSide = createStore(IDLE);
 let controller = null;
+let priceController = null;
 
-export function resetTradeFilter() {
+function abortAll() {
   controller?.abort();
-  controller = null;
+  priceController?.abort();
+  controller = priceController = null;
+}
+export function resetTradeFilter() {
+  abortAll();
   tradeFilter.set(NO_TRADE_FILTER);
   tradeSide.set(IDLE);
 }
@@ -84,12 +92,12 @@ export const themeOfItem = (it) => themes(it.card_id, {...it.card, wikipedia_tit
 // Mots saisis → [{text, out}] (séparés par des espaces)
 export const wordsOf = (q) => (q || "").split(/\s+/).map(parseKeyword).filter(Boolean);
 
-// Lit la collection de l'onglet ouvert, puis les prix de ses cartes. Une lecture en cours pour un
-// autre onglet (ou d'autres raretés) est abandonnée. refresh : ignore le cache de la collection.
-export async function loadTradeSide({friend, theirs, rarities = [], refresh = false}) {
+// Lit la collection de l'onglet ouvert ; ses prix ensuite seulement avec withPrices. Une lecture en
+// cours pour un autre onglet (ou d'autres raretés) est abandonnée. refresh : ignore le cache de la collection.
+export async function loadTradeSide({friend, theirs, rarities = [], refresh = false, withPrices = false}) {
   const side = theirs ? `friend:${friend.toLowerCase()}` : "mine";
   const read = theirs ? [...rarities].sort() : [];
-  controller?.abort();
+  abortAll();
   const ctrl = (controller = new AbortController());
   const {signal} = ctrl;
   const current = () => controller === ctrl;
@@ -109,19 +117,44 @@ export async function loadTradeSide({friend, theirs, rarities = [], refresh = fa
       total = items.length;
     }
     if (!current()) return;
-    tradeSide.set({items, total, step: L("Lecture des prix", "Reading prices"), progress: {done: 0, total: 1}});
-    await loadPrices(
-      items.map((it) => ({id: it.card_id, rarity: it.rarity})),
-      {signal, onProgress: (done, n) => current() && tradeSide.set({progress: {done, total: n}})},
-    );
-    if (current()) tradeSide.set({status: "ready", step: "", progress: null, pricesAt: Date.now()});
+    controller = null;
+    tradeSide.set({items, total, status: "ready", step: "", progress: null});
   } catch (e) {
     if (current()) tradeSide.set(e.name === "AbortError" ? IDLE : {status: "error", error: e.message || String(e), step: "", progress: null});
+    return;
+  }
+  if (withPrices) await loadSidePrices();
+}
+
+// Lit les prix des cartes de la liste (file commune de state/prices.js). Arrêter la lecture garde la
+// liste : les prix déjà lus restent affichés.
+export async function loadSidePrices() {
+  const s = tradeSide.get();
+  if (s.status !== "ready" || s.prices === "loading") return;
+  priceController?.abort();
+  const ctrl = (priceController = new AbortController());
+  const current = () => priceController === ctrl;
+  tradeSide.set({prices: "loading", priceProgress: {done: 0, total: 1}});
+  try {
+    await loadPrices(
+      s.items.map((it) => ({id: it.card_id, rarity: it.rarity})),
+      {signal: ctrl.signal, onProgress: (done, n) => current() && tradeSide.set({priceProgress: {done, total: n}})},
+    );
+    if (current()) tradeSide.set({prices: "done", priceProgress: null, pricesAt: Date.now()});
+  } catch (e) {
+    if (current()) tradeSide.set({prices: "stopped", priceProgress: null});
+  } finally {
+    if (current()) priceController = null;
   }
 }
+// prices : état après l'arrêt, "stopped" (arrêt du joueur : pas de reprise d'office) ou "idle"
+export function stopSidePrices(prices = "stopped") {
+  priceController?.abort();
+  priceController = null;
+  if (tradeSide.get().prices === "loading") tradeSide.set({prices, priceProgress: null});
+}
 export const stopTradeSide = () => {
-  controller?.abort();
-  controller = null;
+  abortAll();
   tradeSide.set(IDLE);
 };
 

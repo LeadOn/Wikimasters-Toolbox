@@ -142,3 +142,23 @@ test("collection d'un ami : pages lues avec latence entre chaque appel", async (
   assert.ok(calls[2].at - calls[1].at >= 25, `latence 2→3 : ${calls[2].at - calls[1].at} ms`);
   assert.equal(res.items.length, 102);
 });
+
+test("fenêtre d'échange : la collection de l'ami s'affiche sans lire ses prix", async () => {
+  fakeBrowser();
+  const f = loadExtensionModule("extension/src/content/features/trade-filter.js");
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    const card = (n, extra) => ({ id: `uc-${n}`, card_id: `c-${n}`, count: 1, ...extra, card: { id: `c-${n}`, wikipedia_title: `Carte ${n}`, rarity: "R" } });
+    return response(200, { collection: [card(1, { starred: true, owned_by_viewer: false }), card(2, { starred: false, owned_by_viewer: true })], total: 2, pendingTradeCardIds: [] });
+  };
+  await f.loadTradeSide({ friend: "Bob", theirs: true, rarities: ["R"] });
+  const side = f.tradeSide.get();
+  assert.equal(side.status, "ready");
+  assert.equal(side.items.length, 2);
+  assert.equal(side.prices, "idle", "prix lus seulement sur demande ou pour un filtre de prix");
+  assert.deepEqual(side.items.map((it) => [it.card_id, it.starred, it.owned]), [["c-1", true, false], ["c-2", false, true]], "favoris et possession de l'ami gardés dans le cache");
+  assert.ok(urls.length > 0 && urls.every((u) => u.includes("/api/profile/")), urls.join("\n"));
+  f.stopSidePrices();
+  assert.equal(f.tradeSide.get().status, "ready", "arrêter les prix garde la liste");
+});
