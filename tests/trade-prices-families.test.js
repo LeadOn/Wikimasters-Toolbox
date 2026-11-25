@@ -22,6 +22,8 @@ test("recherche d'échanges : à demander, à proposer, tri", () => {
   ];
   const r = core.findTrades({mine, friendItems, wanted: ["Pour : Moi"], friendTag: "Pour : Ami", profiles: [me, ami], wishlist: new Set(["x"])});
   assert.deepEqual(r.toAsk.map((c) => c.card_id), ["x", "y", "z"], "souhaits, puis doublons de l'ami, puis rareté");
+  const locked = core.findTrades({mine, friendItems: friendItems.map((it) => (it.card_id === "x" ? {...it, starred: true} : it)), wanted: ["Pour : Moi"], friendTag: "Pour : Ami", profiles: [me, ami], wishlist: new Set(["x"])});
+  assert.deepEqual(locked.toAsk.map((c) => c.card_id), ["y", "z", "x"], "un favori de l'ami (verrouillé) passe en fin de liste");
   assert.deepEqual(r.toOffer.map((c) => c.card_id), [], "Saturne est déjà chez l'ami");
   const r2 = core.findTrades({mine, friendItems: friendItems.slice(0, 3), wanted: ["Pour : Moi"], friendTag: null, profiles: [me]});
   assert.deepEqual(r2.toOffer.map((c) => c.card_id), ["b"], "sans profil d'ami : mes doublons qu'il n'a pas");
@@ -279,6 +281,23 @@ test("recherche d'échanges : un exemplaire avec count > 1 compte comme doublon"
   const mine = [{id: "m1", card_id: "b", count: 3, cards: card("b", "Lyon", "commune française")}];
   const r = core.findTrades({mine, friendItems: [], wanted: ["Sports"], friendTag: null});
   assert.deepEqual(r.toOffer.map((c) => [c.card_id, c.copies]), [["b", 3]]);
+});
+
+test("recherche d'échanges : toutes mes cartes à proposer, suggérées d'abord, favoris verrouillés", () => {
+  const mine = [
+    {id: "m1", card_id: "a", cards: card("a", "Paris", "capitale de la France", "R")},
+    {id: "m2", card_id: "b", count: 2, cards: card("b", "Lyon", "commune française")},
+    {id: "m3", card_id: "c", starred: true, cards: card("c", "Nantes", "commune française", "UR")},
+    {id: "m4", card_id: "d", cards: card("d", "Brest", "commune française")},
+  ];
+  const friendItems = [{id: "f1", card_id: "d", count: 1, card: card("d", "Brest", "commune française")}];
+  const base = {mine, friendItems, wanted: ["Sports"], friendTag: null};
+  assert.deepEqual(core.findTrades(base).toOffer.map((c) => c.card_id), ["b"], "sans offerAll : seulement les suggestions");
+  const all = core.findTrades({...base, offerAll: true}).toOffer;
+  assert.deepEqual(all.map((c) => c.card_id), ["b", "a", "c"], "suggérées, puis non verrouillées, jamais une carte qu'il a");
+  assert.deepEqual(all.map((c) => [c.suggested, c.locked]), [[true, false], [false, false], [false, true]]);
+  const {chosen} = core.balanceOffer(1000, all.map((c, i) => ({...c, price: 100 * (i + 1)})));
+  assert.ok(!chosen.some((c) => c.card_id === "c"), "une carte verrouillée n'entre jamais dans l'offre équilibrée");
 });
 
 test("couleurs des raretés : celles du site, identiques dans l'extension", () => {

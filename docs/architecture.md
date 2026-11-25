@@ -83,8 +83,8 @@ extension/
       features/                fonctionnalités, sans interface
         sorter.js              tri : aperçu (planSort) puis application (applySort)
         autosort.js            tri des cartes tirées à l'ouverture d'un paquet (option)
-        trades.js              recherche d'échanges, échanges en cours
-        trade-filter.js        filtre par prix de la fenêtre « Échanger avec … » : collection entière de l'onglet ouvert (cache de trades.js), prix, cartes qui passent le filtre
+        trades.js              recherche d'échanges, échange préparé (repris dans la fenêtre « Échanger avec … »), échanges en cours
+        trade-filter.js        filtre par prix de la fenêtre « Échanger avec … » : collection entière de l'onglet ouvert (cache de trades.js), prix lus seulement pour un filtre de prix ou sur demande, cartes qui passent le filtre
         market.js              enchères, surenchère, alerte de fin, enchères en cours d'une carte, vente et défausse des doublons
         achievements.js        succès : liste et progression, réclamation des récompenses (un clic ou automatique, option)
         auction-tab.js         titre de l'onglet sur la page d'une enchère : temps restant, en tête ou surenchéri, relecture régulière

@@ -4,18 +4,26 @@
 const {categorize} = require("./categorize");
 const {rarityRank, marketPrice} = require("./prices");
 
-// mine        : mes exemplaires [{id, card_id, count?, cards: {…carte avec résumé}}]
-// friendItems : collection de l'ami [{id, card_id, count, is_shiny, card: {…}}]
+// mine        : mes exemplaires [{id, card_id, count?, starred?, cards: {…carte avec résumé}}]
+// friendItems : collection de l'ami [{id, card_id, count, is_shiny, starred?, card: {…}}] ; ses
+//               exemplaires en favori (verrouillés par le site) passent en fin de toAsk
 // summaries   : Map(card_id → résumé Wikipédia) pour les cartes de l'ami (la route du site ne le donne pas)
 // wanted      : tags recherchés pour moi (« Pour : <moi> », ou thèmes génériques)
 // friendTag   : tag « Pour : <ami> », ou null (on propose alors mes doublons qu'il n'a pas)
 // rarities    : si la collection de l'ami n'a été lue que pour certaines raretés, mes propositions s'y limitent
 // prices      : Map(card_id → résumé de prix), facultatif ; priceOptions : réglages des prix (core/prices.js)
 // themes      : liste de thèmes du joueur (core/theme-set.js) ; par défaut, celle de core/themes.js
-function findTrades({mine, friendItems, summaries = new Map(), wishlist = new Set(), pending = new Set(), wanted, friendTag, profiles = [], themes = null, rarities = [], prices = new Map(), priceOptions = {}}) {
+// offerAll    : toOffer contient toutes mes cartes que l'ami n'a pas, `suggested` marquant celles qui
+//               correspondent à son tag (ou mes doublons, sans tag) ; sinon seulement ces dernières
+// Chaque carte de toOffer : `locked` quand tous mes exemplaires sont en favori (le site ne les échange pas)
+function findTrades({mine, friendItems, summaries = new Map(), wishlist = new Set(), pending = new Set(), wanted, friendTag, profiles = [], themes = null, rarities = [], prices = new Map(), priceOptions = {}, offerAll = false}) {
   const myCopies = new Map();
+  const unlocked = new Set();
   // Une ligne peut représenter plusieurs exemplaires (`count`), comme pour l'étiquette Doublon
-  for (const uc of mine) myCopies.set(uc.card_id, (myCopies.get(uc.card_id) || 0) + Math.max(1, Number(uc.count) || 1));
+  for (const uc of mine) {
+    myCopies.set(uc.card_id, (myCopies.get(uc.card_id) || 0) + Math.max(1, Number(uc.count) || 1));
+    if (!uc.starred) unlocked.add(uc.card_id);
+  }
   const friendOwns = new Set(friendItems.map((it) => it.card_id));
   const describe = (card, summary) => {
     const tags = categorize({...card, summary: summary || ""}, {profiles, themes});
@@ -41,6 +49,7 @@ function findTrades({mine, friendItems, summaries = new Map(), wishlist = new Se
   }
   toAsk.sort(
     (a, b) =>
+      Boolean(a.starred) - Boolean(b.starred) ||
       b.wished - a.wished ||
       b.spare - a.spare ||
       rarityRank(b.card.rarity) - rarityRank(a.card.rarity) ||
@@ -55,7 +64,8 @@ function findTrades({mine, friendItems, summaries = new Map(), wishlist = new Se
     seen.add(uc.card_id);
     const {theme, tags} = describe(uc.cards, uc.cards.summary);
     const copies = myCopies.get(uc.card_id);
-    if (friendTag ? !tags.includes(friendTag) : copies < 2) continue;
+    const suggested = friendTag ? tags.includes(friendTag) : copies > 1;
+    if (!suggested && !offerAll) continue;
     toOffer.push({
       card_id: uc.card_id,
       user_card_id: uc.id,
@@ -64,11 +74,15 @@ function findTrades({mine, friendItems, summaries = new Map(), wishlist = new Se
       theme,
       copies,
       spare: copies > 1,
+      suggested,
+      locked: !unlocked.has(uc.card_id),
       price: marketPrice(prices.get(uc.card_id), uc.cards.rarity, {...priceOptions, shiny: Boolean(uc.is_shiny)}),
     });
   }
   toOffer.sort(
     (a, b) =>
+      b.suggested - a.suggested ||
+      a.locked - b.locked ||
       b.spare - a.spare ||
       rarityRank(b.card.rarity) - rarityRank(a.card.rarity) ||
       (b.card.pageviews || 0) - (a.card.pageviews || 0),
@@ -77,10 +91,11 @@ function findTrades({mine, friendItems, summaries = new Map(), wishlist = new Se
 }
 
 // Proposition équilibrée : parmi `candidates` (mes cartes à proposer, avec `price`), choisit des cartes
-// dont la valeur totale approche `target`, en privilégiant mes doublons. Glouton, puis ajustement.
+// dont la valeur totale approche `target`, en privilégiant mes doublons, jamais une carte verrouillée
+// (`locked` : tous mes exemplaires en favori). Glouton, puis ajustement.
 function balanceOffer(target, candidates, {preferSpare = true} = {}) {
   const pool = candidates
-    .filter((c) => c.price > 0)
+    .filter((c) => c.price > 0 && !c.locked)
     .sort((a, b) => (preferSpare ? b.spare - a.spare : 0) || b.price - a.price);
   const chosen = [];
   let total = 0;

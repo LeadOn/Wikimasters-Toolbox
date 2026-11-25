@@ -1,8 +1,10 @@
-// Onglet « Échanges » : trouver quoi échanger avec un ami, proposition équilibrée, échanges en cours.
+// Onglet « Échanges » : trouver quoi échanger avec un ami, choisir les cartes de chaque côté (offre
+// équilibrée en un clic), préparer l'échange pour la fenêtre « Échanger avec … » du site (rien n'est
+// envoyé : le joueur y ajoute les cartes et envoie l'offre avec le bouton du site), échanges en cours.
 import {useState, useEffect, useMemo, useRef} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {readSession} from "../../lib/session";
-import {friendsState, tradeState, loadFriends, findTradesWith, activeTrades, refreshTrades} from "../../features/trades";
+import {friendsState, tradeState, loadFriends, findTradesWith, activeTrades, refreshTrades, preparedTrade, prepareTrade, clearPreparedTrade, loadPreparedTrade, preparedFor} from "../../features/trades";
 import {profileFor} from "../../state/profiles";
 import {priceOf, priceVersion, loadPrices} from "../../state/prices";
 import {CardRow, Paged, Progress, Notice, fmt, plural, timeAgo} from "../components";
@@ -17,7 +19,7 @@ function countBy(list, key) {
   return [...m].sort((a, b) => b[1] - a[1]);
 }
 
-function Section({title, items, render, extra}) {
+function Section({title, items, render, extra, help}) {
   const [theme, setTheme] = useState(null);
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
@@ -31,6 +33,7 @@ function Section({title, items, render, extra}) {
         {extra}
         <input type="search" placeholder={L("Filtrer…", "Filter…")} style={{maxWidth: "220px"}} value={q} onInput={(e) => setQ(e.currentTarget.value)} />
       </div>
+      {help && <p class="help">{help}</p>}
       <div class="chips">
         {countBy(items, (c) => c.theme).map(([t, n]) => (
           <button key={t} class={`chip${theme === t ? " on" : ""}`} onClick={() => setTheme(theme === t ? null : t)}>
@@ -109,16 +112,23 @@ export function TradesTab() {
   const [useThemes, setUseThemes] = useState(false);
   const [themes, setThemes] = useState([]);
   const [rarities, setRarities] = useState([]);
+  // Cartes choisies : à demander (id de l'exemplaire de l'ami), à proposer (card_id)
   const [selected, setSelected] = useState(new Set());
+  const [offerSel, setOfferSel] = useState(new Set());
+  const [offerScope, setOfferScope] = useState("suggested");
+  // Dernière offre équilibrée : ses cartes passent en tête de la liste
   const [balance, setBalance] = useState(null);
+  const prepared = useStore(preparedTrade).trade;
   const abort = useRef(null);
   const me = readSession()?.username;
 
   useEffect(() => {
     if (!friends.list && !friends.loading) loadFriends().catch(() => {});
+    loadPreparedTrade();
   }, []);
   useEffect(() => {
     setSelected(new Set());
+    setOfferSel(new Set());
     setBalance(null);
   }, [s.result]);
 
@@ -136,9 +146,35 @@ export function TradesTab() {
   const r = s.result;
   // Prix recalculé à chaque affichage : les prix arrivent après la recherche, et les réglages peuvent changer
   const price = (c) => priceOf(c.card_id, c.card.rarity, {shiny: c.is_shiny});
-  const target = r ? r.toAsk.filter((c) => selected.has(c.id)).reduce((n, c) => n + (price(c) || 0), 0) : 0;
-  const chosen = useMemo(() => new Set(balance?.chosen.map((c) => c.card_id) || []), [balance]);
-  const offerItems = useMemo(() => (r && balance ? [...r.toOffer].sort((a, b) => chosen.has(b.card_id) - chosen.has(a.card_id)) : r?.toOffer || []), [r, balance]);
+  const askCards = r ? r.toAsk.filter((c) => selected.has(c.id)) : [];
+  const offerCards = r ? r.toOffer.filter((c) => offerSel.has(c.card_id)) : [];
+  const target = askCards.reduce((n, c) => n + (price(c) || 0), 0);
+  const offerValue = offerCards.reduce((n, c) => n + (price(c) || 0), 0);
+  const suggestedCount = r ? r.toOffer.filter((c) => c.suggested).length : 0;
+  const offerPool = useMemo(() => (r ? (offerScope === "all" ? r.toOffer : r.toOffer.filter((c) => c.suggested)) : []), [r, offerScope]);
+  const offerItems = useMemo(() => (balance ? [...offerPool].sort((a, b) => balance.has(b.card_id) - balance.has(a.card_id)) : offerPool), [offerPool, balance]);
+  const preparedHere = r ? preparedFor(prepared, r.friend) : null;
+  const toggle = (set, setter, key) => {
+    const next = new Set(set);
+    next.has(key) ? next.delete(key) : next.add(key);
+    setter(next);
+  };
+  const clearSelection = () => {
+    setSelected(new Set());
+    setOfferSel(new Set());
+    setBalance(null);
+  };
+  const suggestOffer = () => {
+    const {chosen} = balanceOffer(target, offerPool.map((c) => ({...c, price: price(c)})));
+    const ids = new Set(chosen.map((c) => c.card_id));
+    setOfferSel(ids);
+    setBalance(ids);
+    if (!chosen.length) toast(L("Aucune de ces cartes n'a de prix fiable : chargez les prix, ou choisissez vos cartes à la main.", "None of these cards has a reliable price: load prices, or pick your cards by hand."));
+  };
+  const prepare = async () => {
+    await prepareTrade(r.friend, {ask: askCards, offer: offerCards});
+    toast(L(`Échange préparé avec ${r.friend} : ouvrez « Proposer un échange » sur le site.`, `Trade with ${r.friend} prepared: open "Proposer un échange" on the site.`), {type: "ok"});
+  };
 
   const loadVisiblePrices = () => {
     const items = [...r.toAsk, ...r.toOffer].map((c) => ({id: c.card_id, rarity: c.card.rarity}));
@@ -211,8 +247,8 @@ export function TradesTab() {
           )}
           <span class="small muted">
             {L(
-              "La collection d'un ami est lue page par page (jusqu'à 30 s par page côté serveur) puis gardée 12 h. Une lecture interrompue reprend où elle s'était arrêtée. Filtrer les raretés accélère beaucoup.",
-              "A friend's collection is read page by page (up to 30 s per page on the server side), then kept for 12 hours. An interrupted read resumes where it stopped. Filtering rarities speeds things up a lot.",
+              "La collection d'un ami est lue page par page puis gardée 12 h. Une lecture interrompue reprend où elle s'était arrêtée. Filtrer les raretés accélère la lecture.",
+              "A friend's collection is read page by page, then kept for 12 hours. An interrupted read resumes where it stopped. Filtering rarities speeds it up.",
             )}
           </span>
         </div>
@@ -230,25 +266,44 @@ export function TradesTab() {
             <span class="spacer" />
             <button class="btn sm" onClick={loadVisiblePrices}>{L("Charger les prix", "Load prices")}</button>
           </div>
-          {selected.size > 0 && (
+          {(selected.size > 0 || offerSel.size > 0) && (
             <div class="box row">
               <span style={{flex: 1}}>
-                {L(`${plural(selected.size, "carte sélectionnée", "cartes sélectionnées")} · valeur ${fmt(target)} ₩`, `${plural(selected.size, "card")} selected · value ${fmt(target)} ₩`)}
-                {balance &&
-                  L(
-                    ` · offre proposée : ${plural(balance.chosen.length, "carte")} pour ${fmt(balance.total)} ₩`,
-                    ` · suggested offer: ${plural(balance.chosen.length, "card")} for ${fmt(balance.total)} ₩`,
-                  )}
+                {L(`Je demande ${plural(askCards.length, "carte")} (${fmt(target)} ₩) · je propose ${plural(offerCards.length, "carte")} (${fmt(offerValue)} ₩)`, `I ask for ${plural(askCards.length, "card")} (${fmt(target)} ₩) · I offer ${plural(offerCards.length, "card")} (${fmt(offerValue)} ₩)`)}
+                {askCards.length > 0 && offerCards.length > 0 && (
+                  <span class="muted">
+                    {" · "}
+                    {L(`écart ${target - offerValue >= 0 ? "+" : ""}${fmt(target - offerValue)} ₩ pour moi`, `difference ${target - offerValue >= 0 ? "+" : ""}${fmt(target - offerValue)} ₩ for me`)}
+                  </span>
+                )}
               </span>
-              <button class="btn sm ghost" onClick={() => (setSelected(new Set()), setBalance(null))}>{L("Effacer", "Clear")}</button>
-              <button class="btn sm primary" disabled={!target} onClick={() => setBalance(balanceOffer(target, r.toOffer.map((c) => ({...c, price: price(c)}))))}>
+              <button class="btn sm ghost" onClick={clearSelection}>{L("Effacer", "Clear")}</button>
+              <button class="btn sm" disabled={!target} title={L("Choisit parmi les cartes à proposer affichées un lot de valeur équivalente", "Picks a lot of equal value among the cards to offer shown")} onClick={suggestOffer}>
                 {L("Proposer une offre équilibrée", "Suggest a balanced offer")}
               </button>
+              <button class="btn sm primary" title={L("Les cartes choisies vous attendront dans la fenêtre « Échanger avec … » du site", "The selected cards will wait for you in the site's \"Échanger avec …\" window")} onClick={prepare}>
+                {L("Préparer l'échange", "Prepare the trade")}
+              </button>
             </div>
+          )}
+          {preparedHere && (
+            <Notice type="ok">
+              <div class="row">
+                <span style={{flex: 1}}>
+                  {L(
+                    `Échange préparé avec ${preparedHere.friend} (${plural(preparedHere.ask.length, "carte")} à demander, ${plural(preparedHere.offer.length, "carte")} à proposer). Sur la page Échanges du site, ouvrez « Proposer un échange » avec ${preparedHere.friend} : dans chaque onglet de la fenêtre, la Toolbox liste ces cartes avec un bouton Ajouter. L'offre part avec le bouton du site.`,
+                    `Trade with ${preparedHere.friend} prepared (${plural(preparedHere.ask.length, "card")} to ask for, ${plural(preparedHere.offer.length, "card")} to offer). On the site's Trades page, open "Proposer un échange" with ${preparedHere.friend}: in each tab of the window, the Toolbox lists these cards with an Add button. The offer is sent with the site's button.`,
+                  )}
+                </span>
+                <a class="btn sm" href="/trades">{L("Page Échanges du site", "Site's Trades page")}</a>
+                <button class="btn sm ghost" onClick={() => clearPreparedTrade()}>{L("Oublier", "Forget")}</button>
+              </div>
+            </Notice>
           )}
           <Section
             title={L(`À demander à ${r.friend}`, `To ask ${r.friend} for`)}
             items={r.toAsk}
+            help={L("Cliquez sur une carte pour la demander. Une carte en favori chez votre ami est verrouillée par le site.", "Click a card to ask for it. A card your friend marked as favorite is locked by the site.")}
             render={(c) => (
               <CardRow
                 key={c.id}
@@ -256,13 +311,9 @@ export function TradesTab() {
                 theme={c.theme}
                 price={price(c)}
                 selected={selected.has(c.id)}
-                onClick={() => {
-                  const next = new Set(selected);
-                  next.has(c.id) ? next.delete(c.id) : next.add(c.id);
-                  setSelected(next);
-                  setBalance(null);
-                }}
+                onClick={c.starred ? undefined : () => toggle(selected, setSelected, c.id)}
                 badges={[
+                  c.starred && {label: L("Favori", "Favorite"), type: "warn", icon: "star"},
                   c.wished && {label: L("souhaitée", "wishlisted"), type: "danger", icon: "heart"},
                   c.spare && {label: L(`${c.count} ex.`, `${c.count} copies`), type: "ok"},
                   c.is_shiny && {label: "shiny", type: "warn", icon: "shine"},
@@ -272,10 +323,32 @@ export function TradesTab() {
             )}
           />
           <Section
-            title={L(`À proposer à ${r.friend}${r.friendTag ? "" : " (mes doublons qu'il n'a pas)"}`, `To offer ${r.friend}${r.friendTag ? "" : " (my duplicates they don't have)"}`)}
+            title={L(`À proposer à ${r.friend}`, `To offer ${r.friend}`)}
             items={offerItems}
+            extra={
+              <div class="seg" role="group" aria-label={L("Cartes à proposer", "Cards to offer")}>
+                <button class={offerScope === "suggested" ? "on" : ""} aria-pressed={offerScope === "suggested"} onClick={() => (setOfferScope("suggested"), setBalance(null))}>
+                  {r.friendTag ? L("Son profil", "Their profile") : L("Mes doublons", "My duplicates")} <span class="n">{fmt(suggestedCount)}</span>
+                </button>
+                <button class={offerScope === "all" ? "on" : ""} aria-pressed={offerScope === "all"} onClick={() => (setOfferScope("all"), setBalance(null))}>
+                  {L("Tout ce qu'il n'a pas", "All they lack")} <span class="n">{fmt(r.toOffer.length)}</span>
+                </button>
+              </div>
+            }
+            help={L("Cliquez sur une carte pour la proposer. Une carte dont tous vos exemplaires sont en favori est verrouillée par le site.", "Click a card to offer it. A card whose copies are all favorites is locked by the site.")}
             render={(c) => (
-              <CardRow key={c.card_id} card={c.card} theme={c.theme} price={price(c)} selected={chosen.has(c.card_id)} badges={[c.spare && {label: L(`${c.copies} ex. chez moi`, `I own ${c.copies}`), type: "ok"}]} />
+              <CardRow
+                key={c.card_id}
+                card={c.card}
+                theme={c.theme}
+                price={price(c)}
+                selected={offerSel.has(c.card_id)}
+                onClick={c.locked ? undefined : () => toggle(offerSel, setOfferSel, c.card_id)}
+                badges={[
+                  c.spare && {label: L(`${c.copies} ex. chez moi`, `I own ${c.copies}`), type: "ok"},
+                  c.locked && {label: L("Favori", "Favorite"), type: "warn", icon: "star"},
+                ]}
+              />
             )}
           />
         </>

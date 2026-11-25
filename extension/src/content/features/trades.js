@@ -3,7 +3,7 @@ import { site } from "../api/site";
 import { rest } from "../api/supabase";
 import { runAll, sleep } from "../lib/http";
 import { createStore } from "../lib/store";
-import { load, save } from "../lib/storage";
+import { load, save, remove } from "../lib/storage";
 import { ensureSession } from "../lib/session";
 import { on } from "../lib/bus";
 import { loadMyCollection } from "../state/collection";
@@ -43,11 +43,15 @@ export async function loadFriends() {
 
 const cacheKey = (username, rarities) => `friend:${username.toLowerCase()}${rarities.length ? `:${[...rarities].sort().join("-")}` : ""}`;
 
+// starred : exemplaire en favori chez l'ami (verrouillé : le site ne l'échange pas) ; owned : je
+// possède la carte (owned_by_viewer). null quand le site ne le dit pas.
 const compact = (it) => ({
   id: it.id,
   card_id: it.card_id,
   count: it.count || 1,
   is_shiny: Boolean(it.is_shiny),
+  starred: it.starred == null ? null : Boolean(it.starred),
+  owned: it.owned_by_viewer == null ? null : Boolean(it.owned_by_viewer),
   card: {
     id: it.card?.id || it.card_id,
     wikipedia_title: it.card?.wikipedia_title,
@@ -164,7 +168,7 @@ export async function findTradesWith(friend, { themes = null, rarities = [], ref
 
     tradeState.set({ step: L("Lecture de ma collection et de ma liste de souhaits", "Reading my collection and wishlist") });
     const [copies, wishlist] = await Promise.all([loadMyCollection({ withSummary: true }), rest("wishlist_items?select=card_id").catch(() => [])]);
-    const mine = copies.map((c) => ({ id: c.id, card_id: c.card_id, count: c.count, is_shiny: c.is_shiny, cards: c.card }));
+    const mine = copies.map((c) => ({ id: c.id, card_id: c.card_id, count: c.count, is_shiny: c.is_shiny, starred: Boolean(c.starred), cards: c.card }));
     const { cache, key, items } = await friendCollection(friend.username, { rarities, refresh, signal });
     const myIds = new Set(mine.map((m) => m.card_id));
     await loadSummaries(items.filter((it) => !myIds.has(it.card_id)).map((it) => it.card_id), cache, key, signal);
@@ -183,6 +187,7 @@ export async function findTradesWith(friend, { themes = null, rarities = [], ref
       rarities,
       prices: priceMap(),
       priceOptions: priceOptions(),
+      offerAll: true,
     });
     const full = { ...result, wanted, friendTag, friend: friend.username, fetchedAt: cache.fetched_at, total: cache.total, rarities };
     tradeState.set({ result: full, step: "", progress: null });
@@ -194,6 +199,48 @@ export async function findTradesWith(friend, { themes = null, rarities = [], ref
     tradeState.set({ running: false });
   }
 }
+
+// --- Échange préparé dans l'onglet « Échanges » : les cartes choisies de chaque côté sont reprises
+// dans la fenêtre « Échanger avec … » du site (ui/islands/TradeFilter.jsx), où le joueur les ajoute
+// une à une. Gardé dans le stockage (la page du profil peut être rechargée), oublié après 24 h.
+const PREPARED_KEY = "preparedTrade";
+const PREPARED_MAX_AGE = 24 * 3.6e6;
+// trade : {friend, at, ask: [carte], offer: [carte]} ; carte : {card_id, title, rarity, shiny, card}
+export const preparedTrade = createStore({ trade: null, loaded: false });
+const preparedCard = (c) => ({
+  card_id: c.card_id,
+  title: c.card?.wikipedia_title || "",
+  rarity: c.card?.rarity || null,
+  shiny: Boolean(c.is_shiny),
+  card: {
+    id: c.card_id,
+    wikipedia_title: c.card?.wikipedia_title,
+    category: c.card?.category,
+    rarity: c.card?.rarity,
+    image_url: c.card?.hide_image ? null : c.card?.image_url,
+    hide_image: Boolean(c.card?.hide_image),
+  },
+});
+export async function loadPreparedTrade() {
+  if (preparedTrade.get().loaded) return preparedTrade.get().trade;
+  const trade = await load(PREPARED_KEY, null);
+  const fresh = trade && Array.isArray(trade.ask) && Array.isArray(trade.offer) && Date.now() - trade.at < PREPARED_MAX_AGE ? trade : null;
+  preparedTrade.set({ trade: fresh, loaded: true });
+  return fresh;
+}
+// ask : cartes de l'ami (toAsk), offer : les miennes (toOffer) ; rien n'est envoyé au site
+export async function prepareTrade(friend, { ask, offer }) {
+  const trade = { friend, at: Date.now(), ask: ask.map(preparedCard), offer: offer.map(preparedCard) };
+  preparedTrade.set({ trade, loaded: true });
+  await save(PREPARED_KEY, trade).catch(() => { });
+  return trade;
+}
+export async function clearPreparedTrade() {
+  preparedTrade.set({ trade: null, loaded: true });
+  await remove(PREPARED_KEY);
+}
+// Échange préparé avec cet ami, sinon null
+export const preparedFor = (trade, friend) => (trade && friend && trade.friend.toLowerCase() === friend.toLowerCase() ? trade : null);
 
 // --- Échanges en cours (valeur de chaque côté)
 export const activeTrades = createStore({ list: null, at: 0 });
