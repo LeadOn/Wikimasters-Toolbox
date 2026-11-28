@@ -209,6 +209,9 @@ function marketPrice(summary, rarity, options) {
 // Âge maximal d'un prix avant relecture : fiche ouverte (comme l'onglet Marché du site, que le site
 // garde 5 min en cache) ou carte simplement affichée (pastilles, listes)
 const PRICE_MAX_AGE = {detail: 10 * 60 * 1000, display: 3 * 3600 * 1000};
+// Au-delà, un prix est oublié : le cache de l'extension ne grossit pas indéfiniment, et un fichier
+// de prix importé (core/price-file.js) ne ramène pas de prix plus anciens
+const PRICE_MAX_KEEP = 30 * DAY;
 
 // Cadence de l'indexation des prix de la collection : jours entre deux lectures selon la rareté de
 // l'exemplaire le plus rare possédé (la route des prix est limitée en volume : environ 1 100 lectures
@@ -332,6 +335,7 @@ module.exports = {
   priceInfo,
   marketPrice,
   PRICE_MAX_AGE,
+  PRICE_MAX_KEEP,
   indexDueAt,
   soldIn,
   collectionValue,

@@ -106,6 +106,7 @@ Remplacent les règles codées en dur pour chaque ami.
 | P7 | **Stonks** : page du menu du site, historique de mes achats et ventes aux enchères par jour, semaine ou mois ; plus-value de l'achat-revente, flux net, cartes achetées encore en stock ; vue « achat-revente » limitée aux cartes achetées puis revendues. Historique seulement, aucune action | P2 |
 | P8 | **Enchère dans le titre de l'onglet** : sur la page d'une enchère, temps restant, position (en tête, surenchéri), mise actuelle ; signal visible depuis un autre onglet à chaque nouvelle mise | P2 |
 | P10 | **Prochaines enchères d'une carte** : dans l'analyse d'une enchère, bouton qui ouvre une fenêtre avec toutes les enchères en cours de la même carte (rareté, mise, prochaine mise, écart au prix du marché, temps restant, position, lien) ; en tête du bloc, avertissement quand je mise déjà sur une autre enchère de cette carte (en tête ou surenchéri) ou que j'en vends un exemplaire | P2 |
+| P11 | **Export / import des prix en JSON** : les prix gardés dans un navigateur se reprennent sur un autre appareil sans refaire l'indexation ; fichier vérifié, résumé avant import (nouveaux, plus récents, gardés, ignorés), seul un prix plus récent remplace celui d'ici, aucune requête au site | P2 |
 
 ### 3.6 Paquets
 

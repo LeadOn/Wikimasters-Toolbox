@@ -12,6 +12,7 @@ module.exports = {
   ...require("./tag-sync"),
   ...require("./tag-writer"),
   ...require("./prices"),
+  ...require("./price-file"),
   ...require("./trade"),
   ...require("./families"),
   ...require("./share-code"),

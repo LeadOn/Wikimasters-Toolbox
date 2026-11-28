@@ -18,7 +18,8 @@ import { load, update, remove, onChange, save } from "../lib/storage";
 import { on, emit } from "../lib/bus";
 import { lookupId } from "../lib/registry";
 import { settings, PRICE_QUOTA_LIMITS, clampQuota } from "./settings";
-import { priceInfo as computePriceInfo, summarizeHistory, summarizeSales, RECENT_SALES_LIMIT, PRICE_MAX_AGE, RARITY_RANK, rarityRank } from "../../../../core/prices";
+import { priceInfo as computePriceInfo, summarizeHistory, summarizeSales, RECENT_SALES_LIMIT, PRICE_MAX_AGE, PRICE_MAX_KEEP, RARITY_RANK, rarityRank } from "../../../../core/prices";
+import { exportPrices, mergePrices } from "../../../../core/price-file";
 import { L, LOCALE } from "../../shared/i18n";
 
 // Format changé (historique du site au lieu des ventes une à une) : les anciens caches sont abandonnés
@@ -29,8 +30,7 @@ remove("prices");
 remove("prices-v2");
 // Le serveur renvoie parfois des erreurs passagères : un prix en échec est redemandé après 5 min
 const ERROR_RETRY = 5 * 60 * 1000;
-// Au-delà, une entrée est oubliée (le cache ne grossit pas indéfiniment)
-const MAX_KEEP = 30 * 24 * 3600 * 1000;
+// Au-delà de PRICE_MAX_KEEP (30 jours), une entrée est oubliée : le cache ne grossit pas indéfiniment
 // Lectures simultanées : les 5 cartes d'un paquet ouvert (ou d'une fiche) partent toutes ensemble ;
 // les pastilles des cartes affichées dans une grille sont lues 2 par 2.
 const HIGH_CONCURRENCY = 5;
@@ -82,20 +82,27 @@ async function flush() {
 // Dernier enregistrement quand l'onglet est fermé ou caché
 addEventListener("pagehide", flush);
 document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && flush());
-onChange(DELTA_KEY, (delta) => {
-  if (!delta || delta.tab === TAB) return;
+// Entrées venues d'un autre onglet : reprises quand elles sont plus récentes, sans être réécrites
+function takeNewer(entries) {
   let changed = false;
-  for (const [id, entry] of Object.entries(delta.entries || {})) {
+  for (const [id, entry] of Object.entries(entries || {})) {
     if (entry && !(cache.get(id)?.t >= entry.t)) {
       cache.set(id, entry);
       changed = true;
     }
   }
   if (changed) bump();
+}
+onChange(DELTA_KEY, (delta) => {
+  if (!delta || delta.tab === TAB) return;
+  // Fichier de prix importé dans un autre onglet : trop d'entrées pour être publiées ici, le cache
+  // enregistré est relu
+  if (delta.reload) load(KEY, {}).then(takeNewer);
+  else takeNewer(delta.entries);
 });
 
 export const ready = load(KEY, {}).then((saved) => {
-  const cutoff = Date.now() - MAX_KEEP;
+  const cutoff = Date.now() - PRICE_MAX_KEEP;
   const expired = [];
   for (const [id, v] of Object.entries(saved || {})) {
     if (!v || !(v.t > cutoff)) expired.push(id);
@@ -623,6 +630,33 @@ export async function loadPrices(items, { force = false, priority = false, onPro
   });
   if (signal?.aborted) throw new DOMException(L("Annulé", "Cancelled"), "AbortError");
   return done;
+}
+
+// --- Export / import en JSON (core/price-file.js) : les prix lus sur un appareil se reprennent sur
+// un autre, sans refaire l'indexation. Aucune requête au site : seul le cache du navigateur change.
+// Objet à enregistrer dans le fichier (lectures en échec et résumés provisoires laissés de côté)
+export const exportPriceFile = () => exportPrices(cache);
+// Ce qu'un import changerait ici. entries : Map de importPrices → {apply, added, updated, kept}
+export const previewPriceImport = (entries) => mergePrices((id) => cache.get(id), entries);
+// Reprend les prix importés plus récents que ceux d'ici, les enregistre (un prix plus récent écrit
+// entre-temps par un autre onglet est gardé) et prévient les autres onglets. Renvoie le nombre de
+// prix repris ; lève une erreur si l'enregistrement échoue, sans rien changer à l'affichage.
+export async function applyPriceImport(entries) {
+  await ready;
+  const { apply } = previewPriceImport(entries);
+  if (!apply.size) return 0;
+  await update(KEY, {}, (stored) => {
+    const storedOf = (id) => (Object.hasOwn(stored, id) ? stored[id] : undefined);
+    for (const [id, entry] of mergePrices(storedOf, apply).apply) stored[id] = entry;
+    return stored;
+  });
+  for (const [id, entry] of apply) {
+    cache.set(id, entry);
+    dirty.delete(id);
+  }
+  bump();
+  save(DELTA_KEY, { tab: TAB, reload: Date.now() }).catch(() => {});
+  return apply.size;
 }
 
 export async function clearPrices() {
