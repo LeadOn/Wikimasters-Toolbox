@@ -62,6 +62,19 @@
   },
   "releases": [
     {
+      "version": "2.11.0",
+      "date": "2026-11-28",
+      "items": [
+        {
+          "area": "prices",
+          "tab": "prices",
+          "fr": "Dans l'onglet Prix, « Exporter » enregistre vos prix dans un fichier et « Importer » les reprend sur un autre appareil ou navigateur, sans refaire l'indexation de votre collection. Un résumé s'affiche avant l'import : seuls les prix plus récents que les vôtres sont repris.",
+          "en": "In the Prices tab, \"Export\" saves your prices to a file and \"Import\" brings them in on another device or browser, without indexing your collection again. A summary is shown before importing: only prices more recent than yours are taken.",
+          "credits": [{"name": "lucblender", "for": "idea"}]
+        }
+      ]
+    },
+    {
       "version": "2.10.0",
       "date": "2026-11-25",
       "items": [

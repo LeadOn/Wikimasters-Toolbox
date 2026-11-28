@@ -4,15 +4,15 @@
 import {useState, useEffect, useMemo} from "preact/hooks";
 import {useStore} from "../../lib/store";
 import {loadMyCollection} from "../../state/collection";
-import {priceOf, priceStatus, priceOptions, priceVersion, priceSource, slowBudget, slowSpeed, slowStoppedBy, priceQuota, PRICE_BUDGET} from "../../state/prices";
+import {priceOf, priceStatus, priceOptions, priceVersion, priceSource, slowBudget, slowSpeed, slowStoppedBy, priceQuota, exportPriceFile, previewPriceImport, applyPriceImport} from "../../state/prices";
 import {siteBlocked} from "../../api/site";
 import {indexState, indexProgress, loadIndexList, takePriceIndexLead} from "../../state/price-index";
 import {settings, normalizeIndexRarities} from "../../state/settings";
-import {CardRow, Money, Paged, Progress, Notice, Toggle, fmt, plural} from "../components";
+import {CardRow, Money, Paged, Progress, Notice, Toggle, FileButton, downloadFile, datedFilename, fmt, plural} from "../components";
 import {CollectionFilters, CollectionCards} from "../CollectionCards";
 import {DEFAULT_FILTER} from "../../features/collection-view";
-import {errorMessage} from "../feedback";
-import {RARITIES, RARITY_LABEL} from "../../../../../core";
+import {errorMessage, toast} from "../feedback";
+import {RARITIES, RARITY_LABEL, importPrices, MAX_PRICES_IMPORT} from "../../../../../core";
 import {themeMemo} from "../../state/themes";
 import {L, LOCALE} from "../../../shared/i18n";
 
@@ -129,8 +129,126 @@ function IndexBox() {
   );
 }
 
+// Prix gardés dans ce navigateur → fichier JSON, à reprendre sur un autre appareil (core/price-file.js)
+function ExportPricesDialog({onClose}) {
+  const file = useMemo(exportPriceFile, []);
+  const count = Object.keys(file.prices).length;
+  const cards = plural(count, L("carte", "card"));
+  return (
+    <div class="modal-wrap" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div class="modal">
+        <h3>{L("Exporter les prix", "Export prices")}</h3>
+        {count ? (
+          <p class="help">
+            {L(
+              `Prix de ${cards}, lus ces 30 derniers jours : celles de votre collection et celles que vous avez vues sur le site. Pour les retrouver sur un autre appareil ou dans un autre navigateur, sans refaire l'indexation : onglet Prix, « Importer ». Le fichier ne contient que les prix du marché de ces cartes : ni votre pseudo, ni vos exemplaires.`,
+              `Prices of ${cards}, read in the last 30 days: those in your collection and those you have seen on the site. To get them back on another device or in another browser, without indexing again: Prices tab, "Import". The file only holds the market prices of these cards: neither your username nor your copies.`,
+            )}
+          </p>
+        ) : (
+          <Notice>{L("Aucun prix à exporter pour l'instant : ils se lisent au fil de vos visites, ou avec l'indexation de la collection.", "No prices to export yet: they are read as you browse, or by indexing your collection.")}</Notice>
+        )}
+        <div class="actions">
+          <button class="btn ghost" onClick={onClose}>{L("Fermer", "Close")}</button>
+          <button
+            class="btn primary"
+            disabled={!count}
+            onClick={() => {
+              downloadFile(datedFilename("prix"), JSON.stringify(file));
+              onClose();
+            }}
+          >
+            {L("Télécharger le fichier", "Download file")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Fichier de prix → résumé (nouveaux, plus récents, gardés, écartés), puis import sur confirmation.
+// Seul le cache du navigateur change : rien n'est lu ni écrit sur le site.
+function ImportPricesDialog({onClose}) {
+  const [error, setError] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const read = (text) => {
+    setError(null);
+    const result = importPrices(text);
+    if (result.error) return setError(result.error);
+    setPreview({...result, merge: previewPriceImport(result.entries)});
+  };
+  const confirm = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const n = await applyPriceImport(preview.entries);
+      toast(`${plural(n, L("prix importé", "price imported"), L("prix importés", "prices imported"))}.`, {type: "ok"});
+      onClose();
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  };
+  const merge = preview?.merge;
+  const prices = (n) => plural(n, L("prix", "price"), L("prix", "prices"));
+  return (
+    <div class="modal-wrap" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <div class="modal">
+        <h3>{L("Importer des prix", "Import prices")}</h3>
+        {preview ? (
+          <div class="stack" style={{gap: "8px"}}>
+            <p>
+              {L(`Fichier de ${plural(preview.total, "carte")}`, `File with ${plural(preview.total, "card")}`)}
+              {preview.exportedAt ? L(`, exporté le ${new Date(preview.exportedAt).toLocaleString(LOCALE, {dateStyle: "long", timeStyle: "short"})}.`, `, exported on ${new Date(preview.exportedAt).toLocaleString(LOCALE, {dateStyle: "long", timeStyle: "short"})}.`) : "."}
+            </p>
+            {merge.apply.size === 0 && (
+              <Notice>{L("Rien à importer : les prix gardés ici sont aussi récents que ceux du fichier.", "Nothing to import: the prices kept here are as recent as those in the file.")}</Notice>
+            )}
+            {merge.added > 0 && <p>{L(`Nouveaux : ${prices(merge.added)}, pour des cartes sans prix ici.`, `New: ${prices(merge.added)}, for cards with no price here.`)}</p>}
+            {merge.updated > 0 && <p>{L(`Mis à jour : ${prices(merge.updated)} (lecture plus récente que la vôtre).`, `Updated: ${prices(merge.updated)} (read more recently than yours).`)}</p>}
+            {merge.kept > 0 && merge.apply.size > 0 && <p>{L(`Gardés : ${prices(merge.kept)} d'ici (lecture aussi récente, ou plus récente).`, `Kept: ${prices(merge.kept)} from here (read as recently, or more recently).`)}</p>}
+            {preview.expired > 0 && <p>{L(`Ignorés : ${prices(preview.expired)} (lecture de plus de 30 jours).`, `Ignored: ${prices(preview.expired)} (read more than 30 days ago).`)}</p>}
+            {preview.rejected > 0 && (
+              <Notice type="warn">{L(`Écartées : ${plural(preview.rejected, "entrée illisible", "entrées illisibles")}.`, `Skipped: ${plural(preview.rejected, "unreadable entry", "unreadable entries")}.`)}</Notice>
+            )}
+            <p class="small muted">
+              {L(
+                "Rien n'est écrit sur le site. Un prix importé garde sa date de lecture : il est relu au même rythme que les autres. N'importez qu'un fichier qui vient de vous ou d'une personne de confiance : ces prix servent aux estimations et aux mises proposées.",
+                "Nothing is written to the site. An imported price keeps its read date: it is read again at the same pace as the others. Only import a file from yourself or someone you trust: these prices feed the estimates and suggested bids.",
+              )}
+            </p>
+          </div>
+        ) : (
+          <p class="help">
+            {L(
+              "Choisissez le fichier de prix exporté par la Toolbox sur un autre appareil ou dans un autre navigateur (onglet Prix, « Exporter »). Un résumé s'affiche avant l'import.",
+              "Pick the price file exported by the Toolbox on another device or in another browser (Prices tab, \"Export\"). A summary is shown before importing.",
+            )}
+          </p>
+        )}
+        {error && <Notice type="error">{error}</Notice>}
+        <div class="actions">
+          {preview ? (
+            <>
+              <button class="btn ghost" disabled={busy} onClick={() => setPreview(null)}>{L("Retour", "Back")}</button>
+              <button class="btn primary" disabled={busy || !merge.apply.size} onClick={confirm}>{L("Importer", "Import")}</button>
+            </>
+          ) : (
+            <>
+              <FileButton maxSize={MAX_PRICES_IMPORT} onError={setError} onText={read} />
+              <button class="btn ghost" onClick={onClose}>{L("Annuler", "Cancel")}</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PricesTab() {
   useStore(priceVersion);
+  const [modal, setModal] = useState(null); // "export" | "import"
   const [copies, setCopies] = useState(null);
   const [error, setError] = useState(null);
   const [theme, setTheme] = useState(null);
@@ -181,7 +299,7 @@ export function PricesTab() {
   return (
     <div class="stack">
       <div class="page-head">
-        <div>
+        <div style={{flex: 1}}>
           <h2>{L("Prix", "Prices")}</h2>
           <p>
             {L(
@@ -190,7 +308,13 @@ export function PricesTab() {
             )}
           </p>
         </div>
+        <div class="row">
+          <button class="btn" title={L("Reprendre les prix exportés sur un autre appareil", "Bring in the prices exported on another device")} onClick={() => setModal("import")}>{L("Importer", "Import")}</button>
+          <button class="btn" title={L("Enregistrer les prix dans un fichier, pour un autre appareil", "Save the prices to a file, for another device")} onClick={() => setModal("export")}>{L("Exporter", "Export")}</button>
+        </div>
       </div>
+      {modal === "export" && <ExportPricesDialog onClose={() => setModal(null)} />}
+      {modal === "import" && <ImportPricesDialog onClose={() => setModal(null)} />}
       {error && <Notice type="error">{error}</Notice>}
       {!copies && !error && <Progress label={L("Lecture de votre collection", "Reading your collection")} done={0} />}
       {copies && (

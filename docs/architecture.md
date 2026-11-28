@@ -41,6 +41,7 @@ core/                          moteur partagé (CommonJS, sans dépendance)
   tag-writer.js                écriture d'un plan en base : ordre sûr, lots, reprise après panne
   trade.js                     recherche d'échanges, offre équilibrée, bilan d'une offre
   prices.js                    raretés, prix du marché tiré de l'historique du site (prix moyen de la semaine, semaines de Paris, ventes minimum sur 12 semaines), âge maximal d'un prix (fiche ouverte, carte affichée) et cadence de l'indexation, valeur d'une collection, doublons à vendre
+  price-file.js                export / import des prix en JSON : format du fichier, vérification champ par champ, entrées illisibles ou trop anciennes écartées, fusion avec les prix gardés (le plus récent l'emporte)
   families.js                  familles de cartes (manuelles ou par règle), progression
   share-code.js                codes de partage WMT-P1… / WMT-F1… (JSON compressé, base64url)
   stonks.js                    achats et ventes au marché : rapprochement vente → achat (premier entré, premier sorti), reventes seules, plus-value, périodes jour / semaine / mois
@@ -77,7 +78,7 @@ extension/
         themes.js              thèmes de tri du joueur : liste compilée, classement d'une carte, couleur d'une étiquette
         profiles.js            mon profil et ceux de mes amis
         collection.js          ma collection, ids des cartes possédées, défausse d'un exemplaire
-        prices.js              cache des prix (partagé entre onglets), file de lecture à budget commun aux onglets (60 lectures / 10 min, moitié réservée aux demandes prioritaires) et à priorités (cartes tirées et fiche ouverte, cartes affichées, voie lente avec plafond journalier), pause après un refus du site, lecture passive de l'onglet Marché, prix fiable ou indicatif
+        prices.js              cache des prix (partagé entre onglets), file de lecture à budget commun aux onglets (60 lectures / 10 min, moitié réservée aux demandes prioritaires) et à priorités (cartes tirées et fiche ouverte, cartes affichées, voie lente avec plafond journalier), pause après un refus du site, lecture passive de l'onglet Marché, prix fiable ou indicatif, export et import du cache en JSON (`core/price-file.js`)
         price-index.js         indexation des prix de toute la collection (option) : onglet meneur, ordre de lecture, avancement
         disclaimer.js          avertissement à accepter une fois avant que la Toolbox ne démarre (version du texte, choix du joueur)
       features/                fonctionnalités, sans interface
@@ -214,6 +215,8 @@ Les scripts font la même chose que l'extension en ligne de commande, avec un to
 | `i18n.test.js` | Langue : choix d'après la liste du navigateur (anglais à défaut), textes et raretés dans la langue courante, extension en français pendant les tests |
 | `profiles.test.js` | Règles, éditeur simple, validation des profils, export / import JSON et fusion des profils importés, profils de la bande hors du moteur partagé |
 | `themes.test.js` | Thèmes personnalisés : classement identique par défaut, renommage, ajout, suppression, réglage enregistré (différences seulement), suivi des étiquettes renommées / supprimées, vérification, export / import JSON, plan du tri et écriture après un renommage ou une suppression, réglage de l'extension |
+| `price-file.test.js` | Export / import des prix en JSON : aller-retour, fichier refusé (autre format, version plus récente, trop volumineux), entrées illisibles écartées, champs connus seulement, prix de plus de 30 jours ignorés, fusion avec les prix gardés |
+| `extension-price-file.test.js` | Export / import des prix dans l'extension : lectures en échec et résumés provisoires hors du fichier, seuls les prix plus récents repris, enregistrés sans requête au site, prix d'un autre onglet gardé, cache relu par les autres onglets |
 | `tag-sync.test.js` | Plan de synchronisation, modes complet et incrémental |
 | `tag-writer.test.js` | Écriture des étiquettes : reprise après interruption, pas de doublon, erreurs |
 | `trade-prices-families.test.js` | Échanges (offre équilibrée, bilan d'une offre : WikiBidous, prix fiables seulement, cartes non vues), prix (identiques à l'onglet Marché du site sur des réponses réelles, semaines de Paris, prix reporté, fiabilité, relecture et cadence de l'indexation), cartes jamais vendues, familles, codes de partage, couleurs des raretés |
